@@ -15,6 +15,9 @@ SHOP="https://mokymopriemones.eu/"
 def load_topics():
     return pd.read_csv("microtopics.csv")
 
+def fp(r):
+    return f"{str(r.tema).strip().lower()}::{str(r.mikrotema).strip().lower()}"
+
 @st.cache_resource
 def supabase_client() -> Client:
     url = st.secrets["SUPABASE_URL"]
@@ -211,7 +214,7 @@ def why_not(r, catalog):
 
 df=load_topics()
 today=st.sidebar.date_input("Šiandien",date.today())
-st.title("📡 Protuoliukas Trend Radar — V7.1")
+st.title("📡 Protuoliukas Trend Radar — V7.1.1")
 st.caption("KURTI • PERPUBLIKUOTI • IŠPLĖSTI • Artėjantys TOPai • Idėjų bankas • savaitinė suvestinė")
 
 with st.sidebar:
