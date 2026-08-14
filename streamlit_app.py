@@ -42,34 +42,44 @@ def is_school_holiday(day):
             return True
     return False
 
+# Precompute the effective school calendar ONCE.
+# V8.1 recalculated it thousands of times while scoring cards, which could leave
+# the main Streamlit area blank for a long time after the date field appeared.
+_EFFECTIVE_SCHOOL_DAYS=[]
+_d=date(2026,9,1)
+while _d<date(2027,7,1):
+    if _d.weekday()<5 and not is_school_holiday(_d):
+        _EFFECTIVE_SCHOOL_DAYS.append(_d)
+    _d+=timedelta(days=1)
+
+_SCHOOL_WEEK_START={}
+for _i,_day in enumerate(_EFFECTIVE_SCHOOL_DAYS):
+    _week=(_i//5)+1
+    if _week not in _SCHOOL_WEEK_START:
+        _SCHOOL_WEEK_START[_week]=_day
+
 def instruction_days_between(start_day,end_day):
-    """Weekdays excluding national school-holiday intervals."""
-    if end_day<start_day:return 0
-    d=start_day; n=0
-    while d<=end_day:
-        if d.weekday()<5 and not is_school_holiday(d):
-            n+=1
-        d+=timedelta(days=1)
-    return n
+    """Fast count of effective school days from the precomputed calendar."""
+    if end_day<start_day:
+        return 0
+    return sum(1 for d in _EFFECTIVE_SCHOOL_DAYS if start_day<=d<=end_day)
 
 def school_week_for_date(day):
     """1-based effective school week from 2026-09-01, excluding school holidays."""
-    start=date(2026,9,1)
-    if day<start:return None
-    days=instruction_days_between(start,day)
-    return max(1,math.ceil(days/5))
+    if day<date(2026,9,1):
+        return None
+    # Only ~200 effective school days; still much cheaper than rebuilding the calendar.
+    count=0
+    for d in _EFFECTIVE_SCHOOL_DAYS:
+        if d<=day:
+            count+=1
+        else:
+            break
+    return max(1,math.ceil(count/5)) if count else 1
 
 def school_date_for_week(week_no):
-    """Approximate first effective school day of a school-week number."""
-    start=date(2026,9,1)
-    d=start; count=0
-    while d<date(2027,7,1):
-        if d.weekday()<5 and not is_school_holiday(d):
-            count+=1
-            if math.ceil(count/5)>=week_no:
-                return d
-        d+=timedelta(days=1)
-    return None
+    """O(1) lookup of the first effective school day in a school-week number."""
+    return _SCHOOL_WEEK_START.get(int(week_no))
 
 def shift_before_holiday(target):
     """
@@ -574,11 +584,13 @@ def compact_recommendation(r,act,prod,sc,i,key_prefix,time_text):
 
 df=load_topics()
 today=st.sidebar.date_input("Šiandien",date.today())
-for h in [7,14,30]:df[f"{h}d"]=df.apply(lambda r:horizon_score(r,today,h),axis=1)
+with st.spinner("Radar skaičiuoja artimiausius paklausos signalus..."):
+    for h in [7,14,30]:
+        df[f"{h}d"]=df.apply(lambda r:horizon_score(r,today,h),axis=1)
 df["prioritetas"]=df[["7d","14d","30d"]].max(axis=1)
 
-st.title("📡 Protuoliukas Trend Radar — V8.1.1 FIX")
-st.caption("V8.1.1 FIX • greitesnis užkrovimas + detalės renderinamos tik paspaudus + ATLIKTA visuose 3 laiko languose")
+st.title("📡 Protuoliukas Trend Radar — V8.1.2 FIX")
+st.caption("V8.1.2 FIX • optimizuotas ugdymo savaičių skaičiavimas + greitas pradinis užkrovimas + ATLIKTA visuose languose")
 
 with st.sidebar:
     st.markdown("### ⚙️ Mano dabartinis kūrimo tempas")
