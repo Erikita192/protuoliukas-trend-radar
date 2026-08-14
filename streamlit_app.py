@@ -422,11 +422,12 @@ def db_ok():
 @st.cache_data(ttl=60,show_spinner=False)
 def load_idea_status_map():
     try:
-        rows=supabase_client().table("ideas").select("fingerprint,status,product_code").execute().data
+        rows=supabase_client().table("ideas").select("fingerprint,status,product_code,updated_at").execute().data
         return {
             str(x.get("fingerprint")):{
                 "status":str(x.get("status") or "IDEJA"),
-                "product_code":str(x.get("product_code") or "")
+                "product_code":str(x.get("product_code") or ""),
+                "updated_at":str(x.get("updated_at") or "")
             } for x in rows
         }
     except Exception:
@@ -486,10 +487,16 @@ def idea_status(fingerprint):
     return x
 
 def set_idea_status(fingerprint,status,code=""):
-    supabase_client().table("ideas").update({
-        "status":status,"product_code":code.strip(),"updated_at":datetime.utcnow().isoformat()
-    }).eq("fingerprint",fingerprint).execute()
-    load_idea_status_map.clear()
+    try:
+        supabase_client().table("ideas").update({
+            "status":status,
+            "product_code":code.strip(),
+            "updated_at":datetime.utcnow().isoformat()
+        }).eq("fingerprint",fingerprint).execute()
+        load_idea_status_map.clear()
+        return True
+    except Exception:
+        return False
 
 def idea_bank():
     try:
@@ -498,16 +505,61 @@ def idea_bank():
     except: return pd.DataFrame()
 
 def republish_done(code, theme, micro, fb):
-    supabase_client().table("republish_history").insert({
-        "product_code":code or "BE_KODO","recommendation_date":str(date.today()),
-        "theme":theme,"microtheme":micro,"fb_angle":fb
-    }).execute()
-    load_recent_republish_map.clear()
+    """
+    Best-effort history log.
+    A duplicate row / old schema / temporary Supabase write error must NEVER crash the app.
+    The main completion state is also persisted in `ideas`, which V9 already uses reliably.
+    """
+    try:
+        supabase_client().table("republish_history").insert({
+            "product_code":code or "BE_KODO",
+            "recommendation_date":str(date.today()),
+            "theme":theme,
+            "microtheme":micro,
+            "fb_angle":fb
+        }).execute()
+        load_recent_republish_map.clear()
+        return True
+    except Exception:
+        # Keep Radar usable even if this auxiliary table rejects the write.
+        load_recent_republish_map.clear()
+        return False
 
 def recent_republish(code, days=21):
-    if not code:return False
+    if not code:
+        return False
     dt=load_recent_republish_map().get(str(code))
     return bool(dt and (date.today()-dt).days < days)
+
+def recent_idea_touch(fingerprint, days=21):
+    """
+    Fallback republish memory stored in the already-working `ideas` table.
+    `updated_at` is refreshed when PASIDALINAU is clicked.
+    """
+    x=load_idea_status_map().get(str(fingerprint),{})
+    raw=str(x.get("updated_at") or "")
+    if not raw:
+        return False
+    try:
+        dt=datetime.fromisoformat(raw.replace("Z","+00:00")).date()
+        return (date.today()-dt).days < days
+    except Exception:
+        return False
+
+def mark_shared(r, product):
+    """
+    Persist PASIDALINAU safely:
+    - optional republish_history log (best effort);
+    - ideas row is guaranteed to exist;
+    - status remains SUKURTA so product history/code are not lost;
+    - updated_at becomes the reliable last-share timestamp.
+    """
+    code=str(getattr(product,"kodas","") or "")
+    republish_done(code,str(r.tema),str(r.mikrotema),fb_angle(r))
+    save_idea(r,float(getattr(r,"prioritetas",0) or 0))
+    set_idea_status(fp(r),"SUKURTA",code)
+    load_idea_status_map.clear()
+
 
 def prior_score(fingerprint,days=1):
     try:
@@ -679,7 +731,7 @@ def decision(r,catalog,today):
 
         early=pub-timedelta(days=10)
         late=max(last,peak+timedelta(days=3))
-        if p is not None and early<=today<=late and not recent_republish(stored_code,21):
+        if p is not None and early<=today<=late and not recent_republish(stored_code,21) and not recent_idea_touch(fp(r),21):
             return "PERPUBLIKUOTI",p
         return "ATLIKTA",None
 
@@ -688,7 +740,7 @@ def decision(r,catalog,today):
         code=str(p.kodas) if "kodas" in p else ""
         early=pub-timedelta(days=10)
         late=max(last,peak+timedelta(days=3))
-        if not recent_republish(code,21) and early<=today<=late:
+        if not recent_republish(code,21) and not recent_idea_touch(fp(r),21) and early<=today<=late:
             return "PERPUBLIKUOTI",p
 
     if len(related):
@@ -716,7 +768,7 @@ def full_card(r,action_label=None,product=None,key_prefix="card",show_buttons=Tr
         st.write(f"**FB kampas:** {fb_angle(r)}")
         if product.nuoroda:st.write(f"**Nuoroda:** {product.nuoroda}")
         if show_buttons and st.button("✅ PASIDALINAU",key=f"{key_prefix}_share_{fp(r)}"):
-            republish_done(str(product.kodas),str(r.tema),str(r.mikrotema),fb_angle(r)); st.rerun()
+            mark_shared(r,product); st.rerun()
         return
     if action_label=="ISPLESTI" and product is not None:
         st.write(f"**🔄 Esamas produktas:** {product.pavadinimas} • **Kodas:** {product.kodas or 'nerastas'}")
@@ -785,7 +837,7 @@ def compact_done_controls(r,act,prod,key_prefix):
     """Every recommendation gets a completion action, regardless of action type."""
     if act=="PERPUBLIKUOTI" and prod is not None:
         if st.button("✅ ATLIKTA · PASIDALINAU",key=f"{key_prefix}_compact_share_{fp(r)}",use_container_width=True):
-            republish_done(str(prod.kodas),str(r.tema),str(r.mikrotema),fb_angle(r))
+            mark_shared(r,prod)
             st.rerun()
         return
 
@@ -811,8 +863,11 @@ def compact_done_controls(r,act,prod,key_prefix):
             # Some lower-priority/fallback recommendations may not yet exist in Ideas.
             # Ensure a row exists before changing status.
             save_idea(r, float(getattr(r,"prioritetas",0) or 0))
-            set_idea_status(fp(r),status,code.strip())
-            st.rerun()
+            ok=set_idea_status(fp(r),status,code.strip())
+            if ok:
+                st.rerun()
+            else:
+                st.warning("Nepavyko įrašyti būsenos į Supabase. Pabandyk dar kartą po kelių sekundžių.")
 
 
 
@@ -938,8 +993,8 @@ with st.spinner("Radar skaičiuoja artimiausius paklausos signalus..."):
         df[f"{h}d"]=df.apply(lambda r:horizon_score(r,today,h),axis=1)
 df["prioritetas"]=df[["7d","14d","30d"]].max(axis=1)
 
-st.title("📡 Protuoliukas Trend Radar — V9.0")
-st.caption("V9.0 • datos tik iš patikrintų 2–3 savaičių langų • klasės atskirai • nepatvirtintas laikas nekuria fiktyvaus piko")
+st.title("📡 Protuoliukas Trend Radar — V9.0.1 FIX")
+st.caption("V9.0.1 FIX • sutvarkytas ATLIKTA/PASIDALINAU įrašymas • republish_history klaida nebegali nulaužti programėlės")
 
 with st.sidebar:
     st.markdown("### ⚙️ Mano dabartinis kūrimo tempas")
@@ -1140,4 +1195,4 @@ with tabs[4]:
                     label="SUKURTA" if it.status in ["SUKURTA","PASIDALINTA"] else "PRAPLĖSTA"
                     st.write(f"**{label}** · {it.product_code or 'be kodo'} · {it.tema} → {it.mikrotema}")
 
-st.caption("V9.0 • tiksli data tik iš patikrinto 2–3 savaičių lango • programos narystė be savaitės datos piko nesukuria • TOP langai nepildomi netinkamomis datomis.")
+st.caption("V9.0.1 FIX • tiksli data tik iš patikrinto 2–3 sav. lango • PASIDALINAU saugiai išsaugoma per ideas istoriją.")
