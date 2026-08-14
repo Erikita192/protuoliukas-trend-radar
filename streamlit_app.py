@@ -276,7 +276,7 @@ today=st.sidebar.date_input("Šiandien",date.today())
 for h in [7,14,30]:df[f"{h}d"]=df.apply(lambda r:horizon_score(r,today,h),axis=1)
 df["prioritetas"]=df[["7d","14d","30d"]].max(axis=1)
 
-st.title("📡 Protuoliukas Trend Radar — V7.3.3 FINAL")
+st.title("📡 Protuoliukas Trend Radar — V7.3.4")
 st.caption("7 / 14 / 30 dienų radaras • konkretus užduoties kampas • KURTI / PERPUBLIKUOTI / IŠPLĖSTI be prieštaravimų")
 
 with st.sidebar:
@@ -436,31 +436,52 @@ with tabs[5]:
     if count==0:st.info("Katalogo skaitytuvas šiuo metu nerado patikimų plėtros atitikmenų.")
 
 with tabs[6]:
-    st.subheader("🧠 Idėjų bankas – ilgalaikė atmintis")
+    st.subheader("🧠 Idėjų bankas – tik tai, ko dar nesukūrei")
+    st.caption("Geros neįgyvendintos idėjos čia lieka neribotai. Paspaudus SUKŪRIAU ar PRAPLĖČIAU jos iš aktyvaus banko dingsta, bet Supabase istorijoje išlieka.")
     bank=idea_bank()
-    if bank.empty:st.info("Bankas dar tuščias.")
+    if bank.empty:
+        st.info("Bankas dar tuščias.")
     else:
-        stat=st.multiselect("Būsena",sorted(bank.status.unique()),default=["IDEJA"] if "IDEJA" in bank.status.unique() else [])
-        b=bank[bank.status.isin(stat)] if stat else bank
-        for (amz,sritis),g in b.groupby(["amzius","sritis"],dropna=False):
-            with st.expander(f"📂 {amz} → {sritis} · {len(g)} id."):
-                for tema,g2 in g.groupby("tema"):
-                    st.markdown(f"### {tema}")
-                    for _,it in g2.iterrows():
-                        st.markdown(f"**{it.mikrotema}** · {stars(it.evergreen)} · TOP grįžo {int(it.top_count)} k.")
-                        st.write(f"**💡 {it.produkto_ideja}**")
-                        st.markdown("**🧩 Užduočių pavyzdžiai**")
-                        for x in [q.strip() for q in str(it.examples).split(" | ") if q.strip()][:8]:st.write("• "+x)
-                        st.caption(f"Potencialas: {it.sales} • konkurencija: {it.competition} • pirmą kartą {it.first_seen} • paskutinį {it.last_seen}")
-                        if it.status=="SUKURTA":st.success(f"✅ SUKURTA • {it.product_code}")
-                        elif it.status=="PRAPLESTA":st.success(f"✅ PRAPLĖSTA • {it.product_code}")
-                        else:
-                            code=st.text_input("Produkto kodas",key=f"bank_code_{it.id}")
-                            c1,c2=st.columns(2)
-                            if c1.button("✅ SUKURTA",key=f"bank_created_{it.id}"):
-                                if code.strip():set_idea_status(it.fingerprint,"SUKURTA",code);st.rerun()
-                            if c2.button("🗑️ IŠTRINTI",key=f"bank_delete_{it.id}"):
-                                supabase_client().table("ideas").delete().eq("fingerprint",it.fingerprint).execute();st.rerun()
-                        st.divider()
+        # Aktyvus bankas rodo tik neįgyvendintas idėjas.
+        active_bank=bank[~bank.status.isin(["SUKURTA","PRAPLESTA"])].copy()
+        done_bank=bank[bank.status.isin(["SUKURTA","PRAPLESTA"])].copy()
 
-st.caption("V7.3.3 FINAL: 0–7 d. = ŠIANDIEN • 8–14 d. = SAVAITĖ • 15–30 d. = ARTĖJANTYS TOPAI. Viena idėja vienu metu rodoma tik viename TOP lange.")
+        st.markdown("### 💡 Aktyvios idėjos")
+        if active_bank.empty:
+            st.success("Šiuo metu aktyviame banke nėra neįgyvendintų idėjų.")
+        else:
+            for (amz,sritis),g in active_bank.groupby(["amzius","sritis"],dropna=False):
+                with st.expander(f"📂 {amz} → {sritis} · {len(g)} id."):
+                    for tema,g2 in g.groupby("tema"):
+                        st.markdown(f"### {tema}")
+                        for _,it in g2.iterrows():
+                            st.markdown(f"**{it.mikrotema}** · {stars(it.evergreen)} · TOP grįžo {int(it.top_count)} k.")
+                            st.write(f"**💡 {it.produkto_ideja}**")
+                            st.markdown("**🧩 Užduočių pavyzdžiai**")
+                            for x in [q.strip() for q in str(it.examples).split(" | ") if q.strip()][:8]:
+                                st.write("• "+x)
+                            st.caption(f"Potencialas: {it.sales} • konkurencija: {it.competition} • pirmą kartą {it.first_seen} • paskutinį {it.last_seen}")
+                            code=st.text_input("Produkto kodas",key=f"bank_code_{it.id}",placeholder="pvz. P129 arba 301")
+                            c1,c2=st.columns(2)
+                            if c1.button("✅ SUKŪRIAU",key=f"bank_created_{it.id}"):
+                                if code.strip():
+                                    set_idea_status(it.fingerprint,"SUKURTA",code)
+                                    st.rerun()
+                                else:
+                                    st.warning("Įvesk sukurto produkto kodą.")
+                            if c2.button("🗑️ IŠTRINTI",key=f"bank_delete_{it.id}"):
+                                supabase_client().table("ideas").delete().eq("fingerprint",it.fingerprint).execute()
+                                st.rerun()
+                            st.divider()
+
+        # Įgyvendintos idėjos nėra aktyvaus banko dalis, bet prireikus galima
+        # pasižiūrėti istoriją. Tai leidžia Radar prisiminti produkto kodą.
+        with st.expander(f"✅ ĮGYVENDINTŲ ISTORIJA · {len(done_bank)}"):
+            if done_bank.empty:
+                st.caption("Dar nėra įgyvendintų Radar idėjų.")
+            else:
+                for _,it in done_bank.sort_values("updated_at",ascending=False,na_position="last").iterrows():
+                    label="SUKURTA" if it.status=="SUKURTA" else "PRAPLĖSTA"
+                    st.write(f"**{label}** · {it.product_code or 'be kodo'} · {it.tema} → {it.mikrotema}")
+
+st.caption("V7.3.4: 0–7 d. = ŠIANDIEN • 8–14 d. = SAVAITĖ • 15–30 d. = ARTĖJANTYS TOPAI. Idėjų banke rodomos tik dar neįgyvendintos idėjos.")
