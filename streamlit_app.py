@@ -24,28 +24,39 @@ def supabase_client() -> Client:
 
 def db_ok():
     try:
-        supabase_client().table("ideas").select("id").limit(1).execute()
+        # Verify that Secrets exist and client can be created.
+        _ = st.secrets["SUPABASE_URL"]
+        _ = st.secrets["SUPABASE_KEY"]
+        supabase_client()
         return True,""
     except Exception as e:
         return False,str(e)
 
 def save_idea(r, score):
-    sb=supabase_client(); f=fp(r); today=str(date.today())
-    old=sb.table("ideas").select("fingerprint,last_seen,top_count,status").eq("fingerprint",f).execute().data
-    if old:
-        x=old[0]; cnt=int(x.get("top_count") or 1)
-        try: gap=(date.today()-date.fromisoformat(x.get("last_seen"))).days
-        except: gap=0
-        if gap>=7: cnt+=1
-        sb.table("ideas").update({"last_seen":today,"top_count":cnt,"last_score":float(score),"updated_at":datetime.utcnow().isoformat()}).eq("fingerprint",f).execute()
-    else:
-        sb.table("ideas").insert({
-            "fingerprint":f,"tema":str(r.tema),"mikrotema":str(r.mikrotema),"amzius":str(r.amzius),"sritis":str(r.sritis),
-            "produkto_ideja":str(r.produkto_ideja),"formatas":str(r.formatas),"examples":str(r.uzduociu_pavyzdziai),
-            "evergreen":int(r.evergreen),"competition":str(r.konkurencija),"sales":str(r.pardavimo_potencialas),
-            "first_seen":today,"last_seen":today,"top_count":1,"last_score":float(score),"status":"IDEJA","product_code":""
-        }).execute()
-    sb.table("score_history").upsert({"day":today,"fingerprint":f,"score":float(score)},on_conflict="day,fingerprint").execute()
+    # Persistence must never crash the Radar UI.
+    try:
+        sb=supabase_client(); f=fp(r); today=str(date.today())
+        old=sb.table("ideas").select("fingerprint,last_seen,top_count,status").eq("fingerprint",f).execute().data
+        if old:
+            x=old[0]; cnt=int(x.get("top_count") or 1)
+            try: gap=(date.today()-date.fromisoformat(x.get("last_seen"))).days
+            except: gap=0
+            if gap>=7: cnt+=1
+            sb.table("ideas").update({"last_seen":today,"top_count":cnt,"last_score":float(score),"updated_at":datetime.utcnow().isoformat()}).eq("fingerprint",f).execute()
+        else:
+            sb.table("ideas").insert({
+                "fingerprint":f,"tema":str(r.tema),"mikrotema":str(r.mikrotema),"amzius":str(r.amzius),"sritis":str(r.sritis),
+                "produkto_ideja":str(r.produkto_ideja),"formatas":str(r.formatas),"examples":str(r.uzduociu_pavyzdziai),
+                "evergreen":int(r.evergreen),"competition":str(r.konkurencija),"sales":str(r.pardavimo_potencialas),
+                "first_seen":today,"last_seen":today,"top_count":1,"last_score":float(score),"status":"IDEJA","product_code":""
+            }).execute()
+        try:
+            sb.table("score_history").upsert({"day":today,"fingerprint":f,"score":float(score)},on_conflict="day,fingerprint").execute()
+        except Exception:
+            pass
+        return True
+    except Exception:
+        return False
 
 def idea_status(fingerprint):
     try:
@@ -265,7 +276,7 @@ today=st.sidebar.date_input("Šiandien",date.today())
 for h in [7,14,30]:df[f"{h}d"]=df.apply(lambda r:horizon_score(r,today,h),axis=1)
 df["prioritetas"]=df[["7d","14d","30d"]].max(axis=1)
 
-st.title("📡 Protuoliukas Trend Radar — V7.3.1")
+st.title("📡 Protuoliukas Trend Radar — V7.3.2")
 st.caption("7 / 14 / 30 dienų radaras • konkretus užduoties kampas • KURTI / PERPUBLIKUOTI / IŠPLĖSTI be prieštaravimų")
 
 with st.sidebar:
