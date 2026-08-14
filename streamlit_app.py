@@ -514,33 +514,112 @@ def full_card(r,action_label=None,product=None,key_prefix="card",show_buttons=Tr
                 else:st.warning("Įvesk produkto kodą.")
 
 def compact_done_controls(r,act,prod,key_prefix):
-    """Completion controls shown even when the detailed card is collapsed."""
+    """Every recommendation gets a completion action, regardless of action type."""
     if act=="PERPUBLIKUOTI" and prod is not None:
         if st.button("✅ ATLIKTA · PASIDALINAU",key=f"{key_prefix}_compact_share_{fp(r)}",use_container_width=True):
             republish_done(str(prod.kodas),str(r.tema),str(r.mikrotema),fb_angle(r))
+            # also remember this recommendation as completed for the active list
+            save_idea(r, float(getattr(r,"prioritetas",0) or 0))
+            set_idea_status(fp(r),"PASIDALINTA",str(prod.kodas or ""))
             st.rerun()
         return
-    if act in ["KURTI","ISPLESTI"]:
-        code=st.text_input(
-            "Produkto kodas",
-            key=f"{key_prefix}_compact_code_{fp(r)}",
-            placeholder="pvz. P129 arba 301",
-            label_visibility="collapsed"
+
+    # For every other idea, allow marking it completed as a created/expanded product.
+    code=st.text_input(
+        "Produkto kodas",
+        key=f"{key_prefix}_compact_code_{fp(r)}",
+        placeholder="pvz. P129 arba 301",
+        label_visibility="collapsed"
+    )
+
+    if act=="ISPLESTI":
+        btn="✅ ATLIKTA · PRAPLĖČIAU"
+        status="PRAPLESTA"
+    else:
+        btn="✅ ATLIKTA · SUKŪRIAU"
+        status="SUKURTA"
+
+    if st.button(btn,key=f"{key_prefix}_compact_done_{fp(r)}",use_container_width=True):
+        if not code.strip():
+            st.warning("Įvesk produkto kodą – tada Radar prisimins, kad ši idėja jau įgyvendinta.")
+        else:
+            # Some lower-priority/fallback recommendations may not yet exist in Ideas.
+            # Ensure a row exists before changing status.
+            save_idea(r, float(getattr(r,"prioritetas",0) or 0))
+            set_idea_status(fp(r),status,code.strip())
+            st.rerun()
+
+
+
+def fast_detail_card(r,action_label=None,product=None):
+    """Detail content for TOP expanders with no extra DB/network calls.
+    Because Streamlit expander itself opens client-side, details appear instantly."""
+    start,pub,peak,last=timing(r,today)
+    action_label=action_label or "IDĖJA"
+
+    if action_label=="PERPUBLIKUOTI" and product is not None:
+        st.write(f"**📣 Priemonė:** {product.pavadinimas} • **Kodas:** {product.kodas or 'nerastas'}")
+        st.write(f"**Optimalu perpublikuoti:** {pub.strftime('%Y-%m-%d')}–{min(last,peak).strftime('%Y-%m-%d')} • **Paklausos pikas:** apie {peak.strftime('%Y-%m-%d')}")
+        aud="pedagogai + tėvai" if any(x in (str(r.tema)+" "+str(r.mikrotema)).lower() for x in ["raid","abėc","skaič","raš","skaity","sudėt","atimt","laikrod"]) else "pedagogai / pagal temą ir tėvai"
+        st.write(f"**Auditorija:** {aud}")
+        st.write(f"**FB kampas:** {fb_angle(r)}")
+        if product.nuoroda:
+            st.write(f"**Nuoroda:** {product.nuoroda}")
+        return
+
+    if action_label=="ISPLESTI" and product is not None:
+        st.write(f"**🔄 Esamas produktas:** {product.pavadinimas} • **Kodas:** {product.kodas or 'nerastas'}")
+        st.write(f"**Naujas kampas:** {r.produkto_ideja}")
+    else:
+        st.write(f"**💡 Siūloma priemonė:** {r.produkto_ideja}")
+
+    st.write(f"**Kam:** {r.amzius} • {r.sritis} • **Formatas:** {r.formatas}")
+    st.write(f"**Apimtis:** {getattr(r,'produkto_apimtis','24–36 užduotys')} • **Evergreen:** {stars(r.evergreen)} • **Pardavimo potencialas:** {r.pardavimo_potencialas} • **Konkurencija:** {r.konkurencija}")
+
+    st.markdown("**🎯 Rekomenduojamas užduoties kampas**")
+    aa=angles(r)
+    for j,a in enumerate(aa[:3],1):
+        st.write(f"{['🥇','🥈','🥉'][j-1]} **{a}**")
+
+    st.markdown("**🧩 Konkretūs užduočių pavyzdžiai**")
+    for x in examples(r,8):
+        st.write("• "+x)
+
+    st.markdown("**📅 Laikas**")
+    st.write(
+        f"**Pradėti kurti:** {'dabar' if today>=start else start.strftime('%Y-%m-%d')} "
+        f"• **Optimalu publikuoti:** {pub.strftime('%Y-%m-%d')} "
+        f"• **Paskutinė verta diena:** {last.strftime('%Y-%m-%d')} "
+        f"• **Tikėtinas pirkimo pikas:** {peak.strftime('%Y-%m-%d')}"
+    )
+
+    ps,osig,signals,extra=signal_stack(r,today)
+    st.markdown("**🧭 Kodėl ši idėja dabar?**")
+    st.write(" + ".join(signals) if signals else "Sezoninis / bendras paklausos signalas.")
+
+    if ps:
+        st.write(
+            f"**📚 Programinis pagrindas:** {ps['stage']} • {ps['area']} "
+            f"• tikėtinas mokymo langas {ps['start'].strftime('%Y-%m-%d')}–{ps['end'].strftime('%Y-%m-%d')} "
+            f"• ugdymo savaitės {ps['week_window']}."
         )
-        btn="✅ ATLIKTA · PRAPLĖČIAU" if act=="ISPLESTI" else "✅ ATLIKTA · SUKŪRIAU"
-        if st.button(btn,key=f"{key_prefix}_compact_done_{fp(r)}",use_container_width=True):
-            if not code.strip():
-                st.warning("Įvesk produkto kodą – tada Radar prisimins, kad ši idėja jau įgyvendinta.")
-            elif act=="ISPLESTI":
-                set_idea_status(fp(r),"PRAPLESTA",code.strip())
-                st.rerun()
-            else:
-                set_idea_status(fp(r),"SUKURTA",code.strip())
-                st.rerun()
+        st.caption("Šaltinis: oficiali Emokykla programa / įgyvendinimo ar ilgalaikio planavimo medžiaga.")
+    if osig:
+        st.write(f"**📅 Progos signalas:** {osig['occasion']} – {osig['date'].strftime('%Y-%m-%d')}.")
+
+    lvl=str(getattr(r,"teorijos_lygis","bendras"))
+    st.markdown("**📚 Ar reikia tikrinti teoriją?**")
+    if lvl=="būtina tikrinti":
+        st.write("🔎 **Taip, būtina.** Prieš publikuojant patikrink faktus ir terminus oficialiuose / dalyko šaltiniuose.")
+    elif lvl=="reikia šaltinių":
+        st.write("📘 **Taip.** Pasitikrink programoje ir patikimoje metodinėje medžiagoje.")
+    else:
+        st.write("✅ **Specialios teorijos tikrinti nereikia**, bet amžiaus tinkamumą verta sutikrinti su programa.")
+    st.write("**Kur tikrinti:** "+str(getattr(r,"saltiniu_kryptis","Aktualios ugdymo programos ir patikimi dalyko šaltiniai.")))
 
 
 def compact_recommendation(r,act,prod,sc,i,key_prefix,time_text):
-    """Fast summary row. Rich details render only after explicit click."""
+    """Short TOP row; details use native Streamlit expander for instant opening."""
     label_map={
         "KURTI":"🔥 KURTI",
         "PERPUBLIKUOTI":"📣 PERPUBLIKUOTI",
@@ -558,29 +637,21 @@ def compact_recommendation(r,act,prod,sc,i,key_prefix,time_text):
         st.caption(str(r.produkto_ideja))
 
     st.write(time_text)
+
+    # Completion action remains visible for EVERY recommendation.
     compact_done_controls(r,act,prod,key_prefix)
 
-    state_key=f"{key_prefix}_show_details_{fp(r)}"
-    if state_key not in st.session_state:
-        st.session_state[state_key]=False
-
-    if not st.session_state[state_key]:
-        if st.button("🔎 Išskleisti visą idėją", key=f"{key_prefix}_open_{fp(r)}", use_container_width=True):
-            st.session_state[state_key]=True
-            st.rerun()
-    else:
-        if st.button("🔼 Suskleisti aprašymą", key=f"{key_prefix}_close_{fp(r)}", use_container_width=True):
-            st.session_state[state_key]=False
-            st.rerun()
-        full_card(
+    # Native expander = same interaction style as Produktų planai.
+    # No button / st.rerun, so opening and closing is immediate in the browser.
+    with st.expander("🔎 Išskleisti visą idėją", expanded=False):
+        fast_detail_card(
             r,
             act if act in ["KURTI","PERPUBLIKUOTI","ISPLESTI"] else "IDĖJA",
-            prod,
-            key_prefix=f"{key_prefix}_details",
-            show_buttons=False
+            prod
         )
 
     st.divider()
+
 
 df=load_topics()
 today=st.sidebar.date_input("Šiandien",date.today())
@@ -589,8 +660,8 @@ with st.spinner("Radar skaičiuoja artimiausius paklausos signalus..."):
         df[f"{h}d"]=df.apply(lambda r:horizon_score(r,today,h),axis=1)
 df["prioritetas"]=df[["7d","14d","30d"]].max(axis=1)
 
-st.title("📡 Protuoliukas Trend Radar — V8.1.2 FIX")
-st.caption("V8.1.2 FIX • optimizuotas ugdymo savaičių skaičiavimas + greitas pradinis užkrovimas + ATLIKTA visuose languose")
+st.title("📡 Protuoliukas Trend Radar — V8.1.4 FIX")
+st.caption("V8.1.4 FIX • momentinis idėjų išskleidimas kaip Produktų planuose + ATLIKTA prie kiekvienos idėjos")
 
 with st.sidebar:
     st.markdown("### ⚙️ Mano dabartinis kūrimo tempas")
@@ -785,4 +856,4 @@ with tabs[4]:
                     label="SUKURTA" if it.status=="SUKURTA" else "PRAPLĖSTA"
                     st.write(f"**{label}** · {it.product_code or 'be kodo'} · {it.tema} → {it.mikrotema}")
 
-st.caption("V7.3.6: ŠIANDIEN=TOP pagal 7 d., SAVAITĖ=TOP pagal 14 d., ARTĖJANTYS=TOP pagal 30 d. Sąrašai tarpusavyje nesidubliuoja ir neužtuštėja vien dėl grubaus kalendorinio modelio.")
+st.caption("V8.1.4 • TOP sąrašai nesidubliuoja • detalės išsiskleidžia be Radar perskaičiavimo • atliktos idėjos saugomos istorijoje.")
