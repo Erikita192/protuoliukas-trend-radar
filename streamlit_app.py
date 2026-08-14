@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 from datetime import date, datetime, timedelta
 from urllib.parse import urljoin, urlparse
 
-st.set_page_config(page_title="Protuoliukas Trend Radar V8.0", page_icon="📡", layout="wide")
+st.set_page_config(page_title="Protuoliukas Trend Radar V9.0", page_icon="📡", layout="wide")
 MONTH_NUM={"sausis":1,"vasaris":2,"kovas":3,"balandis":4,"gegužė":5,"birželis":6,"liepa":7,"rugpjūtis":8,"rugsėjis":9,"spalis":10,"lapkritis":11,"gruodis":12}
 SHOP="https://mokymopriemones.eu/"
 
@@ -29,12 +29,17 @@ def load_occasions():
     return x
 
 @st.cache_data
-def load_program_windows():
-    return pd.read_csv("program_windows_v8.csv")
+def load_verified_program_timing():
+    return pd.read_csv("verified_program_timing_v9.csv")
+
+@st.cache_data
+def load_program_membership():
+    return pd.read_csv("program_membership_v9.csv")
 
 SCHOOL_CAL=load_school_calendar()
 OCCASIONS=load_occasions()
-PROGRAM_WINDOWS=load_program_windows()
+VERIFIED_TIMING=load_verified_program_timing()
+PROGRAM_MEMBERSHIP=load_program_membership()
 
 def is_school_holiday(day):
     for _,x in SCHOOL_CAL[SCHOOL_CAL["type"]=="atostogos"].iterrows():
@@ -91,10 +96,77 @@ def shift_before_holiday(target):
             return x["start"]-timedelta(days=3)
     return target
 
+
+def _norm(s):
+    s=str(s).lower().replace("–","-").replace("—","-")
+    s=re.sub(r"[^a-ząčęėįšųūž0-9%]+"," ",s)
+    return re.sub(r"\s+"," ",s).strip()
+
+def _tokens(s, min_len=4):
+    stop={"tema","ugdymas","užduotys","užduotis","priemonė","priemonės","vaikams",
+          "mokymas","mokytis","kortelės","rinkinys","pagal","atlikti","veiksmą",
+          "taikymas","situacijoje","atpažinti","klaidos","paieška"}
+    return {w for w in _norm(s).split() if len(w)>=min_len and w not in stop}
+
 def keyword_overlap(a,b):
-    aw=set(w.lower() for w in re.findall(r"[A-Za-zĄČĘĖĮŠŲŪŽąčęėįšųūž]{4,}",str(a)))
-    bw=set(w.lower() for w in re.findall(r"[A-Za-zĄČĘĖĮŠŲŪŽąčęėįšųūž]{4,}",str(b)))
-    return len(aw & bw)
+    return len(_tokens(a) & _tokens(b))
+
+def _age_bounds(age_text):
+    nums=[int(x) for x in re.findall(r"\d+",str(age_text))]
+    if not nums:
+        return (3,99)
+    if len(nums)==1:
+        return (nums[0],nums[0])
+    return (min(nums[0],nums[1]),max(nums[0],nums[1]))
+
+GRADE_AGES={
+    1:(6,8),2:(7,9),3:(8,10),4:(9,11),
+    5:(10,12),6:(11,13),7:(12,14),8:(13,15)
+}
+
+def _grade_relevant(r, grade):
+    try:g=int(grade)
+    except:return True
+    lo,hi=_age_bounds(getattr(r,"amzius",""))
+    glo,ghi=GRADE_AGES.get(g,(3,99))
+    return max(lo,glo) <= min(hi,ghi)
+
+def _subject_relevant(r, subject):
+    area=_norm(getattr(r,"sritis",""))
+    subject=_norm(subject)
+    if "matemat" in subject:
+        return "matemat" in area
+    if "lietuvi" in subject:
+        return ("lietuvi" in area) or ("kalbin" in area)
+    return keyword_overlap(area,subject)>0
+
+def _topic_match_score(r, official_topic, aliases):
+    query=_norm(f"{getattr(r,'tema','')} {getattr(r,'mikrotema','')}")
+    target=_norm(f"{official_topic} {aliases}")
+    qtok=_tokens(query)
+    ttok=_tokens(target)
+    overlap=len(qtok & ttok)
+    score=overlap*4
+    theme=_norm(getattr(r,"tema",""))
+    micro=_norm(getattr(r,"mikrotema",""))
+    official=_norm(official_topic)
+
+    if theme and theme in target:
+        score+=7
+    if official and official in query:
+        score+=10
+
+    for phrase in [
+        "vienodais vardikliais","skirtingais vardikliais","trupmenų palyginimas",
+        "trupmenų sudėtis","trupmenų atimtis","sveikieji skaičiai",
+        "tiesioginis proporcingumas","atvirkštinis proporcingumas",
+        "lygčių sistemos","raidiniai reiškiniai","kvadratinė šaknis",
+        "kubinė šaknis","finansiniai skaičiavimai","duomenų interpretavimas",
+        "tikimybės","plokščios figūros","erdvės figūros"
+    ]:
+        if phrase in micro and phrase in target:
+            score+=12
+    return score
 
 def occasion_signal(r,today):
     text=f"{r.tema} {r.mikrotema} {r.sritis}"
@@ -107,89 +179,209 @@ def occasion_signal(r,today):
             if ov>0:
                 score=weights.get(str(o["commercial_weight"]),6)+min(8,ov*2)
                 if best is None or score>best["score"]:
-                    best={"score":score,"occasion":o["occasion"],"date":o["date"],"delta":delta}
+                    best={"score":score,"occasion":o["occasion"],"date":o["date"],
+                          "delta":delta,"confidence":95}
     return best
 
-def program_signal(r,today):
+def verified_program_windows(r,today):
     """
-    Conservative program signal.
-    Uses explicit planning windows where available; otherwise marks subject/program basis
-    without inventing an exact week.
+    Only class-specific, narrow windows may create a program peak.
+    Hard safety rule: >3 school weeks is rejected.
     """
-    week=school_week_for_date(today)
-    text=f"{r.tema} {r.mikrotema} {r.sritis} {r.amzius}".lower()
-    best=None
-    for _,pw in PROGRAM_WINDOWS.iterrows():
-        # broad relevance by age/area/focus
-        overlap=keyword_overlap(text, f"{pw['area']} {pw['focus']} {pw['age']} {pw['stage']}")
-        if overlap<=0:continue
-        m=re.match(r"(\d+)-(\d+)",str(pw["school_week_window"]))
-        if not m:continue
-        w1,w2=int(m.group(1)),int(m.group(2))
-        mid=(w1+w2)//2
+    matches=[]
+    for _,pw in VERIFIED_TIMING.iterrows():
+        try:
+            w1,w2=int(pw["week_start"]),int(pw["week_end"])
+        except Exception:
+            continue
+        if w2 < w1 or (w2-w1+1)>3:
+            continue
+        if not _subject_relevant(r,pw["subject"]):
+            continue
+        if not _grade_relevant(r,pw["grade"]):
+            continue
+
+        mscore=_topic_match_score(r,pw["official_topic"],pw["aliases"])
+        if mscore < 9:
+            continue
+
         startd=school_date_for_week(w1)
-        endd=school_date_for_week(w2)
-        if startd is None or endd is None:continue
-        # stronger when current date is within 35 days before likely teaching window or inside it
-        days_to=(startd-today).days
-        proximity=max(0,20-abs(days_to)/2)
-        score=8+overlap*2+proximity
-        cand={"score":score,"stage":pw["stage"],"area":pw["area"],"focus":pw["focus"],
-              "start":startd,"end":endd+timedelta(days=4),"basis":pw["basis"],"source":pw["source_url"],
-              "week_window":pw["school_week_window"]}
-        if best is None or score>best["score"]:
-            best=cand
-    return best
+        end_start=school_date_for_week(w2)
+        if startd is None or end_start is None:
+            continue
+        endd=end_start+timedelta(days=4)
+
+        matches.append({
+            "grade":int(pw["grade"]),
+            "subject":str(pw["subject"]),
+            "official_topic":str(pw["official_topic"]),
+            "start":startd,
+            "end":endd,
+            "week_start":w1,
+            "week_end":w2,
+            "week_window":f"{w1}–{w2}",
+            "confidence":int(pw["confidence"]),
+            "source_count":int(pw["source_count"]),
+            "source_type":str(pw["source_type"]),
+            "source":str(pw["source_url"]),
+            "source_note":str(pw["source_note"]),
+            "match_score":mscore
+        })
+
+    # A broad related chapter must not beat the concrete microtopic merely because
+    # it occurs earlier. Keep the strongest semantic match PER CLASS first.
+    best_by_grade={}
+    for x in matches:
+        g=x["grade"]
+        if g not in best_by_grade or x["match_score"]>best_by_grade[g]["match_score"]:
+            best_by_grade[g]=x
+    matches=list(best_by_grade.values())
+
+    matches.sort(key=lambda x: (
+        0 if x["end"] >= today-timedelta(days=3) else 1,
+        max(0,(x["start"]-today).days) if x["end"] >= today-timedelta(days=3) else 999,
+        -x["match_score"],
+        x["grade"]
+    ))
+    return matches
+
+def program_memberships(r):
+    """Confirms class/program membership, never the date."""
+    out=[]
+    for _,pm in PROGRAM_MEMBERSHIP.iterrows():
+        if not _subject_relevant(r,pm["subject"]):
+            continue
+        if not _grade_relevant(r,pm["grade"]):
+            continue
+        mscore=_topic_match_score(r,pm["program_topic"],pm["aliases"])
+        if mscore < 9:
+            continue
+        out.append({
+            "grade":int(pm["grade"]),
+            "subject":str(pm["subject"]),
+            "program_topic":str(pm["program_topic"]),
+            "source":str(pm["source_url"]),
+            "source_note":str(pm["source_note"]),
+            "match_score":mscore
+        })
+    out.sort(key=lambda x:(-x["match_score"],x["grade"]))
+    return out
+
+def program_signal(r,today):
+    windows=verified_program_windows(r,today)
+    memberships=program_memberships(r)
+    if windows:
+        primary=windows[0]
+        primary["all_windows"]=windows
+        primary["memberships"]=memberships
+        return primary
+    if memberships:
+        return {
+            "timing_verified":False,
+            "memberships":memberships,
+            "all_windows":[],
+            "confidence":25
+        }
+    return None
+
+def parent_signal(r):
+    t=_norm(f"{r.tema} {r.mikrotema}")
+    return any(k in t for k in [
+        "raid","abėc","skaič","raš","skaity","emoc","kūnas","spalv","forma",
+        "sudėt","atimt","daugyb","dalyb"
+    ])
 
 def signal_stack(r,today):
     ps=program_signal(r,today)
     osig=occasion_signal(r,today)
     signals=[]
     extra=0
-    if ps:
-        signals.append("📚 programa / ilgalaikis planavimas")
-        extra+=min(20,ps["score"])
+
+    if ps and ps.get("all_windows"):
+        signals.append("📚 patikrintas klasės planavimo langas")
+        extra+=14
+    elif ps and ps.get("memberships"):
+        signals.append("📘 tema patvirtinta programoje, data dar nepatvirtinta")
+        extra+=4
+
     if osig:
         signals.append(f"📅 {osig['occasion']}")
         extra+=min(18,osig["score"])
+
     if int(r.evergreen)>=4:
         signals.append("🌿 evergreen")
         extra+=6
-    # parent demand heuristic
-    t=(str(r.tema)+" "+str(r.mikrotema)).lower()
-    if any(k in t for k in ["raid","abėc","skaič","raš","skaity","emoc","kūnas","spalv","forma"]):
+
+    if parent_signal(r):
         signals.append("👨‍👩‍👧 tėvų paklausa")
         extra+=6
+
     return ps,osig,signals,extra
+
+def seasonal_peak(r,today):
+    vals=[]
+    for x in str(getattr(r,"piko_menesiai","")).split(","):
+        pm=MONTH_NUM.get(x.strip())
+        if not pm:
+            continue
+        y=today.year if pm>=today.month else today.year+1
+        vals.append(date(y,pm,15))
+    if not vals:
+        return today+timedelta(days=180)
+    future=[d for d in vals if d>=today-timedelta(days=5)]
+    return min(future or vals,key=lambda d:abs((d-today).days))
 
 def pedagogical_peak(r,today):
     """
-    Derive expected purchasing/teaching peak:
-    1) program planning window, if credible;
-    2) occasion date, if relevant;
-    3) fallback to legacy seasonal month signal.
-    Purchase peak is set shortly BEFORE likely teaching/use date.
+    V9 hierarchy:
+    1) verified 2–3 week class timing;
+    2) fixed education occasion;
+    3) low-confidence seasonality.
+    Program membership without timing never creates a peak.
     """
     ps,osig,signals,extra=signal_stack(r,today)
     candidates=[]
-    if ps:
-        # use start of likely teaching window; purchase peak 3–7 days earlier
-        use_date=ps["start"]
-        candidates.append(("programa",use_date-timedelta(days=5),use_date,ps))
+
+    if ps and ps.get("all_windows"):
+        w=ps["all_windows"][0]
+        teaching_start=w["start"]
+        purchase_peak=shift_before_holiday(teaching_start-timedelta(days=5))
+        candidates.append({
+            "peak":purchase_peak,
+            "kind":"programa",
+            "use_date":teaching_start,
+            "detail":w,
+            "confidence":int(w["confidence"])
+        })
+
     if osig:
-        # occasion materials are usually needed before the occasion
-        occasion_date=osig["date"]
         lead=5 if osig["score"]>=16 else 3
-        candidates.append(("proga",occasion_date-timedelta(days=lead),occasion_date,osig))
-    if candidates:
-        # choose nearest future commercial peak, but allow active recent peak
-        future=[c for c in candidates if (c[1]-today).days>=-3]
-        chosen=min(future or candidates,key=lambda c:abs((c[1]-today).days))
-        peak=shift_before_holiday(chosen[1])
-        return peak,chosen[0],chosen[2],chosen[3],signals,extra
-    # fallback seasonal
-    legacy=today+timedelta(days=max(0,peak_days(r,today)))
-    return legacy,"sezonika",legacy,None,signals,extra
+        purchase_peak=shift_before_holiday(osig["date"]-timedelta(days=lead))
+        candidates.append({
+            "peak":purchase_peak,
+            "kind":"proga",
+            "use_date":osig["date"],
+            "detail":osig,
+            "confidence":95
+        })
+
+    eligible=[c for c in candidates if c["peak"]>=today-timedelta(days=3)]
+    if eligible:
+        chosen=min(eligible,key=lambda c:(c["peak"]-today).days)
+        return (chosen["peak"],chosen["kind"],chosen["use_date"],chosen["detail"],
+                signals,extra,chosen["confidence"])
+
+    seasonal=seasonal_peak(r,today)
+    confidence=55 if (parent_signal(r) or "ikimokykl" in _norm(r.sritis) or "dekor" in _norm(r.sritis)) else 48
+    return seasonal,"sezonika",seasonal,None,signals,extra,confidence
+
+def date_confidence(r,today):
+    return int(pedagogical_peak(r,today)[6])
+
+def date_confidence_label(conf):
+    if conf>=88:return "🟢 AUKŠTA"
+    if conf>=65:return "🟡 ORIENTACINĖ"
+    return "⚪ ŽEMA"
 
 def fp(r):
     return f"{str(r.tema).strip().lower()}::{str(r.mikrotema).strip().lower()}"
@@ -227,6 +419,38 @@ def db_ok():
     except Exception as e:
         return False,str(e)
 
+@st.cache_data(ttl=60,show_spinner=False)
+def load_idea_status_map():
+    try:
+        rows=supabase_client().table("ideas").select("fingerprint,status,product_code").execute().data
+        return {
+            str(x.get("fingerprint")):{
+                "status":str(x.get("status") or "IDEJA"),
+                "product_code":str(x.get("product_code") or "")
+            } for x in rows
+        }
+    except Exception:
+        return {}
+
+@st.cache_data(ttl=60,show_spinner=False)
+def load_recent_republish_map():
+    try:
+        rows=supabase_client().table("republish_history").select("product_code,recommendation_date").execute().data
+        out={}
+        for x in rows:
+            code=str(x.get("product_code") or "")
+            ds=str(x.get("recommendation_date") or "")
+            if not code or not ds:
+                continue
+            try:d=date.fromisoformat(ds)
+            except:continue
+            if code not in out or d>out[code]:
+                out[code]=d
+        return out
+    except Exception:
+        return {}
+
+
 def save_idea(r, score):
     # Persistence must never crash the Radar UI.
     try:
@@ -254,15 +478,18 @@ def save_idea(r, score):
         return False
 
 def idea_status(fingerprint):
-    try:
-        d=supabase_client().table("ideas").select("status,product_code").eq("fingerprint",fingerprint).limit(1).execute().data
-        return d[0] if d else {"status":"IDEJA","product_code":""}
-    except: return {"status":"IDEJA","product_code":""}
+    x=load_idea_status_map().get(str(fingerprint),{"status":"IDEJA","product_code":""}).copy()
+    # V8.1.x briefly stored PASIDALINTA as the idea status. Treat it as an
+    # already-existing product, so Radar never proposes creating it again.
+    if x.get("status")=="PASIDALINTA":
+        x["status"]="SUKURTA"
+    return x
 
 def set_idea_status(fingerprint,status,code=""):
     supabase_client().table("ideas").update({
         "status":status,"product_code":code.strip(),"updated_at":datetime.utcnow().isoformat()
     }).eq("fingerprint",fingerprint).execute()
+    load_idea_status_map.clear()
 
 def idea_bank():
     try:
@@ -275,15 +502,12 @@ def republish_done(code, theme, micro, fb):
         "product_code":code or "BE_KODO","recommendation_date":str(date.today()),
         "theme":theme,"microtheme":micro,"fb_angle":fb
     }).execute()
+    load_recent_republish_map.clear()
 
 def recent_republish(code, days=21):
     if not code:return False
-    try:
-        d=supabase_client().table("republish_history").select("recommendation_date").eq("product_code",code).order("recommendation_date",desc=True).limit(1).execute().data
-        if not d:return False
-        dt=date.fromisoformat(d[0]["recommendation_date"])
-        return (date.today()-dt).days < days
-    except:return False
+    dt=load_recent_republish_map().get(str(code))
+    return bool(dt and (date.today()-dt).days < days)
 
 def prior_score(fingerprint,days=1):
     try:
@@ -300,37 +524,43 @@ def trend_label(r):
     if d<=-6:return f"↓ LEIDŽIASI ({d:.0f})"
     return "→ STABILU"
 
+
 def peak_days(r,today):
-    vals=[]
-    for x in str(r.piko_menesiai).split(","):
-        pm=MONTH_NUM.get(x.strip())
-        if not pm:continue
-        y=today.year if pm>=today.month else today.year+1
-        vals.append((date(y,pm,15)-today).days)
-    return min(vals) if vals else 180
+    p,*_=pedagogical_peak(r,today)
+    return (p-today).days
 
 def sales_score(v): return {"žemas":30,"vidutinis":55,"aukštas":78,"labai aukštas":95}.get(str(v).lower(),60)
 def comp_score(v): return {"žema":90,"vidutinė":72,"aukšta":52}.get(str(v).lower(),65)
 def stars(n): return "🌲"*int(n)+"○"*(5-int(n))
 
 def horizon_score(r,today,h):
-    peak,kind,use_date,detail,signals,extra=pedagogical_peak(r,today)
+    peak,kind,use_date,detail,signals,extra,conf=pedagogical_peak(r,today)
     d=(peak-today).days
     sigma=max(5,h*.55)
-    timing=100*math.exp(-((d-h*.35)**2)/(2*sigma*sigma))
-    base=.42*timing+.18*(float(r.evergreen)*20)+.22*sales_score(r.pardavimo_potencialas)+.10*comp_score(r.konkurencija)
-    return round(min(100,base+extra*.45))
+    timing_score=100*math.exp(-((d-h*.40)**2)/(2*sigma*sigma))
+
+    raw=(
+        .42*timing_score
+        +.20*sales_score(r.pardavimo_potencialas)
+        +.12*comp_score(r.konkurencija)
+        +.12*(float(r.evergreen)*20)
+        +min(12,extra*.35)
+        +.10*conf
+    )
+
+    # Safety cap: weak date confidence can never become a 99/100 TOP.
+    cap=60+(0.40*conf)
+    return round(max(0,min(100,raw,cap)))
 
 def timing(r,today):
-    peak,kind,use_date,detail,signals,extra=pedagogical_peak(r,today)
-    # Peak here means expected BUYING peak, not teaching date.
+    peak,kind,use_date,detail,signals,extra,conf=pedagogical_peak(r,today)
     publish=peak-timedelta(days=3)
     start=publish-timedelta(days=get_creation_lead())
-    # if immediately after holidays, preparation should happen before holidays
     start=shift_before_holiday(start)
     publish=shift_before_holiday(publish)
-    last=use_date+timedelta(days=2)
+    last=(use_date+timedelta(days=2)) if kind in ["programa","proga"] else (peak+timedelta(days=5))
     return start,publish,peak,last
+
 
 def examples(r,n=8):
     return [x.strip() for x in str(r.uzduociu_pavyzdziai).split(" | ") if x.strip()][:n]
@@ -419,31 +649,52 @@ def fb_angle(r):
     hook=a[0] if a else str(r.mikrotema)
     return f"Rodyti ne bendrą temą, o konkretų veiksmą „{hook}“. Įkelti vieną realią užduotį / ekraną ir parodyti, ką vaikas turi padaryti."
 
+
+def _synthetic_product(code,r):
+    return pd.Series({
+        "pavadinimas":str(getattr(r,"produkto_ideja",r.mikrotema)).strip("„“"),
+        "kodas":str(code or ""),
+        "nuoroda":""
+    })
+
 def decision(r,catalog,today):
     stt=idea_status(fp(r))
-    if stt.get("status") in ["SUKURTA","PRAPLESTA"]:
-        return "ATLIKTA",None
+    status=str(stt.get("status") or "IDEJA")
+    stored_code=str(stt.get("product_code") or "")
 
     exact=exact_catalog_match(catalog,r)
     related=catalog_matches(catalog,r)
     reps=republish_candidates(catalog,r)
     start,pub,peak,last=timing(r,today)
 
-    # PERPUBLIKUOTI: platesnis langas. Tėvų ir rugsėjo pasiruošimo temos
-    # gali būti aktualios 7–14 d. prieš optimalų publikavimo tašką.
+    if status in ["SUKURTA","PRAPLESTA"]:
+        p=None
+        if stored_code:
+            if not catalog.empty and "kodas" in catalog.columns:
+                found=catalog[catalog.kodas.fillna("").astype(str).str.upper()==stored_code.upper()]
+                if len(found):
+                    p=found.iloc[0]
+            if p is None:
+                p=_synthetic_product(stored_code,r)
+
+        early=pub-timedelta(days=10)
+        late=max(last,peak+timedelta(days=3))
+        if p is not None and early<=today<=late and not recent_republish(stored_code,21):
+            return "PERPUBLIKUOTI",p
+        return "ATLIKTA",None
+
     if len(reps):
         p=reps.iloc[0]
         code=str(p.kodas) if "kodas" in p else ""
         early=pub-timedelta(days=10)
-        late=max(last, peak+timedelta(days=3))
-        if not recent_republish(code,21) and early <= today <= late:
+        late=max(last,peak+timedelta(days=3))
+        if not recent_republish(code,21) and early<=today<=late:
             return "PERPUBLIKUOTI",p
 
-    # IŠPLĖSTI: tik jei yra susijusi priemonė, bet nėra pagrįsto perpublikavimo momento.
     if len(related):
         return "ISPLESTI",related.iloc[0]
 
-    if today >= start and today <= last:
+    if start<=today<=last:
         return "KURTI",None
     return "PALAUKTI",None
 
@@ -487,9 +738,26 @@ def full_card(r,action_label=None,product=None,key_prefix="card",show_buttons=Tr
         st.write(" + ".join(signals))
     else:
         st.write("Sezoninis / bendras paklausos signalas.")
-    if ps:
-        st.write(f"**📚 Programinis pagrindas:** {ps['stage']} • {ps['area']} • tikėtinas mokymo langas {ps['start'].strftime('%Y-%m-%d')}–{ps['end'].strftime('%Y-%m-%d')} • ugdymo savaitės {ps['week_window']}.")
-        st.caption("Šaltinis: oficiali Emokykla programa / įgyvendinimo ar ilgalaikio planavimo medžiaga.")
+    conf=date_confidence(r,today)
+    st.write(f"**📅 Datos patikimumas:** {date_confidence_label(conf)} · {conf}/100")
+    if ps and ps.get("all_windows"):
+        w=ps["all_windows"][0]
+        st.write(
+            f"**📚 Programinis pagrindas:** {w['grade']} kl. • {w['subject']} • "
+            f"**tikėtinas mokymo langas:** {w['start'].strftime('%Y-%m-%d')}–{w['end'].strftime('%Y-%m-%d')} "
+            f"• ugdymo savaitės {w['week_window']}."
+        )
+        st.caption("🟡 Orientacinis 2–3 savaičių langas iš konkretaus planavimo šaltinio, o ne viena privaloma data visoms mokykloms.")
+        st.caption(f"Šaltinis: {w['source_type']} · {w['source']}")
+        others=[x for x in ps.get("all_windows",[])[1:5] if x["end"]>=today-timedelta(days=3)]
+        if others:
+            st.markdown("**Kiti tos pačios temos programiniai langai:**")
+            for x in others:
+                st.write(f"• {x['grade']} kl. · {x['start'].strftime('%Y-%m-%d')}–{x['end'].strftime('%Y-%m-%d')} · {x['official_topic']}")
+    elif ps and ps.get("memberships"):
+        grades=", ".join(str(x["grade"])+" kl." for x in ps["memberships"][:6])
+        st.write(f"**📘 Programos atitikimas:** tema patvirtinta ({grades}), tačiau **savaitinis mokymo laikas dar nepatvirtintas**.")
+        st.caption("⚪ Programos atitikimas pats savaime pirkimo piko datos nesukuria.")
     if osig:
         st.write(f"**📅 Progos signalas:** {osig['occasion']} – {osig['date'].strftime('%Y-%m-%d')}.")
     lvl=str(getattr(r,"teorijos_lygis","bendras"))
@@ -518,9 +786,6 @@ def compact_done_controls(r,act,prod,key_prefix):
     if act=="PERPUBLIKUOTI" and prod is not None:
         if st.button("✅ ATLIKTA · PASIDALINAU",key=f"{key_prefix}_compact_share_{fp(r)}",use_container_width=True):
             republish_done(str(prod.kodas),str(r.tema),str(r.mikrotema),fb_angle(r))
-            # also remember this recommendation as completed for the active list
-            save_idea(r, float(getattr(r,"prioritetas",0) or 0))
-            set_idea_status(fp(r),"PASIDALINTA",str(prod.kodas or ""))
             st.rerun()
         return
 
@@ -597,13 +862,26 @@ def fast_detail_card(r,action_label=None,product=None):
     st.markdown("**🧭 Kodėl ši idėja dabar?**")
     st.write(" + ".join(signals) if signals else "Sezoninis / bendras paklausos signalas.")
 
-    if ps:
+    conf=date_confidence(r,today)
+    st.write(f"**📅 Datos patikimumas:** {date_confidence_label(conf)} · {conf}/100")
+    if ps and ps.get("all_windows"):
+        w=ps["all_windows"][0]
         st.write(
-            f"**📚 Programinis pagrindas:** {ps['stage']} • {ps['area']} "
-            f"• tikėtinas mokymo langas {ps['start'].strftime('%Y-%m-%d')}–{ps['end'].strftime('%Y-%m-%d')} "
-            f"• ugdymo savaitės {ps['week_window']}."
+            f"**📚 Programinis pagrindas:** {w['grade']} kl. • {w['subject']} "
+            f"• **tikėtinas mokymo langas:** {w['start'].strftime('%Y-%m-%d')}–{w['end'].strftime('%Y-%m-%d')} "
+            f"• ugdymo savaitės {w['week_window']}."
         )
-        st.caption("Šaltinis: oficiali Emokykla programa / įgyvendinimo ar ilgalaikio planavimo medžiaga.")
+        st.caption("🟡 Orientacinis 2–3 savaičių langas iš konkretaus planavimo šaltinio; ne viena privaloma data visoms mokykloms.")
+        st.caption(f"Šaltinis: {w['source_type']} · {w['source']}")
+        others=[x for x in ps.get("all_windows",[])[1:5] if x["end"]>=today-timedelta(days=3)]
+        if others:
+            st.markdown("**Kiti tos pačios temos programiniai langai:**")
+            for x in others:
+                st.write(f"• {x['grade']} kl. · {x['start'].strftime('%Y-%m-%d')}–{x['end'].strftime('%Y-%m-%d')} · {x['official_topic']}")
+    elif ps and ps.get("memberships"):
+        grades=", ".join(str(x["grade"])+" kl." for x in ps["memberships"][:6])
+        st.write(f"**📘 Programos atitikimas:** tema patvirtinta ({grades}), tačiau **savaitinis mokymo laikas dar nepatvirtintas**.")
+        st.caption("⚪ Programos atitikimas be savaitinio šaltinio tikslaus pirkimo piko nesukuria.")
     if osig:
         st.write(f"**📅 Progos signalas:** {osig['occasion']} – {osig['date'].strftime('%Y-%m-%d')}.")
 
@@ -660,8 +938,8 @@ with st.spinner("Radar skaičiuoja artimiausius paklausos signalus..."):
         df[f"{h}d"]=df.apply(lambda r:horizon_score(r,today,h),axis=1)
 df["prioritetas"]=df[["7d","14d","30d"]].max(axis=1)
 
-st.title("📡 Protuoliukas Trend Radar — V8.1.4 FIX")
-st.caption("V8.1.4 FIX • momentinis idėjų išskleidimas kaip Produktų planuose + ATLIKTA prie kiekvienos idėjos")
+st.title("📡 Protuoliukas Trend Radar — V9.0")
+st.caption("V9.0 • datos tik iš patikrintų 2–3 savaičių langų • klasės atskirai • nepatvirtintas laikas nekuria fiktyvaus piko")
 
 with st.sidebar:
     st.markdown("### ⚙️ Mano dabartinis kūrimo tempas")
@@ -673,6 +951,10 @@ with st.sidebar:
         st.markdown("**📅 Artimiausios ugdymo progos**")
         for _,o in upcoming.iterrows():
             st.caption(f"{o['date'].strftime('%m-%d')} · {o['occasion']}")
+    st.markdown("**📚 V9 programinių datų aprėptis**")
+    st.caption("✅ Matematika 5–8 kl.: konkretūs 2–3 sav. langai iš oficialių pavyzdinių planų.")
+    st.caption("📘 Pradinė matematika ir dalis LT temų: klasė patvirtinta, bet savaitė nerodoma, kol neturime patikimo planavimo šaltinio.")
+    st.caption("🚫 Platūs 1–35 / 1–36 sav. intervalai piko skaičiavimui nebenaudojami.")
     st.divider()
     st.subheader("Katalogas")
     do_scan=st.checkbox("Tikrinti mokymopriemones.eu",True)
@@ -709,21 +991,25 @@ for _,r in df.iterrows():
     decisions.append((fp(r),act,prod))
 dmap={a:(b,c) for a,b,c in decisions}
 
-# Auto-save valuable create/expand ideas
-for _,r in df[df.prioritetas>=65].iterrows():
-    act,_=dmap[fp(r)]
-    if act in ["KURTI","ISPLESTI","PALAUKTI"]:
-        save_idea(r,r.prioritetas)
+# Auto-save valuable create/expand ideas once per selected date/session.
+_autosave_key=f"autosaved_{today.isoformat()}"
+if not st.session_state.get(_autosave_key,False):
+    for _,r in df[df.prioritetas>=65].iterrows():
+        act,_=dmap[fp(r)]
+        if act in ["KURTI","ISPLESTI","PALAUKTI"]:
+            save_idea(r,r.prioritetas)
+    st.session_state[_autosave_key]=True
 
 tabs=st.tabs(["🏠 ŠIANDIEN","📅 SAVAITĖ","🚀 ARTĖJANTYS TOPAI","💡 PRODUKTŲ PLANAI","🧠 IDĖJŲ BANKAS"])
 
 
 def days_to_peak(r,today):
-    p,kind,use_date,detail,signals,extra=pedagogical_peak(r,today)
+    p,kind,use_date,detail,signals,extra,conf=pedagogical_peak(r,today)
     return (p-today).days
 
 def demand_window(r,today):
     d=days_to_peak(r,today)
+    if d < -3:return "OUT"
     if d<=7:return "TODAY"
     if d<=14:return "WEEK"
     if d<=30:return "COMING"
@@ -740,10 +1026,8 @@ def allocate_v74(frame):
         exact=[x for x in eligible if demand_window(x[0],today)==win and fp(x[0]) not in used]
         exact.sort(key=lambda x:float(x[0][col])+effort_bonus(x[0]),reverse=True)
         rows=exact[:n]
-        if len(rows)<n:
-            pool=[x for x in eligible if fp(x[0]) not in used and all(fp(x[0])!=fp(y[0]) for y in rows)]
-            pool.sort(key=lambda x:float(x[0][col])+effort_bonus(x[0]),reverse=True)
-            rows+=pool[:n-len(rows)]
+        # V9 deliberately does not fill a time window with unrelated dates.
+        # A shorter list is more truthful than a fake "today" recommendation.
         used|={fp(x[0]) for x in rows}
         out.append([(r,a,p,float(r[col])+effort_bonus(r)) for r,a,p in rows])
     return out
@@ -815,8 +1099,8 @@ with tabs[4]:
         st.info("Bankas dar tuščias.")
     else:
         # Aktyvus bankas rodo tik neįgyvendintas idėjas.
-        active_bank=bank[~bank.status.isin(["SUKURTA","PRAPLESTA"])].copy()
-        done_bank=bank[bank.status.isin(["SUKURTA","PRAPLESTA"])].copy()
+        active_bank=bank[~bank.status.isin(["SUKURTA","PRAPLESTA","PASIDALINTA"])].copy()
+        done_bank=bank[bank.status.isin(["SUKURTA","PRAPLESTA","PASIDALINTA"])].copy()
 
         st.markdown("### 💡 Aktyvios idėjos")
         if active_bank.empty:
@@ -853,7 +1137,7 @@ with tabs[4]:
                 st.caption("Dar nėra įgyvendintų Radar idėjų.")
             else:
                 for _,it in done_bank.sort_values("updated_at",ascending=False,na_position="last").iterrows():
-                    label="SUKURTA" if it.status=="SUKURTA" else "PRAPLĖSTA"
+                    label="SUKURTA" if it.status in ["SUKURTA","PASIDALINTA"] else "PRAPLĖSTA"
                     st.write(f"**{label}** · {it.product_code or 'be kodo'} · {it.tema} → {it.mikrotema}")
 
-st.caption("V8.1.4 • TOP sąrašai nesidubliuoja • detalės išsiskleidžia be Radar perskaičiavimo • atliktos idėjos saugomos istorijoje.")
+st.caption("V9.0 • tiksli data tik iš patikrinto 2–3 savaičių lango • programos narystė be savaitės datos piko nesukuria • TOP langai nepildomi netinkamomis datomis.")
