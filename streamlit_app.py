@@ -528,8 +528,9 @@ def compact_done_controls(r,act,prod,key_prefix):
                 set_idea_status(fp(r),"SUKURTA",code.strip())
                 st.rerun()
 
+
 def compact_recommendation(r,act,prod,sc,i,key_prefix,time_text):
-    """Short list row + completion control; full content only on demand."""
+    """Fast summary row. Rich details render only after explicit click."""
     label_map={
         "KURTI":"🔥 KURTI",
         "PERPUBLIKUOTI":"📣 PERPUBLIKUOTI",
@@ -538,15 +539,29 @@ def compact_recommendation(r,act,prod,sc,i,key_prefix,time_text):
     label=label_map.get(act,"💡 IDĖJA")
     st.markdown(f"### {i}. {label} · {int(sc)}/100")
     st.write(f"**{r.tema} → {r.mikrotema}**")
+
     if act=="PERPUBLIKUOTI" and prod is not None:
         st.caption(f"{prod.pavadinimas} • kodas {prod.kodas or 'nerastas'}")
     elif act=="ISPLESTI" and prod is not None:
         st.caption(f"Išplėsti: {prod.pavadinimas} → {r.produkto_ideja}")
     else:
         st.caption(str(r.produkto_ideja))
+
     st.write(time_text)
     compact_done_controls(r,act,prod,key_prefix)
-    with st.expander("🔎 Išskleisti visą idėją",expanded=False):
+
+    state_key=f"{key_prefix}_show_details_{fp(r)}"
+    if state_key not in st.session_state:
+        st.session_state[state_key]=False
+
+    if not st.session_state[state_key]:
+        if st.button("🔎 Išskleisti visą idėją", key=f"{key_prefix}_open_{fp(r)}", use_container_width=True):
+            st.session_state[state_key]=True
+            st.rerun()
+    else:
+        if st.button("🔼 Suskleisti aprašymą", key=f"{key_prefix}_close_{fp(r)}", use_container_width=True):
+            st.session_state[state_key]=False
+            st.rerun()
         full_card(
             r,
             act if act in ["KURTI","PERPUBLIKUOTI","ISPLESTI"] else "IDĖJA",
@@ -554,6 +569,7 @@ def compact_recommendation(r,act,prod,sc,i,key_prefix,time_text):
             key_prefix=f"{key_prefix}_details",
             show_buttons=False
         )
+
     st.divider()
 
 df=load_topics()
@@ -561,8 +577,8 @@ today=st.sidebar.date_input("Šiandien",date.today())
 for h in [7,14,30]:df[f"{h}d"]=df.apply(lambda r:horizon_score(r,today,h),axis=1)
 df["prioritetas"]=df[["7d","14d","30d"]].max(axis=1)
 
-st.title("📡 Protuoliukas Trend Radar — V8.1")
-st.caption("V8.1 • kompaktiški TOP sąrašai + išskleidžiami aprašymai + ATLIKTA visuose 3 laiko languose")
+st.title("📡 Protuoliukas Trend Radar — V8.1.1 FIX")
+st.caption("V8.1.1 FIX • greitesnis užkrovimas + detalės renderinamos tik paspaudus + ATLIKTA visuose 3 laiko languose")
 
 with st.sidebar:
     st.markdown("### ⚙️ Mano dabartinis kūrimo tempas")
