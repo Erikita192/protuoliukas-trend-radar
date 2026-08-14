@@ -503,13 +503,66 @@ def full_card(r,action_label=None,product=None,key_prefix="card",show_buttons=Tr
                 if code.strip():set_idea_status(fp(r),"SUKURTA",code);st.rerun()
                 else:st.warning("Įvesk produkto kodą.")
 
+def compact_done_controls(r,act,prod,key_prefix):
+    """Completion controls shown even when the detailed card is collapsed."""
+    if act=="PERPUBLIKUOTI" and prod is not None:
+        if st.button("✅ ATLIKTA · PASIDALINAU",key=f"{key_prefix}_compact_share_{fp(r)}",use_container_width=True):
+            republish_done(str(prod.kodas),str(r.tema),str(r.mikrotema),fb_angle(r))
+            st.rerun()
+        return
+    if act in ["KURTI","ISPLESTI"]:
+        code=st.text_input(
+            "Produkto kodas",
+            key=f"{key_prefix}_compact_code_{fp(r)}",
+            placeholder="pvz. P129 arba 301",
+            label_visibility="collapsed"
+        )
+        btn="✅ ATLIKTA · PRAPLĖČIAU" if act=="ISPLESTI" else "✅ ATLIKTA · SUKŪRIAU"
+        if st.button(btn,key=f"{key_prefix}_compact_done_{fp(r)}",use_container_width=True):
+            if not code.strip():
+                st.warning("Įvesk produkto kodą – tada Radar prisimins, kad ši idėja jau įgyvendinta.")
+            elif act=="ISPLESTI":
+                set_idea_status(fp(r),"PRAPLESTA",code.strip())
+                st.rerun()
+            else:
+                set_idea_status(fp(r),"SUKURTA",code.strip())
+                st.rerun()
+
+def compact_recommendation(r,act,prod,sc,i,key_prefix,time_text):
+    """Short list row + completion control; full content only on demand."""
+    label_map={
+        "KURTI":"🔥 KURTI",
+        "PERPUBLIKUOTI":"📣 PERPUBLIKUOTI",
+        "ISPLESTI":"🔄 IŠPLĖSTI"
+    }
+    label=label_map.get(act,"💡 IDĖJA")
+    st.markdown(f"### {i}. {label} · {int(sc)}/100")
+    st.write(f"**{r.tema} → {r.mikrotema}**")
+    if act=="PERPUBLIKUOTI" and prod is not None:
+        st.caption(f"{prod.pavadinimas} • kodas {prod.kodas or 'nerastas'}")
+    elif act=="ISPLESTI" and prod is not None:
+        st.caption(f"Išplėsti: {prod.pavadinimas} → {r.produkto_ideja}")
+    else:
+        st.caption(str(r.produkto_ideja))
+    st.write(time_text)
+    compact_done_controls(r,act,prod,key_prefix)
+    with st.expander("🔎 Išskleisti visą idėją",expanded=False):
+        full_card(
+            r,
+            act if act in ["KURTI","PERPUBLIKUOTI","ISPLESTI"] else "IDĖJA",
+            prod,
+            key_prefix=f"{key_prefix}_details",
+            show_buttons=False
+        )
+    st.divider()
+
 df=load_topics()
 today=st.sidebar.date_input("Šiandien",date.today())
 for h in [7,14,30]:df[f"{h}d"]=df.apply(lambda r:horizon_score(r,today,h),axis=1)
 df["prioritetas"]=df[["7d","14d","30d"]].max(axis=1)
 
-st.title("📡 Protuoliukas Trend Radar — V8.0")
-st.caption("V8.0 • Lietuvos ugdymo kalendorius + atostogos + programiniai langai + ugdymo progos + sezonika + tėvų / evergreen signalai")
+st.title("📡 Protuoliukas Trend Radar — V8.1")
+st.caption("V8.1 • kompaktiški TOP sąrašai + išskleidžiami aprašymai + ATLIKTA visuose 3 laiko languose")
 
 with st.sidebar:
     st.markdown("### ⚙️ Mano dabartinis kūrimo tempas")
@@ -600,39 +653,48 @@ TODAY_ROWS,WEEK_ROWS,COMING_ROWS=allocate_v74(df)
 
 with tabs[0]:
     st.subheader("🏠 ŠIANDIEN · ką labiausiai apsimoka daryti dabar")
-    st.caption("Iki 12 stipriausių galimybių. Radar pats parenka veiksmą pagal katalogą: KURTI, PERPUBLIKUOTI arba IŠPLĖSTI.")
+    st.caption("Iki 12 stipriausių galimybių. Matai trumpą santrauką; jei idėja sudomina – išskleidi visą aprašymą. Atliktą pažymėk iškart, kad ji daugiau nebekabėtų.")
     for i,(r,act,prod,sc) in enumerate(TODAY_ROWS,1):
         start,pub,peak,last=timing(r,today)
-        label={"KURTI":"🔥 KURTI","PERPUBLIKUOTI":"📣 PERPUBLIKUOTI","ISPLESTI":"🔄 IŠPLĖSTI"}.get(act,"💡 KURTI")
-        st.markdown(f"## {i}. {label} · {int(sc)}/100")
-        st.write(f"**Iki prognozuojamo pirkimo piko:** {days_to_peak(r,today)} d. • **Kūrybos apimtis:** {effort_level(r)} • **Grąža už pastangas:** {roi_label(r,sc)}")
-        st.write(f"**Pradėti kurti:** {start.strftime('%Y-%m-%d')} • **Publikuoti:** {pub.strftime('%Y-%m-%d')}–{(peak-timedelta(days=2)).strftime('%Y-%m-%d')} • **Pirkimo pikas:** {peak.strftime('%Y-%m-%d')}")
-        full_card(r,act if act in ["KURTI","PERPUBLIKUOTI","ISPLESTI"] else "IDĖJA",prod,key_prefix=f"today{i}",show_buttons=act in ["KURTI","PERPUBLIKUOTI","ISPLESTI"])
-        st.divider()
+        time_text=(
+            f"**Iki prognozuojamo pirkimo piko:** {days_to_peak(r,today)} d. "
+            f"• **Kūrybos apimtis:** {effort_level(r)} "
+            f"• **Grąža už pastangas:** {roi_label(r,sc)}  \n"
+            f"**Pradėti:** {start.strftime('%Y-%m-%d')} "
+            f"• **Publikuoti:** {pub.strftime('%Y-%m-%d')}–{(peak-timedelta(days=2)).strftime('%Y-%m-%d')} "
+            f"• **Pirkimo pikas:** {peak.strftime('%Y-%m-%d')}"
+        )
+        compact_recommendation(r,act,prod,sc,i,f"today{i}",time_text)
 
 with tabs[1]:
     st.subheader("📅 SAVAITĖ · kas taps stipru po savaitės")
-    st.caption("8–14 dienų iki piko. Matai, kas netrukus pereis į aktyvų ŠIANDIEN langą.")
+    st.caption("8–14 dienų iki piko. Ir čia idėją gali iškart pažymėti atlikta – nereikia laukti, kol ji pereis į ŠIANDIEN.")
     for i,(r,act,prod,sc) in enumerate(WEEK_ROWS,1):
         start,pub,peak,last=timing(r,today)
-        label={"KURTI":"💡 PLANUOTI KURTI","PERPUBLIKUOTI":"📣 RUOŠTIS PERPUBLIKUOTI","ISPLESTI":"🔄 PLANUOTI IŠPLĖSTI"}.get(act,"👀 STEBĖTI")
-        st.markdown(f"## {i}. {label} · {int(sc)}/100")
-        st.write(f"**Iki prognozuojamo pirkimo piko:** {days_to_peak(r,today)} d. • **Kūrybos apimtis:** {effort_level(r)} • **Grąža už pastangas:** {roi_label(r,sc)}")
-        st.write(f"**Pagal {get_creation_lead()} d. tempą pradėti:** {start.strftime('%Y-%m-%d')} • **Publikuoti:** {pub.strftime('%Y-%m-%d')}–{(peak-timedelta(days=2)).strftime('%Y-%m-%d')}")
-        full_card(r,act if act in ["ISPLESTI","PERPUBLIKUOTI"] else "IDĖJA",prod,key_prefix=f"week{i}",show_buttons=False)
-        st.divider()
+        time_text=(
+            f"**Iki prognozuojamo pirkimo piko:** {days_to_peak(r,today)} d. "
+            f"• **Kūrybos apimtis:** {effort_level(r)} "
+            f"• **Grąža už pastangas:** {roi_label(r,sc)}  \n"
+            f"**Pagal {get_creation_lead()} d. tempą pradėti:** {start.strftime('%Y-%m-%d')} "
+            f"• **Publikuoti:** {pub.strftime('%Y-%m-%d')}–{(peak-timedelta(days=2)).strftime('%Y-%m-%d')}"
+        )
+        compact_recommendation(r,act,prod,sc,i,f"week{i}",time_text)
 
 with tabs[2]:
     st.subheader("🚀 ARTĖJANTYS TOPAI · 15–30 dienų iki piko")
-    st.caption("Ankstyvas radaras. Čia dar nereikia publikuoti – tik matai būsimas stiprias galimybes ir numatomą veiksmą.")
+    st.caption("Ankstyvas radaras. Trumpa santrauka matoma iškart; pilną produkto planą išskleidi tik tada, kai idėja verta dėmesio.")
     for i,(r,act,prod,sc) in enumerate(COMING_ROWS,1):
         start,pub,peak,last=timing(r,today)
-        label={"KURTI":"🔭 BŪSIMA KŪRIMO GALIMYBĖ","PERPUBLIKUOTI":"🔭 VĖL RODYTI ARTĖJANT PIKUI","ISPLESTI":"🔭 GALIMA IŠPLĖSTI"}.get(act,"🔭 STEBĖTI")
-        st.markdown(f"## {i}. {label} · {int(sc)}/100")
-        st.write(f"**Iki prognozuojamo pirkimo piko:** {days_to_peak(r,today)} d. • **Kūrybos apimtis:** {effort_level(r)} • **Grąža už pastangas:** {roi_label(r,sc)}")
-        st.write(f"**Numatomas kūrimo startas:** {start.strftime('%Y-%m-%d')} • **Publikavimo langas:** {pub.strftime('%Y-%m-%d')}–{(peak-timedelta(days=2)).strftime('%Y-%m-%d')} • **Pirkimo pikas:** {peak.strftime('%Y-%m-%d')}")
-        full_card(r,act if act in ["ISPLESTI","PERPUBLIKUOTI"] else "IDĖJA",prod,key_prefix=f"coming{i}",show_buttons=False)
-        st.divider()
+        time_text=(
+            f"**Iki prognozuojamo pirkimo piko:** {days_to_peak(r,today)} d. "
+            f"• **Kūrybos apimtis:** {effort_level(r)} "
+            f"• **Grąža už pastangas:** {roi_label(r,sc)}  \n"
+            f"**Numatomas kūrimo startas:** {start.strftime('%Y-%m-%d')} "
+            f"• **Publikavimo langas:** {pub.strftime('%Y-%m-%d')}–{(peak-timedelta(days=2)).strftime('%Y-%m-%d')} "
+            f"• **Pirkimo pikas:** {peak.strftime('%Y-%m-%d')}"
+        )
+        compact_recommendation(r,act,prod,sc,i,f"coming{i}",time_text)
+
 
 with tabs[3]:
     st.subheader("💡 Produktų planai – platesnė perspektyvių produktų bazė")
