@@ -276,7 +276,7 @@ today=st.sidebar.date_input("Šiandien",date.today())
 for h in [7,14,30]:df[f"{h}d"]=df.apply(lambda r:horizon_score(r,today,h),axis=1)
 df["prioritetas"]=df[["7d","14d","30d"]].max(axis=1)
 
-st.title("📡 Protuoliukas Trend Radar — V7.3.2")
+st.title("📡 Protuoliukas Trend Radar — V7.3.3 FINAL")
 st.caption("7 / 14 / 30 dienų radaras • konkretus užduoties kampas • KURTI / PERPUBLIKUOTI / IŠPLĖSTI be prieštaravimų")
 
 with st.sidebar:
@@ -324,55 +324,93 @@ for _,r in df[df.prioritetas>=65].iterrows():
 
 tabs=st.tabs(["🏠 ŠIANDIEN","📅 SAVAITĖ","🚀 ARTĖJANTYS TOPAI","💡 PRODUKTŲ PLANAI","📣 PERPUBLIKUOTI","🔄 IŠPLĖSTI ESAMĄ","🧠 IDĖJŲ BANKAS"])
 
-with tabs[0]:
-    st.subheader("ŠIANDIEN – ką verta realiai daryti")
-    active=[]
-    for _,r in df.sort_values("prioritetas",ascending=False).iterrows():
+def demand_window(r, today):
+    """
+    Exclusive demand horizon.
+    0–7 d.   = ŠIANDIEN
+    8–14 d.  = SAVAITĖ
+    15–30 d. = ARTĖJANTYS TOPAI
+
+    The anchor is the optimal publication / demand-entry date rather than
+    simply the middle of the peak month. If publication is already due,
+    the item belongs to ŠIANDIEN while its useful sales window remains open.
+    """
+    start,pub,peak,last=timing(r,today)
+    days=(pub-today).days
+    if days <= 7 and last >= today:
+        return "TODAY"
+    if 8 <= days <= 14:
+        return "WEEK"
+    if 15 <= days <= 30:
+        return "COMING"
+    return "OUT"
+
+def window_score(r, window):
+    if window=="TODAY": return float(r["7d"])
+    if window=="WEEK": return float(r["14d"])
+    if window=="COMING": return float(r["30d"])
+    return 0.0
+
+def eligible_rows(frame, window, limit=8):
+    rows=[]
+    for _,r in frame.iterrows():
+        if demand_window(r,today)!=window:
+            continue
         act,prod=dmap[fp(r)]
-        if act in ["KURTI","PERPUBLIKUOTI","ISPLESTI"]:
-            active.append((r,act,prod))
-        if len(active)>=8:break
-    if not active:st.info("Šiandien nėra pakankamai stiprių aktyvių veiksmų. Žiūrėk „Artėjančius TOPus“.")
-    for i,(r,act,prod) in enumerate(active,1):
-        label={"KURTI":"🔥 KURTI NAUJĄ","PERPUBLIKUOTI":"📣 PERPUBLIKUOTI","ISPLESTI":"🔄 IŠPLĖSTI ESAMĄ"}[act]
-        st.markdown(f"## {i}. {label}")
-        full_card(r,act,prod,key_prefix=f"today{i}")
+        if act=="ATLIKTA":
+            continue
+        rows.append((r,act,prod,window_score(r,window)))
+    rows.sort(key=lambda x:x[3], reverse=True)
+    return rows[:limit]
+
+with tabs[0]:
+    st.subheader("🏠 ŠIANDIEN · TOP dabar ir per artimiausias 0–7 dienas")
+    st.caption("Tik tai, kam paklausos / publikavimo langas jau atsidarė arba atsidarys per 7 dienas. Čia verta veikti dabar.")
+    active=eligible_rows(df,"TODAY",8)
+    if not active:
+        st.info("Šiuo metu 0–7 dienų lange nėra pakankamai stiprių aktyvių TOPų.")
+    for i,(r,act,prod,sc) in enumerate(active,1):
+        label={"KURTI":"🔥 KURTI NAUJĄ","PERPUBLIKUOTI":"📣 PERPUBLIKUOTI","ISPLESTI":"🔄 IŠPLĖSTI ESAMĄ","PALAUKTI":"🔥 TOP DABAR"}.get(act,"🔥 TOP DABAR")
+        st.markdown(f"## {i}. {label} · {int(sc)}/100")
+        full_card(r,act if act in ["KURTI","PERPUBLIKUOTI","ISPLESTI"] else "IDĖJA",prod,key_prefix=f"today{i}",show_buttons=act in ["KURTI","PERPUBLIKUOTI","ISPLESTI"])
         st.divider()
 
 with tabs[1]:
-    st.subheader(f"📅 Mano savaitė · {today.strftime('%Y-%m-%d')} – {(today+timedelta(days=6)).strftime('%Y-%m-%d')}")
-    weekly=[]
-    for _,r in df.sort_values("prioritetas",ascending=False).iterrows():
-        start,pub,peak,last=timing(r,today); act,prod=dmap[fp(r)]
-        if act!="ATLIKTA" and (start<=today+timedelta(days=6) or pub<=today+timedelta(days=6)):
-            weekly.append((r,act,prod,start,pub))
-        if len(weekly)>=10:break
-    for i,(r,act,prod,start,pub) in enumerate(weekly,1):
-        st.markdown(f"## {i}. { {'KURTI':'🔥 KURTI','PERPUBLIKUOTI':'📣 PERPUBLIKUOTI','ISPLESTI':'🔄 IŠPLĖSTI','PALAUKTI':'👀 STEBĖTI'}.get(act,'👀 STEBĖTI') }")
-        st.write(f"**Šios savaitės momentas:** {'pradėti dabar' if start<=today else 'pradėti '+start.strftime('%Y-%m-%d')} • publikavimo taškas {pub.strftime('%Y-%m-%d')}")
-        full_card(r,act if act in ["KURTI","PERPUBLIKUOTI","ISPLESTI"] else "IDĖJA",prod,key_prefix=f"week{i}",show_buttons=act in ["KURTI","PERPUBLIKUOTI","ISPLESTI"])
+    st.subheader("📅 SAVAITĖ · TOP, kurie taps aktualūs po savaitės")
+    st.caption("8–14 dienų langas. Dar nereikia pulti kurti vien todėl, kad matai idėją – tai tavo išankstinis signalas, ką pradėti rimtai svarstyti po savaitės.")
+    weekly=eligible_rows(df,"WEEK",8)
+    if not weekly:
+        st.info("Šiuo metu 8–14 dienų lange nėra pakankamai stiprių TOPų.")
+    for i,(r,act,prod,sc) in enumerate(weekly,1):
+        start,pub,peak,last=timing(r,today)
+        st.markdown(f"## {i}. 👀 TOP PO SAVAITĖS · {int(sc)}/100")
+        st.write(f"**Kada pereis į aktyvų langą:** apie {(pub-timedelta(days=7)).strftime('%Y-%m-%d')} • **optimalu publikuoti:** {pub.strftime('%Y-%m-%d')}")
+        full_card(r,act if act in ["ISPLESTI","PERPUBLIKUOTI"] else "IDĖJA",prod,key_prefix=f"week{i}",show_buttons=False)
         st.divider()
 
 with tabs[2]:
-    st.subheader("🚀 Artėjantys TOPai – pilnos idėjos, ne tik temos")
-    for h in [7,14,30]:
-        st.markdown(f"## Per artimiausias {h} dienų")
-        subset=df.sort_values(f"{h}d",ascending=False).head(6)
-        for j,(_,r) in enumerate(subset.iterrows(),1):
-            act,prod=dmap[fp(r)]
-            start,pub,peak,last=timing(r,today)
-            status="🔥 KYLA" if r[f"{h}d"]>=75 else "👀 STEBĖTI"
-            st.markdown(f"### {status} · {r.tema} → {r.mikrotema} · {int(r[f'{h}d'])}/100")
-            full_card(r,act if act in ["KURTI","ISPLESTI","PERPUBLIKUOTI"] else "IDĖJA",prod,key_prefix=f"top{h}_{j}",show_buttons=act in ["KURTI","ISPLESTI","PERPUBLIKUOTI"])
-            st.divider()
+    st.subheader("🚀 ARTĖJANTYS TOPAI · ankstyvas 15–30 dienų radaras")
+    st.caption("Tai dar ne šios ir ne kitos savaitės darbai. Čia matai, kas gali tapti stipria paklausos banga po 2–4 savaičių, kad didesnėms priemonėms spėtum pasiruošti.")
+    coming=eligible_rows(df,"COMING",10)
+    if not coming:
+        st.info("Šiuo metu 15–30 dienų lange nėra pakankamai stiprių artėjančių TOPų.")
+    for i,(r,act,prod,sc) in enumerate(coming,1):
+        start,pub,peak,last=timing(r,today)
+        st.markdown(f"## {i}. 🔭 ARTĖJANTIS TOP · {int(sc)}/100")
+        st.write(f"**Iki optimalaus publikavimo:** {(pub-today).days} d. • **optimalu publikuoti:** {pub.strftime('%Y-%m-%d')} • **tikėtinas pikas:** {peak.strftime('%Y-%m-%d')}")
+        full_card(r,act if act in ["ISPLESTI","PERPUBLIKUOTI"] else "IDĖJA",prod,key_prefix=f"coming{i}",show_buttons=False)
+        st.divider()
 
 with tabs[3]:
-    st.subheader("💡 Produktų planai – visas 7 / 14 / 30 d. kūrybos katalogas")
+    st.subheader("💡 Produktų planai – platesnė perspektyvių produktų bazė")
+    st.caption("Čia gali naršyti daugiau variantų pagal pasirinktą horizontą. Tai nėra TOP langų kopija – skirta sąmoningai paieškai ir planavimui.")
     horizon=st.radio("Horizontas",[7,14,30],horizontal=True)
     view=df.sort_values(f"{horizon}d",ascending=False)
-    for i,(_,r) in enumerate(view.head(25).iterrows(),1):
+    for i,(_,r) in enumerate(view.head(30).iterrows(),1):
         act,prod=dmap[fp(r)]
-        with st.expander(f"{r.tema} → {r.mikrotema} · {int(r[f'{horizon}d'])}/100 · {act}"):
+        w=demand_window(r,today)
+        wtxt={"TODAY":"0–7 d. / ŠIANDIEN","WEEK":"8–14 d. / SAVAITĖ","COMING":"15–30 d. / ARTĖJA","OUT":"už aktyvaus 30 d. lango"}[w]
+        with st.expander(f"{r.tema} → {r.mikrotema} · {int(r[f'{horizon}d'])}/100 · {wtxt}"):
             full_card(r,act if act in ["KURTI","ISPLESTI","PERPUBLIKUOTI"] else "IDĖJA",prod,key_prefix=f"plan{i}",show_buttons=False)
 
 with tabs[4]:
@@ -425,4 +463,4 @@ with tabs[6]:
                                 supabase_client().table("ideas").delete().eq("fingerprint",it.fingerprint).execute();st.rerun()
                         st.divider()
 
-st.caption("V7.3: viena rekomendacija = vienas sprendimas. ŠIANDIEN, SAVAITĖ ir TOPai rodo pilną informaciją vietoje siuntimo į kitas skiltis.")
+st.caption("V7.3.3 FINAL: 0–7 d. = ŠIANDIEN • 8–14 d. = SAVAITĖ • 15–30 d. = ARTĖJANTYS TOPAI. Viena idėja vienu metu rodoma tik viename TOP lange.")
