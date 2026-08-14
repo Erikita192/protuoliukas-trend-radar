@@ -546,6 +546,11 @@ def recent_idea_touch(fingerprint, days=21):
     except Exception:
         return False
 
+def _session_completed():
+    if "completed_fingerprints" not in st.session_state:
+        st.session_state["completed_fingerprints"]=set()
+    return st.session_state["completed_fingerprints"]
+
 def mark_shared(r, product):
     """
     Persist PASIDALINAU safely:
@@ -559,6 +564,7 @@ def mark_shared(r, product):
     save_idea(r,float(getattr(r,"prioritetas",0) or 0))
     set_idea_status(fp(r),"SUKURTA",code)
     load_idea_status_map.clear()
+    _session_completed().add(fp(r))
 
 
 def prior_score(fingerprint,days=1):
@@ -710,6 +716,8 @@ def _synthetic_product(code,r):
     })
 
 def decision(r,catalog,today):
+    if fp(r) in _session_completed():
+        return "ATLIKTA",None
     stt=idea_status(fp(r))
     status=str(stt.get("status") or "IDEJA")
     stored_code=str(stt.get("product_code") or "")
@@ -865,6 +873,7 @@ def compact_done_controls(r,act,prod,key_prefix):
             save_idea(r, float(getattr(r,"prioritetas",0) or 0))
             ok=set_idea_status(fp(r),status,code.strip())
             if ok:
+                _session_completed().add(fp(r))
                 st.rerun()
             else:
                 st.warning("Nepavyko įrašyti būsenos į Supabase. Pabandyk dar kartą po kelių sekundžių.")
@@ -952,6 +961,8 @@ def fast_detail_card(r,action_label=None,product=None):
 
 
 def compact_recommendation(r,act,prod,sc,i,key_prefix,time_text):
+    if fp(r) in _session_completed():
+        return
     """Short TOP row; details use native Streamlit expander for instant opening."""
     label_map={
         "KURTI":"🔥 KURTI",
@@ -993,8 +1004,8 @@ with st.spinner("Radar skaičiuoja artimiausius paklausos signalus..."):
         df[f"{h}d"]=df.apply(lambda r:horizon_score(r,today,h),axis=1)
 df["prioritetas"]=df[["7d","14d","30d"]].max(axis=1)
 
-st.title("📡 Protuoliukas Trend Radar — V9.0.1 FIX")
-st.caption("V9.0.1 FIX • sutvarkytas ATLIKTA/PASIDALINAU įrašymas • republish_history klaida nebegali nulaužti programėlės")
+st.title("📡 Protuoliukas Trend Radar — V9.0.2 FIX")
+st.caption("V9.0.2 FIX • PASIDALINAU rekomendacija po paspaudimo iškart dingsta iš aktyvaus TOP sąrašo")
 
 with st.sidebar:
     st.markdown("### ⚙️ Mano dabartinis kūrimo tempas")
