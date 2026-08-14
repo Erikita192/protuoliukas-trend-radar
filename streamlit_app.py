@@ -199,8 +199,20 @@ def exact_catalog_match(catalog,r):
     if m.empty:return m
     micro_words=[w.lower() for w in re.findall(r"[A-Za-zĄČĘĖĮŠŲŪŽąčęėįšųūž]{5,}",str(r.mikrotema))]
     s=(m.pavadinimas.fillna("")+" "+m.nuoroda.fillna("")).str.lower()
-    mask=s.apply(lambda x:sum(w in x for w in micro_words)>=max(1,min(2,len(micro_words))))
-    return m[mask].head(4)
+    # Pakanka vieno stipraus mikrotemos žodžio, nes senų produktų pavadinimai
+    # dažnai būna trumpesni nei nauja Radar mikrotema.
+    mask=s.apply(lambda x:sum(w in x for w in micro_words)>=1)
+    return m[mask].head(6)
+
+def republish_candidates(catalog,r):
+    """Republish may use a broader thematic match than 'exact' product expansion."""
+    m=catalog_matches(catalog,r)
+    if m.empty:return m
+    # Prefer rows with a real product code and stronger textual match.
+    if "kodas" in m.columns:
+        m=m.assign(_hascode=m["kodas"].fillna("").astype(str).str.len()>0)
+        m=m.sort_values(["_hascode","_score"],ascending=[False,False])
+    return m.head(8)
 
 def fb_angle(r):
     a=angles(r)
@@ -211,16 +223,26 @@ def decision(r,catalog,today):
     stt=idea_status(fp(r))
     if stt.get("status") in ["SUKURTA","PRAPLESTA"]:
         return "ATLIKTA",None
+
     exact=exact_catalog_match(catalog,r)
     related=catalog_matches(catalog,r)
+    reps=republish_candidates(catalog,r)
     start,pub,peak,last=timing(r,today)
-    if len(exact):
-        p=exact.iloc[0]
-        if not recent_republish(str(p.kodas),21) and today >= pub-timedelta(days=4) and today <= last:
+
+    # PERPUBLIKUOTI: platesnis langas. Tėvų ir rugsėjo pasiruošimo temos
+    # gali būti aktualios 7–14 d. prieš optimalų publikavimo tašką.
+    if len(reps):
+        p=reps.iloc[0]
+        code=str(p.kodas) if "kodas" in p else ""
+        early=pub-timedelta(days=10)
+        late=max(last, peak+timedelta(days=3))
+        if not recent_republish(code,21) and early <= today <= late:
             return "PERPUBLIKUOTI",p
-        return "PALAUkti",p
+
+    # IŠPLĖSTI: tik jei yra susijusi priemonė, bet nėra pagrįsto perpublikavimo momento.
     if len(related):
         return "ISPLESTI",related.iloc[0]
+
     if today >= start and today <= last:
         return "KURTI",None
     return "PALAUKTI",None
@@ -238,6 +260,8 @@ def full_card(r,action_label=None,product=None,key_prefix="card",show_buttons=Tr
     if action_label=="PERPUBLIKUOTI" and product is not None:
         st.write(f"**📣 Priemonė:** {product.pavadinimas}  •  **Kodas:** {product.kodas or 'nerastas'}")
         st.write(f"**Optimalu perpublikuoti:** {pub.strftime('%Y-%m-%d')}–{min(last,peak).strftime('%Y-%m-%d')}  •  **Paklausos pikas:** apie {peak.strftime('%Y-%m-%d')}")
+        aud="pedagogai + tėvai" if any(x in (str(r.tema)+" "+str(r.mikrotema)).lower() for x in ["raid","abėc","skaič","raš","skaity","sudėt","atimt","laikrod"]) else "pedagogai / pagal temą ir tėvai"
+        st.write(f"**Auditorija:** {aud}")
         st.write(f"**FB kampas:** {fb_angle(r)}")
         if product.nuoroda:st.write(f"**Nuoroda:** {product.nuoroda}")
         if show_buttons and st.button("✅ PASIDALINAU",key=f"{key_prefix}_share_{fp(r)}"):
@@ -276,7 +300,7 @@ today=st.sidebar.date_input("Šiandien",date.today())
 for h in [7,14,30]:df[f"{h}d"]=df.apply(lambda r:horizon_score(r,today,h),axis=1)
 df["prioritetas"]=df[["7d","14d","30d"]].max(axis=1)
 
-st.title("📡 Protuoliukas Trend Radar — V7.3.4")
+st.title("📡 Protuoliukas Trend Radar — V7.3.5")
 st.caption("7 / 14 / 30 dienų radaras • konkretus užduoties kampas • KURTI / PERPUBLIKUOTI / IŠPLĖSTI be prieštaravimų")
 
 with st.sidebar:
@@ -326,17 +350,19 @@ tabs=st.tabs(["🏠 ŠIANDIEN","📅 SAVAITĖ","🚀 ARTĖJANTYS TOPAI","💡 PR
 
 def demand_window(r, today):
     """
-    Exclusive demand horizon.
+    Exclusive demand horizon by expected demand/purchase activation.
     0–7 d.   = ŠIANDIEN
     8–14 d.  = SAVAITĖ
     15–30 d. = ARTĖJANTYS TOPAI
 
-    The anchor is the optimal publication / demand-entry date rather than
-    simply the middle of the peak month. If publication is already due,
-    the item belongs to ŠIANDIEN while its useful sales window remains open.
+    We use the expected peak/start-of-demand distance, not only the publication
+    date. This prevents upcoming TOPs from disappearing just because Radar
+    recommends publishing earlier than the peak.
     """
     start,pub,peak,last=timing(r,today)
-    days=(pub-today).days
+    # Approximate demand activation one week before peak, but never before publish.
+    activation=max(pub, peak-timedelta(days=7))
+    days=(activation-today).days
     if days <= 7 and last >= today:
         return "TODAY"
     if 8 <= days <= 14:
@@ -393,7 +419,17 @@ with tabs[2]:
     st.caption("Tai dar ne šios ir ne kitos savaitės darbai. Čia matai, kas gali tapti stipria paklausos banga po 2–4 savaičių, kad didesnėms priemonėms spėtum pasiruošti.")
     coming=eligible_rows(df,"COMING",10)
     if not coming:
-        st.info("Šiuo metu 15–30 dienų lange nėra pakankamai stiprių artėjančių TOPų.")
+        st.warning("Tiksliame 15–30 dienų lange šiuo metu nėra pakankamai stiprių signalų. Žemiau rodau artimiausius būsimos paklausos kandidatus, kad Radar neliktų tuščias.")
+        fallback=[]
+        for _,r in df.sort_values("30d",ascending=False).iterrows():
+            if demand_window(r,today)=="OUT":
+                start,pub,peak,last=timing(r,today)
+                if peak>today and (peak-today).days<=45:
+                    act,prod=dmap[fp(r)]
+                    if act!="ATLIKTA":
+                        fallback.append((r,act,prod,float(r["30d"])))
+            if len(fallback)>=6: break
+        coming=fallback
     for i,(r,act,prod,sc) in enumerate(coming,1):
         start,pub,peak,last=timing(r,today)
         st.markdown(f"## {i}. 🔭 ARTĖJANTIS TOP · {int(sc)}/100")
@@ -484,4 +520,4 @@ with tabs[6]:
                     label="SUKURTA" if it.status=="SUKURTA" else "PRAPLĖSTA"
                     st.write(f"**{label}** · {it.product_code or 'be kodo'} · {it.tema} → {it.mikrotema}")
 
-st.caption("V7.3.4: 0–7 d. = ŠIANDIEN • 8–14 d. = SAVAITĖ • 15–30 d. = ARTĖJANTYS TOPAI. Idėjų banke rodomos tik dar neįgyvendintos idėjos.")
+st.caption("V7.3.5: TOP langai pagal paklausos aktyvėjimą. PERPUBLIKUOTI vertina platesnį katalogo atitikimą ir tėvų auditoriją; ARTĖJANTYS TOPAI nepaliekami tušti be paaiškinimo.")
