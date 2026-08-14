@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 from datetime import date, datetime, timedelta
 from urllib.parse import urljoin, urlparse
 
-st.set_page_config(page_title="Protuoliukas Trend Radar V7", page_icon="📡", layout="wide")
+st.set_page_config(page_title="Protuoliukas Trend Radar V7.3", page_icon="📡", layout="wide")
 MONTH_NUM={"sausis":1,"vasaris":2,"kovas":3,"balandis":4,"gegužė":5,"birželis":6,"liepa":7,"rugpjūtis":8,"rugsėjis":9,"spalis":10,"lapkritis":11,"gruodis":12}
 SHOP="https://mokymopriemones.eu/"
 
@@ -20,82 +20,75 @@ def fp(r):
 
 @st.cache_resource
 def supabase_client() -> Client:
-    url = st.secrets["SUPABASE_URL"]
-    key = st.secrets["SUPABASE_KEY"]
-    return create_client(url, key)
+    return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
+
+def db_ok():
+    try:
+        supabase_client().table("ideas").select("id").limit(1).execute()
+        return True,""
+    except Exception as e:
+        return False,str(e)
 
 def save_idea(r, score):
-    sb = supabase_client()
-    f = fp(r)
-    today = str(date.today())
-
-    existing = sb.table("ideas").select("fingerprint,last_seen,top_count").eq("fingerprint", f).execute().data
-    if existing:
-        row = existing[0]
-        cnt = int(row.get("top_count") or 1)
-        try:
-            days = (date.today() - date.fromisoformat(row.get("last_seen"))).days
-        except Exception:
-            days = 0
-        if days >= 7:
-            cnt += 1
-        sb.table("ideas").update({
-            "last_seen": today,
-            "top_count": cnt,
-            "last_score": float(score),
-            "updated_at": datetime.utcnow().isoformat()
-        }).eq("fingerprint", f).execute()
+    sb=supabase_client(); f=fp(r); today=str(date.today())
+    old=sb.table("ideas").select("fingerprint,last_seen,top_count,status").eq("fingerprint",f).execute().data
+    if old:
+        x=old[0]; cnt=int(x.get("top_count") or 1)
+        try: gap=(date.today()-date.fromisoformat(x.get("last_seen"))).days
+        except: gap=0
+        if gap>=7: cnt+=1
+        sb.table("ideas").update({"last_seen":today,"top_count":cnt,"last_score":float(score),"updated_at":datetime.utcnow().isoformat()}).eq("fingerprint",f).execute()
     else:
         sb.table("ideas").insert({
-            "fingerprint": f,
-            "tema": str(r.tema),
-            "mikrotema": str(r.mikrotema),
-            "amzius": str(r.amzius),
-            "sritis": str(r.sritis),
-            "produkto_ideja": str(r.produkto_ideja),
-            "formatas": str(r.formatas),
-            "examples": str(r.uzduociu_pavyzdziai),
-            "evergreen": int(r.evergreen),
-            "competition": str(r.konkurencija),
-            "sales": str(r.pardavimo_potencialas),
-            "first_seen": today,
-            "last_seen": today,
-            "top_count": 1,
-            "last_score": float(score),
-            "status": "IDEJA",
-            "product_code": ""
+            "fingerprint":f,"tema":str(r.tema),"mikrotema":str(r.mikrotema),"amzius":str(r.amzius),"sritis":str(r.sritis),
+            "produkto_ideja":str(r.produkto_ideja),"formatas":str(r.formatas),"examples":str(r.uzduociu_pavyzdziai),
+            "evergreen":int(r.evergreen),"competition":str(r.konkurencija),"sales":str(r.pardavimo_potencialas),
+            "first_seen":today,"last_seen":today,"top_count":1,"last_score":float(score),"status":"IDEJA","product_code":""
         }).execute()
+    sb.table("score_history").upsert({"day":today,"fingerprint":f,"score":float(score)},on_conflict="day,fingerprint").execute()
 
-    sb.table("score_history").upsert({
-        "day": today,
-        "fingerprint": f,
-        "score": float(score)
-    }, on_conflict="day,fingerprint").execute()
+def idea_status(fingerprint):
+    try:
+        d=supabase_client().table("ideas").select("status,product_code").eq("fingerprint",fingerprint).limit(1).execute().data
+        return d[0] if d else {"status":"IDEJA","product_code":""}
+    except: return {"status":"IDEJA","product_code":""}
 
-def mark_created(fingerprint, code):
+def set_idea_status(fingerprint,status,code=""):
     supabase_client().table("ideas").update({
-        "status": "SUKURTA",
-        "product_code": code.strip(),
-        "updated_at": datetime.utcnow().isoformat()
-    }).eq("fingerprint", fingerprint).execute()
-
-def delete_idea(fingerprint):
-    sb = supabase_client()
-    sb.table("score_history").delete().eq("fingerprint", fingerprint).execute()
-    sb.table("ideas").delete().eq("fingerprint", fingerprint).execute()
+        "status":status,"product_code":code.strip(),"updated_at":datetime.utcnow().isoformat()
+    }).eq("fingerprint",fingerprint).execute()
 
 def idea_bank():
-    data = supabase_client().table("ideas").select("*").order("last_score", desc=True).order("last_seen", desc=True).execute().data
-    return pd.DataFrame(data)
+    try:
+        d=supabase_client().table("ideas").select("*").order("last_score",desc=True).order("last_seen",desc=True).execute().data
+        return pd.DataFrame(d)
+    except: return pd.DataFrame()
 
-def prior_score(fingerprint, days=1):
-    target = str(date.today() - timedelta(days=days))
-    data = supabase_client().table("score_history").select("score").eq("day", target).eq("fingerprint", fingerprint).limit(1).execute().data
-    return float(data[0]["score"]) if data else None
+def republish_done(code, theme, micro, fb):
+    supabase_client().table("republish_history").insert({
+        "product_code":code or "BE_KODO","recommendation_date":str(date.today()),
+        "theme":theme,"microtheme":micro,"fb_angle":fb
+    }).execute()
+
+def recent_republish(code, days=21):
+    if not code:return False
+    try:
+        d=supabase_client().table("republish_history").select("recommendation_date").eq("product_code",code).order("recommendation_date",desc=True).limit(1).execute().data
+        if not d:return False
+        dt=date.fromisoformat(d[0]["recommendation_date"])
+        return (date.today()-dt).days < days
+    except:return False
+
+def prior_score(fingerprint,days=1):
+    try:
+        target=str(date.today()-timedelta(days=days))
+        d=supabase_client().table("score_history").select("score").eq("day",target).eq("fingerprint",fingerprint).limit(1).execute().data
+        return float(d[0]["score"]) if d else None
+    except:return None
 
 def trend_label(r):
     p=prior_score(fp(r),1)
-    if p is None:return "🆕 NAUJA / BE ISTORIJOS"
+    if p is None:return "🆕 NAUJA"
     d=float(r.prioritetas)-p
     if d>=6:return f"🔥 ↑ KYLA (+{d:.0f})"
     if d<=-6:return f"↓ LEIDŽIASI ({d:.0f})"
@@ -104,329 +97,308 @@ def trend_label(r):
 def peak_days(r,today):
     vals=[]
     for x in str(r.piko_menesiai).split(","):
-        pm=MONTH_NUM[x.strip()]
+        pm=MONTH_NUM.get(x.strip())
+        if not pm:continue
         y=today.year if pm>=today.month else today.year+1
         vals.append((date(y,pm,15)-today).days)
-    return min(vals)
+    return min(vals) if vals else 180
 
-def sales_score(v):
-    return {"žemas":30,"vidutinis":55,"aukštas":78,"labai aukštas":95}.get(str(v).lower(),60)
-def comp_score(v):
-    return {"žema":90,"vidutinė":72,"aukšta":52}.get(str(v).lower(),65)
-
-def score(r,today,h):
-    d=peak_days(r,today)
-    publish=max(0,d-int(r.isankstinio_paskelbimo_dienos))
-    sigma=max(12,h*.55)
-    time_score=100*math.exp(-((publish-h*.35)**2)/(2*sigma*sigma))
-    return round(.48*time_score+.20*(float(r.evergreen)*20)+.22*sales_score(r.pardavimo_potencialas)+.10*comp_score(r.konkurencija))
-
-def action(r,today):
-    d=peak_days(r,today)
-    publish=d-int(r.isankstinio_paskelbimo_dienos)
-    if publish < -7:return "📣 PERPUBLIKUOTI / PRALEISTI",publish
-    if publish <= int(r.gamybos_sanaudos_d)+3:return "🔥 KURTI NAUJĄ",publish
-    if publish <= 30:return "🟠 PLANUOTI",publish
-    if publish <= 90:return "🔭 RUOŠTIS",publish
-    return "⚪ VĖLIAU",publish
-
+def sales_score(v): return {"žemas":30,"vidutinis":55,"aukštas":78,"labai aukštas":95}.get(str(v).lower(),60)
+def comp_score(v): return {"žema":90,"vidutinė":72,"aukšta":52}.get(str(v).lower(),65)
 def stars(n): return "🌲"*int(n)+"○"*(5-int(n))
 
-@st.cache_data(ttl=21600, show_spinner=False)
+def horizon_score(r,today,h):
+    d=peak_days(r,today)
+    publish=max(0,d-int(r.isankstinio_paskelbimo_dienos))
+    sigma=max(8,h*.65)
+    timing=100*math.exp(-((publish-h*.40)**2)/(2*sigma*sigma))
+    return round(.48*timing+.20*(float(r.evergreen)*20)+.22*sales_score(r.pardavimo_potencialas)+.10*comp_score(r.konkurencija))
+
+def timing(r,today):
+    peak=today+timedelta(days=max(0,peak_days(r,today)))
+    publish=peak-timedelta(days=int(r.isankstinio_paskelbimo_dienos))
+    start=publish-timedelta(days=int(r.gamybos_sanaudos_d))
+    last=peak-timedelta(days=max(2,int(r.isankstinio_paskelbimo_dienos)//3))
+    return start,publish,peak,last
+
+def examples(r,n=8):
+    return [x.strip() for x in str(r.uzduociu_pavyzdziai).split(" | ") if x.strip()][:n]
+
+def angles(r):
+    return [x.strip() for x in str(getattr(r,"kampai","")).split(" | ") if x.strip()]
+
+@st.cache_data(ttl=21600,show_spinner=False)
 def scan_catalog(base_url):
-    """Best-effort catalog scanner: sitemap first, then homepage links. Returns title/code/url."""
     headers={"User-Agent":"Mozilla/5.0 TrendRadar/1.0"}
     urls=[]
-    # likely sitemap locations
     for sm in [urljoin(base_url,"sitemap.xml"),urljoin(base_url,"sitemap_index.xml")]:
         try:
-            r=requests.get(sm,headers=headers,timeout=10)
-            if r.ok and "<loc>" in r.text:
-                root=ET.fromstring(r.text)
+            rr=requests.get(sm,headers=headers,timeout=10)
+            if rr.ok and "<loc>" in rr.text:
+                root=ET.fromstring(rr.text)
                 locs=[e.text.strip() for e in root.iter() if e.tag.endswith("loc") and e.text]
-                # if sitemap index, inspect child sitemaps
-                for loc in locs[:20]:
+                for loc in locs[:30]:
                     if loc.endswith(".xml"):
                         try:
-                            rr=requests.get(loc,headers=headers,timeout=10)
-                            rt=ET.fromstring(rr.text)
+                            x=requests.get(loc,headers=headers,timeout=8)
+                            rt=ET.fromstring(x.text)
                             urls += [e.text.strip() for e in rt.iter() if e.tag.endswith("loc") and e.text]
-                        except: pass
+                        except:pass
                     else: urls.append(loc)
-                if urls: break
-        except: pass
+                if urls:break
+        except:pass
     if not urls:
         try:
-            r=requests.get(base_url,headers=headers,timeout=10)
-            soup=BeautifulSoup(r.text,"html.parser")
-            urls=[urljoin(base_url,a.get("href")) for a in soup.find_all("a",href=True)]
-        except: urls=[]
+            rr=requests.get(base_url,headers=headers,timeout=10)
+            s=BeautifulSoup(rr.text,"html.parser")
+            urls=[urljoin(base_url,a.get("href")) for a in s.find_all("a",href=True)]
+        except:urls=[]
     host=urlparse(base_url).netloc
-    urls=[u for u in dict.fromkeys(urls) if urlparse(u).netloc==host][:450]
-    out=[]
+    urls=[u for u in dict.fromkeys(urls) if urlparse(u).netloc==host][:500]
     code_re=re.compile(r"(?:Nr\.?\s*)?((?:P)?\d{1,5})\b",re.I)
+    out=[]
     for u in urls:
         low=u.lower()
-        if any(x in low for x in ["/category","/blog","/kontakt","/apie","/login","/cart"]): continue
-        title=""
-        try:
-            # derive title from URL cheaply first
-            slug=urlparse(u).path.strip("/").split("/")[-1].replace("-"," ")
-            title=slug.strip()
-            m=code_re.search(title)
-            code=m.group(1).upper() if m else ""
-            # only fetch promising product-ish urls
-            if code or "nr-" in low or "p" in slug[-8:]:
-                rr=requests.get(u,headers=headers,timeout=6)
-                if rr.ok:
-                    s=BeautifulSoup(rr.text,"html.parser")
-                    if s.title and s.title.text.strip(): title=s.title.text.strip()
-                    m=code_re.search(title+" "+u)
-                    code=m.group(1).upper() if m else code
-            if title:
-                out.append({"pavadinimas":title,"kodas":code,"nuoroda":u})
-        except: pass
+        if any(x in low for x in ["/category","/blog","/kontakt","/apie","/login","/cart"]):continue
+        slug=urlparse(u).path.strip("/").split("/")[-1].replace("-"," ")
+        title=slug; m=code_re.search(title+" "+u); code=m.group(1).upper() if m else ""
+        if code or "nr-" in low:
+            try:
+                x=requests.get(u,headers=headers,timeout=5)
+                if x.ok:
+                    s=BeautifulSoup(x.text,"html.parser")
+                    if s.title and s.title.text.strip():title=s.title.text.strip()
+                    m=code_re.search(title+" "+u); code=m.group(1).upper() if m else code
+            except:pass
+        if title:out.append({"pavadinimas":title,"kodas":code,"nuoroda":u})
     return pd.DataFrame(out).drop_duplicates("nuoroda") if out else pd.DataFrame(columns=["pavadinimas","kodas","nuoroda"])
 
-def catalog_matches(catalog, r):
+def catalog_matches(catalog,r):
     if catalog.empty:return catalog
-    words=[w.lower() for w in re.findall(r"[A-Za-zĄČĘĖĮŠŲŪŽąčęėįšųūž]{4,}",str(r.tema)+" "+str(r.mikrotema))]
+    stop={"ugdymas","užduotys","priemonė","kortelės","vaikams","tema","grupės","rinkinys"}
+    words=[w.lower() for w in re.findall(r"[A-Za-zĄČĘĖĮŠŲŪŽąčęėįšųūž]{4,}",str(r.tema)+" "+str(r.mikrotema)) if w.lower() not in stop]
     if not words:return catalog.head(0)
-    s=(catalog["pavadinimas"].fillna("")+" "+catalog["nuoroda"].fillna("")).str.lower()
-    mask=s.apply(lambda x:sum(w in x for w in words)>=1)
-    return catalog[mask].head(6)
+    s=(catalog.pavadinimas.fillna("")+" "+catalog.nuoroda.fillna("")).str.lower()
+    scored=s.apply(lambda x:sum(w in x for w in words))
+    z=catalog.assign(_score=scored)
+    return z[z._score>=1].sort_values("_score",ascending=False).head(8)
+
+def exact_catalog_match(catalog,r):
+    m=catalog_matches(catalog,r)
+    if m.empty:return m
+    micro_words=[w.lower() for w in re.findall(r"[A-Za-zĄČĘĖĮŠŲŪŽąčęėįšųūž]{5,}",str(r.mikrotema))]
+    s=(m.pavadinimas.fillna("")+" "+m.nuoroda.fillna("")).str.lower()
+    mask=s.apply(lambda x:sum(w in x for w in micro_words)>=max(1,min(2,len(micro_words))))
+    return m[mask].head(4)
 
 def fb_angle(r):
-    micro=str(r.mikrotema).lower()
-    if "palygin" in micro:return "Rodyti konkretų gebėjimą palyginti, o ne bendrą temos pavadinimą: vieną užduoties pavyzdį „kuris didesnis / mažesnis ir kodėl?“."
-    if "sandara" in micro:return "Akcentuoti, kad vaikas ne tik skaičiuoja, bet supranta, iš kokių dalių sudarytas skaičius."
-    if "teksto" in micro:return "Parodyti 1 trumpą teksto pavyzdį ir klausimą, kad pedagogas iš karto pamatytų priemonės sudėtingumą."
-    if "dekor" in str(r.sritis).lower():return "Rodyti 3–4 gražiausias rinkinio dalis viename koliaže ir paminėti, kam tinka konkretus grupės pavadinimas."
-    return f"Komunikacijos kampas: ne „priemonė apie {r.tema}“, o konkretus gebėjimas – {r.mikrotema.lower()} – su vienu realiu užduoties pavyzdžiu."
+    a=angles(r)
+    hook=a[0] if a else str(r.mikrotema)
+    return f"Rodyti ne bendrą temą, o konkretų veiksmą „{hook}“. Įkelti vieną realią užduotį / ekraną ir parodyti, ką vaikas turi padaryti."
 
-def why_not(r, catalog):
-    matches=catalog_matches(catalog,r)
-    if len(matches)>=4:
-        return f"⛔ NEKURTI bendros priemonės: kataloge jau rasta bent {len(matches)} susijusių produktų. Ieškoti tik naujo gebėjimo / mechanikos kampo."
-    if str(r.konkurencija).lower()=="aukšta" and str(r.pardavimo_potencialas).lower() not in ["labai aukštas"]:
-        return "⛔ NEKURTI dabar: konkurencija aukšta, o pardavimo potencialas nepakankamai išskirtinis."
-    return ""
+def decision(r,catalog,today):
+    stt=idea_status(fp(r))
+    if stt.get("status") in ["SUKURTA","PRAPLESTA"]:
+        return "ATLIKTA",None
+    exact=exact_catalog_match(catalog,r)
+    related=catalog_matches(catalog,r)
+    start,pub,peak,last=timing(r,today)
+    if len(exact):
+        p=exact.iloc[0]
+        if not recent_republish(str(p.kodas),21) and today >= pub-timedelta(days=4) and today <= last:
+            return "PERPUBLIKUOTI",p
+        return "PALAUkti",p
+    if len(related):
+        return "ISPLESTI",related.iloc[0]
+    if today >= start and today <= last:
+        return "KURTI",None
+    return "PALAUKTI",None
+
+def source_badge(r):
+    lvl=str(getattr(r,"teorijos_lygis","bendras"))
+    if lvl=="būtina tikrinti":return "🟠 BŪTINA PATIKRINTI TEORIJĄ"
+    if lvl=="reikia šaltinių":return "🔵 REMTIS ŠALTINIAIS"
+    return "🟢 BENDRO IŠMANYMO / PROGRAMOS LYGMUO"
+
+def full_card(r,action_label=None,product=None,key_prefix="card",show_buttons=True):
+    start,pub,peak,last=timing(r,today)
+    action_label=action_label or "IDĖJA"
+    st.markdown(f"### {trend_label(r)} · {r.tema} → {r.mikrotema}")
+    if action_label=="PERPUBLIKUOTI" and product is not None:
+        st.write(f"**📣 Priemonė:** {product.pavadinimas}  •  **Kodas:** {product.kodas or 'nerastas'}")
+        st.write(f"**Optimalu perpublikuoti:** {pub.strftime('%Y-%m-%d')}–{min(last,peak).strftime('%Y-%m-%d')}  •  **Paklausos pikas:** apie {peak.strftime('%Y-%m-%d')}")
+        st.write(f"**FB kampas:** {fb_angle(r)}")
+        if product.nuoroda:st.write(f"**Nuoroda:** {product.nuoroda}")
+        if show_buttons and st.button("✅ PASIDALINAU",key=f"{key_prefix}_share_{fp(r)}"):
+            republish_done(str(product.kodas),str(r.tema),str(r.mikrotema),fb_angle(r)); st.rerun()
+        return
+    if action_label=="ISPLESTI" and product is not None:
+        st.write(f"**🔄 Esamas produktas:** {product.pavadinimas} • **Kodas:** {product.kodas or 'nerastas'}")
+        st.write(f"**Naujas kampas:** {r.produkto_ideja}")
+    else:
+        st.write(f"**💡 Siūloma priemonė:** {r.produkto_ideja}")
+    st.write(f"**Kam:** {r.amzius} • {r.sritis} • **Formatas:** {r.formatas}")
+    st.write(f"**Apimtis:** {getattr(r,'produkto_apimtis','24–36 užduotys')} • **Evergreen:** {stars(r.evergreen)} • **Pardavimo potencialas:** {r.pardavimo_potencialas} • **Konkurencija:** {r.konkurencija}")
+    st.markdown("**🎯 Rekomenduojamas užduoties kampas**")
+    aa=angles(r)
+    for i,a in enumerate(aa[:3],1):st.write(f"{['🥇','🥈','🥉'][i-1]} **{a}**")
+    st.markdown("**🧩 Konkretūs užduočių pavyzdžiai**")
+    for x in examples(r,8):st.write("• "+x)
+    st.markdown("**📅 Laikas**")
+    st.write(f"**Pradėti kurti:** {'dabar' if today>=start else start.strftime('%Y-%m-%d')}  •  **Optimalu publikuoti:** {pub.strftime('%Y-%m-%d')}  •  **Paskutinė verta diena:** {last.strftime('%Y-%m-%d')}  •  **Tikėtinas pikas:** {peak.strftime('%Y-%m-%d')}")
+    st.markdown(f"**📚 Turinys:** {source_badge(r)}")
+    st.write(str(getattr(r,"saltiniu_kryptis","Aktualios ugdymo programos ir patikimi dalyko šaltiniai.")))
+    if show_buttons:
+        code=st.text_input("Produkto kodas, kai atliksi",key=f"{key_prefix}_code_{fp(r)}",placeholder="pvz. P129 arba 301")
+        c1,c2=st.columns(2)
+        if action_label=="ISPLESTI":
+            if c1.button("✅ PRAPLĖČIAU",key=f"{key_prefix}_expanded_{fp(r)}"):
+                if code.strip():set_idea_status(fp(r),"PRAPLESTA",code);st.rerun()
+                else:st.warning("Įvesk naujai sukurtos priemonės kodą.")
+        else:
+            if c1.button("✅ SUKŪRIAU",key=f"{key_prefix}_created_{fp(r)}"):
+                if code.strip():set_idea_status(fp(r),"SUKURTA",code);st.rerun()
+                else:st.warning("Įvesk produkto kodą.")
 
 df=load_topics()
 today=st.sidebar.date_input("Šiandien",date.today())
-st.title("📡 Protuoliukas Trend Radar — V7.1.1")
-st.caption("KURTI • PERPUBLIKUOTI • IŠPLĖSTI • Artėjantys TOPai • Idėjų bankas • savaitinė suvestinė")
+for h in [7,14,30]:df[f"{h}d"]=df.apply(lambda r:horizon_score(r,today,h),axis=1)
+df["prioritetas"]=df[["7d","14d","30d"]].max(axis=1)
+
+st.title("📡 Protuoliukas Trend Radar — V7.3")
+st.caption("7 / 14 / 30 dienų radaras • konkretus užduoties kampas • KURTI / PERPUBLIKUOTI / IŠPLĖSTI be prieštaravimų")
 
 with st.sidebar:
     st.divider()
     st.subheader("Katalogas")
-    do_scan=st.checkbox("Tikrinti mokymopriemones.eu katalogą",value=True)
-    if st.button("🔄 Atnaujinti katalogą"):
-        scan_catalog.clear()
-    st.caption("Katalogas tikrinamas periodiškai. Jei produkto nepavyksta patikimai rasti, Radar nerodo išgalvoto kodo.")
-    try:
-        supabase_client().table("ideas").select("id").limit(1).execute()
-        st.success("🟢 Supabase prijungta")
-    except Exception as e:
-        st.error("🔴 Supabase neprijungta. Patikrink Streamlit Secrets.")
+    do_scan=st.checkbox("Tikrinti mokymopriemones.eu",True)
+    if st.button("🔄 Atnaujinti katalogą"):scan_catalog.clear()
+    ok,err=db_ok()
+    if ok:st.success("🟢 Supabase prijungta")
+    else:st.error("🔴 Supabase neprijungta")
     st.divider()
-    st.subheader("Filtrai")
-    ages=st.multiselect("Amžius",sorted(df.amzius.unique()))
-    areas=st.multiselect("Sritis",sorted(df.sritis.unique()))
+    ages=st.multiselect("Amžius",sorted(df.amzius.astype(str).unique()))
+    areas=st.multiselect("Sritis",sorted(df.sritis.astype(str).unique()))
+    st.caption("Visos amžiaus grupės svarbios. 5–8 kl. Radar ypač stebi lietuvių ir matematiką, bet gali iškelti ir stiprias kitų dalykų nišas.")
 
-for h in [7,30,90]:
-    df[f"{h}d"]=df.apply(lambda r:score(r,today,h),axis=1)
-tmp=df.apply(lambda r:action(r,today),axis=1)
-df["veiksmas"]=[x[0] for x in tmp]
-df["paskelbti_po"]=[x[1] for x in tmp]
-df["prioritetas"]=df[["7d","30d","90d"]].max(axis=1)
-
-if ages: df=df[df.amzius.isin(ages)]
-if areas: df=df[df.sritis.isin(areas)]
-
+if ages:df=df[df.amzius.isin(ages)]
+if areas:df=df[df.sritis.isin(areas)]
 catalog=scan_catalog(SHOP) if do_scan else pd.DataFrame(columns=["pavadinimas","kodas","nuoroda"])
 
-# Auto-save high-value current recommendations to idea bank
-autos=df[(df.prioritetas>=65) & (df.veiksmas.isin(["🔥 KURTI NAUJĄ","🟠 PLANUOTI","🔭 RUOŠTIS"]))].copy()
-for _,r in autos.iterrows():
-    save_idea(r,r.prioritetas)
+# One decision per idea: no self-contradictions
+decisions=[]
+for _,r in df.iterrows():
+    act,prod=decision(r,catalog,today)
+    decisions.append((fp(r),act,prod))
+dmap={a:(b,c) for a,b,c in decisions}
 
-tabs=st.tabs(["🏠 ŠIANDIEN","💡 PRODUKTŲ PLANAI","🚀 ARTĖJANTYS TOPAI","📣 PERPUBLIKUOTI","🔄 IŠPLĖSTI ESAMĄ","🧠 IDĖJŲ BANKAS","📅 SAVAITĖ","⛔ NEKURTI"])
+# Auto-save valuable create/expand ideas
+for _,r in df[df.prioritetas>=65].iterrows():
+    act,_=dmap[fp(r)]
+    if act in ["KURTI","ISPLESTI","PALAUKTI"]:
+        save_idea(r,r.prioritetas)
+
+tabs=st.tabs(["🏠 ŠIANDIEN","📅 SAVAITĖ","🚀 ARTĖJANTYS TOPAI","💡 PRODUKTŲ PLANAI","📣 PERPUBLIKUOTI","🔄 IŠPLĖSTI ESAMĄ","🧠 IDĖJŲ BANKAS"])
 
 with tabs[0]:
-    st.subheader("🔥 KURTI NAUJĄ")
-    for _,r in df[df.veiksmas=="🔥 KURTI NAUJĄ"].sort_values("prioritetas",ascending=False).head(8).iterrows():
-        deadline=today+timedelta(days=max(0,int(r.paskelbti_po)))
-        st.markdown(f"### {trend_label(r)} · {r.tema} → {r.mikrotema}")
-        st.write(f"**Ką kurti:** {r.produkto_ideja}")
-        st.write(f"**Kam:** {r.amzius} • {r.sritis} • **Formatas:** {r.formatas}")
-        st.write(f"**Publikuoti:** {'dabar' if r.paskelbti_po<=0 else deadline.strftime('%Y-%m-%d')} • **Evergreen:** {stars(r.evergreen)} • **Pardavimo potencialas:** {r.pardavimo_potencialas}")
-        st.caption("Detali mechanika ir užduočių pavyzdžiai – skiltyje „Produktų planai“.")
+    st.subheader("ŠIANDIEN – ką verta realiai daryti")
+    active=[]
+    for _,r in df.sort_values("prioritetas",ascending=False).iterrows():
+        act,prod=dmap[fp(r)]
+        if act in ["KURTI","PERPUBLIKUOTI","ISPLESTI"]:
+            active.append((r,act,prod))
+        if len(active)>=8:break
+    if not active:st.info("Šiandien nėra pakankamai stiprių aktyvių veiksmų. Žiūrėk „Artėjančius TOPus“.")
+    for i,(r,act,prod) in enumerate(active,1):
+        label={"KURTI":"🔥 KURTI NAUJĄ","PERPUBLIKUOTI":"📣 PERPUBLIKUOTI","ISPLESTI":"🔄 IŠPLĖSTI ESAMĄ"}[act]
+        st.markdown(f"## {i}. {label}")
+        full_card(r,act,prod,key_prefix=f"today{i}")
         st.divider()
-
-    st.subheader("📣 PERPUBLIKUOTI")
-    reps=[]
-    if not catalog.empty:
-        for _,r in df.sort_values("7d",ascending=False).iterrows():
-            m=catalog_matches(catalog,r)
-            if len(m):
-                reps.append((r,m.iloc[0]))
-            if len(reps)>=8:break
-    if reps:
-        for r,p in reps:
-            code=p.get("kodas","") or "kodas nerastas"
-            st.markdown(f"### {r.tema} → {r.mikrotema}")
-            st.write(f"**Priemonė:** {p.pavadinimas} • **Kodas:** {code}")
-            st.write(f"**Nuoroda:** {p.nuoroda}")
-            st.write(f"**Kodėl dabar:** 7 d. aktualumo balas {int(r['7d'])}/100.")
-            st.write(f"**FB kampas:** {fb_angle(r)}")
-            st.divider()
-    else:
-        st.info("Kataloge nepavyko patikimai susieti produktų su šiandienos temomis. Radar geriau nieko neišgalvoja.")
-
-    st.subheader("🔄 IŠPLĖSTI ESAMĄ")
-    shown=0
-    for _,r in df.sort_values("30d",ascending=False).iterrows():
-        m=catalog_matches(catalog,r)
-        if len(m)>=1:
-            st.markdown(f"### {r.tema} → naujas kampas: **{r.mikrotema}**")
-            st.write(f"Kataloge rasta susijusių priemonių: **{len(m)}**. Vietoje bendros temos kurk kitą gebėjimą / mechaniką.")
-            st.write(f"**Siūloma kryptis:** {r.produkto_ideja}")
-            st.write("**Pavyzdžiai:** "+", ".join(str(r.uzduociu_pavyzdziai).split(" | ")[:4]))
-            st.divider(); shown+=1
-            if shown>=8:break
-    if shown==0:st.info("Išplėtimo rekomendacijos atsiras, kai katalogo skaitytuvas patikimai ras susijusių produktų.")
 
 with tabs[1]:
-    st.subheader("💡 Išsamūs produktų planai")
-    for _,r in df.sort_values("30d",ascending=False).head(20).iterrows():
-        with st.expander(f"{r.tema} → {r.mikrotema} · {int(r['30d'])}/100 · {trend_label(r)}"):
-            st.write(f"**Produkto idėja:** {r.produkto_ideja}")
-            st.write(f"**Formatas:** {r.formatas} • **Gamyba:** ~{int(r.gamybos_sanaudos_d)} d.")
-            st.write(f"**Kam:** {r.amzius} • {r.sritis}")
-            st.write(f"**Evergreen:** {stars(r.evergreen)} • **Konkurencija:** {r.konkurencija} • **Pardavimo potencialas:** {r.pardavimo_potencialas}")
-            st.markdown("**Konkrečių užduočių pavyzdžiai:**")
-            for ex in str(r.uzduociu_pavyzdziai).split(" | "): st.write("• "+ex)
-            st.markdown("**Mechanikos progresija:** atpažinimas → taikymas → klaidos paieška / paaiškinimas.")
-            st.write(f"**FB kampas ateičiai:** {fb_angle(r)}")
-
-with tabs[2]:
-    st.subheader("🚀 Artėjantys TOPai")
-    tops=df[df.sritis.str.contains("Dekoras|Pasaulio|etnokult|Gyvenimo|STEAM|Karjeros|Ikimokykl",case=False,regex=True)].sort_values("30d",ascending=False)
-    for _,r in tops.head(15).iterrows():
-        label="🔥 KYLA" if r["30d"]>=75 else "👀 STEBĖTI"
-        st.markdown(f"### {label} · {r.tema} → {r.mikrotema}")
-        st.write(f"**Kam:** {r.amzius} • {r.sritis}")
-        st.write(f"**Produkto kryptis:** {r.produkto_ideja}")
-        st.write(f"**30 d.:** {int(r['30d'])}/100 • **Evergreen:** {stars(r.evergreen)} • **Pardavimo potencialas:** {r.pardavimo_potencialas}")
+    st.subheader(f"📅 Mano savaitė · {today.strftime('%Y-%m-%d')} – {(today+timedelta(days=6)).strftime('%Y-%m-%d')}")
+    weekly=[]
+    for _,r in df.sort_values("prioritetas",ascending=False).iterrows():
+        start,pub,peak,last=timing(r,today); act,prod=dmap[fp(r)]
+        if act!="ATLIKTA" and (start<=today+timedelta(days=6) or pub<=today+timedelta(days=6)):
+            weekly.append((r,act,prod,start,pub))
+        if len(weekly)>=10:break
+    for i,(r,act,prod,start,pub) in enumerate(weekly,1):
+        st.markdown(f"## {i}. { {'KURTI':'🔥 KURTI','PERPUBLIKUOTI':'📣 PERPUBLIKUOTI','ISPLESTI':'🔄 IŠPLĖSTI','PALAUKTI':'👀 STEBĖTI'}.get(act,'👀 STEBĖTI') }")
+        st.write(f"**Šios savaitės momentas:** {'pradėti dabar' if start<=today else 'pradėti '+start.strftime('%Y-%m-%d')} • publikavimo taškas {pub.strftime('%Y-%m-%d')}")
+        full_card(r,act if act in ["KURTI","PERPUBLIKUOTI","ISPLESTI"] else "IDĖJA",prod,key_prefix=f"week{i}",show_buttons=act in ["KURTI","PERPUBLIKUOTI","ISPLESTI"])
         st.divider()
 
-with tabs[3]:
-    st.subheader("📣 Ką perpublikuoti / priminti")
-    if reps:
-        for r,p in reps:
-            st.markdown(f"### {p.pavadinimas}")
-            st.write(f"**Kodas:** {p.get('kodas','') or 'nerastas'}")
-            st.write(f"**Tema / gebėjimas:** {r.tema} → {r.mikrotema}")
-            st.write(f"**Nuoroda:** {p.nuoroda}")
-            st.write(f"**FB komunikacijos kampas:** {fb_angle(r)}")
-            st.write("**Kaip pateikti kita forma:** parodyti vieną konkrečią užduotį, prieš/po rezultatą, trumpą naudojimo situaciją arba kitą gebėjimo kampą – nebūtina kartoti seno įrašo.")
+with tabs[2]:
+    st.subheader("🚀 Artėjantys TOPai – pilnos idėjos, ne tik temos")
+    for h in [7,14,30]:
+        st.markdown(f"## Per artimiausias {h} dienų")
+        subset=df.sort_values(f"{h}d",ascending=False).head(6)
+        for j,(_,r) in enumerate(subset.iterrows(),1):
+            act,prod=dmap[fp(r)]
+            start,pub,peak,last=timing(r,today)
+            status="🔥 KYLA" if r[f"{h}d"]>=75 else "👀 STEBĖTI"
+            st.markdown(f"### {status} · {r.tema} → {r.mikrotema} · {int(r[f'{h}d'])}/100")
+            full_card(r,act if act in ["KURTI","ISPLESTI","PERPUBLIKUOTI"] else "IDĖJA",prod,key_prefix=f"top{h}_{j}",show_buttons=act in ["KURTI","ISPLESTI","PERPUBLIKUOTI"])
             st.divider()
-    else: st.info("Šiuo metu nėra patikimai susietų katalogo priemonių.")
+
+with tabs[3]:
+    st.subheader("💡 Produktų planai – visas 7 / 14 / 30 d. kūrybos katalogas")
+    horizon=st.radio("Horizontas",[7,14,30],horizontal=True)
+    view=df.sort_values(f"{horizon}d",ascending=False)
+    for i,(_,r) in enumerate(view.head(25).iterrows(),1):
+        act,prod=dmap[fp(r)]
+        with st.expander(f"{r.tema} → {r.mikrotema} · {int(r[f'{horizon}d'])}/100 · {act}"):
+            full_card(r,act if act in ["KURTI","ISPLESTI","PERPUBLIKUOTI"] else "IDĖJA",prod,key_prefix=f"plan{i}",show_buttons=False)
 
 with tabs[4]:
-    st.subheader("🔄 Išplėsti esamą kitu kampu")
-    st.write("Radar ieško ne tik temos, bet ir **veiksmo / gebėjimo**. Termometro principas taikomas visam katalogui.")
-    shown=0
-    for _,r in df.sort_values("prioritetas",ascending=False).iterrows():
-        m=catalog_matches(catalog,r)
-        if len(m):
-            with st.expander(f"{r.tema} → {r.mikrotema}"):
-                st.write(f"**Susijusių katalogo produktų rasta:** {len(m)}")
-                st.dataframe(m[["pavadinimas","kodas","nuoroda"]],use_container_width=True,hide_index=True)
-                st.write(f"**Naujas kampas:** {r.produkto_ideja}")
-                st.write("**Užduočių idėjos:** "+", ".join(str(r.uzduociu_pavyzdziai).split(" | ")))
-            shown+=1
-            if shown>=12:break
+    st.subheader("📣 Perpublikuoti – su terminais ir atlikimo istorija")
+    count=0
+    for _,r in df.sort_values("7d",ascending=False).iterrows():
+        act,prod=dmap[fp(r)]
+        if act=="PERPUBLIKUOTI":
+            count+=1; full_card(r,act,prod,key_prefix=f"rep{count}"); st.divider()
+        if count>=12:break
+    if count==0:st.info("Šiuo metu nėra produktų, kuriems Radar matytų pagrįstą perpublikavimo langą.")
 
 with tabs[5]:
-    st.subheader("🧠 Idėjų bankas")
-    bank=idea_bank()
-    if bank.empty:
-        st.info("Bankas dar tuščias. Vertingos KURTI / PLANUOTI / RUOŠTIS rekomendacijos čia išsisaugo automatiškai.")
-    else:
-        # filters
-        c1,c2,c3,c4=st.columns(4)
-        status=c1.multiselect("Būsena",sorted(bank.status.unique()),default=["IDEJA"] if "IDEJA" in bank.status.unique() else [])
-        stage=c2.multiselect("Pakopa / amžius",sorted(bank.amzius.unique()))
-        area=c3.multiselect("Sritis",sorted(bank.sritis.unique()))
-        only_rising=c4.checkbox("Tik dažnai grįžtančios",False)
-        b=bank.copy()
-        if status:b=b[b.status.isin(status)]
-        if stage:b=b[b.amzius.isin(stage)]
-        if area:b=b[b.sritis.isin(area)]
-        if only_rising:b=b[b.top_count>=2]
-
-        # group hierarchy
-        for (amz,sritis),g1 in b.groupby(["amzius","sritis"],sort=True):
-            with st.expander(f"📂 {amz} → {sritis} · {len(g1)} id."):
-                for tema,g2 in g1.groupby("tema",sort=True):
-                    st.markdown(f"#### {tema} · {len(g2)}")
-                    for _,it in g2.iterrows():
-                        st.markdown(f"**{it.mikrotema}**  ·  {stars(it.evergreen)}  ·  TOP grįžo **{int(it.top_count)}** k.")
-                        st.caption(f"Pirmą kartą: {it.first_seen} • paskutinį: {it.last_seen} • potencialas: {it.sales} • būsena: {it.status}")
-                        st.write(it.produkto_ideja)
-                        if it.status!="SUKURTA":
-                            code=st.text_input("Produkto kodas",key=f"code_{it.id}",placeholder="pvz. P129 arba 301")
-                            a,bcol=st.columns([1,1])
-                            if a.button("✅ Pažymėti SUKURTA",key=f"created_{it.id}"):
-                                if code.strip():
-                                    mark_created(it.fingerprint,code)
-                                    st.rerun()
-                                else: st.warning("Įvesk produkto kodą.")
-                            if bcol.button("🗑️ Ištrinti idėją",key=f"del_{it.id}"):
-                                delete_idea(it.fingerprint); st.rerun()
-                        else:
-                            st.success(f"✅ SUKURTA • produkto kodas: {it.product_code}")
-                            if st.button("🗑️ Ištrinti iš banko",key=f"dels_{it.id}"):
-                                delete_idea(it.fingerprint); st.rerun()
-                        st.divider()
-        st.download_button("⬇️ Atsisiųsti Idėjų banko atsarginę kopiją",bank.to_csv(index=False).encode("utf-8-sig"),"ideju_bankas_v7.csv","text/csv")
-        st.success("✅ Idėjų bankas saugomas nuolatinėje Supabase duomenų bazėje. Streamlit perkrovimai ar naujos programėlės versijos jo neištrins.")
+    st.subheader("🔄 Išplėsti esamą – visas katalogas, ne tik dekorai")
+    count=0
+    for _,r in df.sort_values("30d",ascending=False).iterrows():
+        act,prod=dmap[fp(r)]
+        if act=="ISPLESTI":
+            count+=1
+            full_card(r,act,prod,key_prefix=f"exp{count}")
+            st.divider()
+        if count>=15:break
+    if count==0:st.info("Katalogo skaitytuvas šiuo metu nerado patikimų plėtros atitikmenų.")
 
 with tabs[6]:
-    st.subheader("📅 Savaitinė suvestinė")
-    rising=[]
-    for _,r in df.sort_values("prioritetas",ascending=False).iterrows():
-        lab=trend_label(r)
-        if "KYLA" in lab or "NAUJA" in lab:rising.append(r)
-    st.markdown("### 🔥 Kas naujai kyla / stiprėja")
-    for r in rising[:7]: st.write(f"• **{r.tema} → {r.mikrotema}** · {int(r.prioritetas)}/100")
-    st.markdown("### 💡 3 stipriausios naujos kūrimo kryptys")
-    for _,r in df.sort_values("30d",ascending=False).head(3).iterrows():
-        st.write(f"• **{r.produkto_ideja}** — {r.amzius}, {r.sritis}")
-    st.markdown("### 📣 Ką priminti")
-    if reps:
-        for r,p in reps[:5]: st.write(f"• **{p.pavadinimas}** ({p.get('kodas','') or 'kodas nerastas'}) — {fb_angle(r)}")
-    else: st.write("• Patikimų katalogo atitikmenų šią savaitę nerasta.")
-    st.markdown("### 🔁 Kas grįžta iš Idėjų banko")
+    st.subheader("🧠 Idėjų bankas – ilgalaikė atmintis")
     bank=idea_bank()
-    ret=bank[(bank.status=="IDEJA") & (bank.top_count>=2)].sort_values(["top_count","last_score"],ascending=False).head(5)
-    if len(ret):
-        for _,i in ret.iterrows():st.write(f"• **{i.tema} → {i.mikrotema}** · į TOP grįžo {int(i.top_count)} k.")
-    else:st.write("• Dar nėra pakankamai istorijos.")
+    if bank.empty:st.info("Bankas dar tuščias.")
+    else:
+        stat=st.multiselect("Būsena",sorted(bank.status.unique()),default=["IDEJA"] if "IDEJA" in bank.status.unique() else [])
+        b=bank[bank.status.isin(stat)] if stat else bank
+        for (amz,sritis),g in b.groupby(["amzius","sritis"],dropna=False):
+            with st.expander(f"📂 {amz} → {sritis} · {len(g)} id."):
+                for tema,g2 in g.groupby("tema"):
+                    st.markdown(f"### {tema}")
+                    for _,it in g2.iterrows():
+                        st.markdown(f"**{it.mikrotema}** · {stars(it.evergreen)} · TOP grįžo {int(it.top_count)} k.")
+                        st.write(f"**💡 {it.produkto_ideja}**")
+                        st.markdown("**🧩 Užduočių pavyzdžiai**")
+                        for x in [q.strip() for q in str(it.examples).split(" | ") if q.strip()][:8]:st.write("• "+x)
+                        st.caption(f"Potencialas: {it.sales} • konkurencija: {it.competition} • pirmą kartą {it.first_seen} • paskutinį {it.last_seen}")
+                        if it.status=="SUKURTA":st.success(f"✅ SUKURTA • {it.product_code}")
+                        elif it.status=="PRAPLESTA":st.success(f"✅ PRAPLĖSTA • {it.product_code}")
+                        else:
+                            code=st.text_input("Produkto kodas",key=f"bank_code_{it.id}")
+                            c1,c2=st.columns(2)
+                            if c1.button("✅ SUKURTA",key=f"bank_created_{it.id}"):
+                                if code.strip():set_idea_status(it.fingerprint,"SUKURTA",code);st.rerun()
+                            if c2.button("🗑️ IŠTRINTI",key=f"bank_delete_{it.id}"):
+                                supabase_client().table("ideas").delete().eq("fingerprint",it.fingerprint).execute();st.rerun()
+                        st.divider()
 
-with tabs[7]:
-    st.subheader("⛔ Kodėl kai ko dabar NEKURTI")
-    count=0
-    for _,r in df.sort_values("prioritetas",ascending=False).iterrows():
-        msg=why_not(r,catalog)
-        if msg:
-            st.markdown(f"### {r.tema} → {r.mikrotema}")
-            st.write(msg)
-            st.write("**Alternatyva:** perpublikuoti turimą priemonę arba ieškoti kito konkretaus gebėjimo kampo.")
-            st.divider(); count+=1
-            if count>=10:break
-    if count==0: st.info("Šiandien ryškių „NEKURTI“ signalų nėra arba katalogo skenavimas nerado pakankamai duomenų.")
-
-st.caption("V7.1: rekomendacijos automatiškai keliauja į Idėjų banką. Katalogo kodai ir nuorodos rodomi tik kai pavyksta juos patikimai aptikti.")
+st.caption("V7.3: viena rekomendacija = vienas sprendimas. ŠIANDIEN, SAVAITĖ ir TOPai rodo pilną informaciją vietoje siuntimo į kitas skiltis.")
