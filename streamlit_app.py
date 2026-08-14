@@ -265,7 +265,7 @@ today=st.sidebar.date_input("Šiandien",date.today())
 for h in [7,14,30]:df[f"{h}d"]=df.apply(lambda r:horizon_score(r,today,h),axis=1)
 df["prioritetas"]=df[["7d","14d","30d"]].max(axis=1)
 
-st.title("📡 Protuoliukas Trend Radar — V7.3")
+st.title("📡 Protuoliukas Trend Radar — V7.3.1")
 st.caption("7 / 14 / 30 dienų radaras • konkretus užduoties kampas • KURTI / PERPUBLIKUOTI / IŠPLĖSTI be prieštaravimų")
 
 with st.sidebar:
@@ -274,8 +274,21 @@ with st.sidebar:
     do_scan=st.checkbox("Tikrinti mokymopriemones.eu",True)
     if st.button("🔄 Atnaujinti katalogą"):scan_catalog.clear()
     ok,err=db_ok()
-    if ok:st.success("🟢 Supabase prijungta")
-    else:st.error("🔴 Supabase neprijungta")
+    if ok:
+        st.success("🟢 Supabase prijungta")
+    else:
+        st.error("🔴 Supabase neprijungta")
+        safe_err=str(err)
+        try:
+            secret=str(st.secrets.get("SUPABASE_KEY",""))
+            if secret:
+                safe_err=safe_err.replace(secret,"[SECRET HIDDEN]")
+        except Exception:
+            pass
+        if len(safe_err)>600:
+            safe_err=safe_err[:600]+"…"
+        st.caption("Diagnostika:")
+        st.code(safe_err)
     st.divider()
     ages=st.multiselect("Amžius",sorted(df.amzius.astype(str).unique()))
     areas=st.multiselect("Sritis",sorted(df.sritis.astype(str).unique()))
