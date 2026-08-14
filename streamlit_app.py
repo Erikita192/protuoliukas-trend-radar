@@ -22,6 +22,25 @@ def fp(r):
 def supabase_client() -> Client:
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
+def get_creation_lead():
+    return int(st.session_state.get("creation_lead_days",3))
+
+def effort_level(r):
+    text=(" ".join([str(getattr(r,"produkto_ideja","")),str(getattr(r,"uzduociu_pavyzdziai","")),str(getattr(r,"formatas",""))])).lower()
+    score=1
+    for x in ["40 ","50 ","60 ","72 ","100 ","situacij","individual","skirtingų iliustr","interaktyv","animacij","trigger","daug iliustr"]:
+        if x in text: score+=2
+    for x in ["20 ","30 ","kortel","skaidr","iliustr","powerpoint","ppt"]:
+        if x in text: score+=1
+    return "🔴 DIDELĖ" if score>=6 else ("🟡 VIDUTINĖ" if score>=3 else "🟢 MAŽA")
+
+def effort_bonus(r):
+    return {"🟢 MAŽA":8,"🟡 VIDUTINĖ":3,"🔴 DIDELĖ":-4}[effort_level(r)]
+
+def roi_label(r,score):
+    x=float(score)+effort_bonus(r)
+    return "🔥 LABAI AUKŠTA" if x>=88 else ("🟢 AUKŠTA" if x>=76 else ("🟡 VIDUTINĖ" if x>=62 else "⚪ ŽEMESNĖ"))
+
 def db_ok():
     try:
         # Verify that Secrets exist and client can be created.
@@ -127,9 +146,9 @@ def horizon_score(r,today,h):
 
 def timing(r,today):
     peak=today+timedelta(days=max(0,peak_days(r,today)))
-    publish=peak-timedelta(days=int(r.isankstinio_paskelbimo_dienos))
-    start=publish-timedelta(days=int(r.gamybos_sanaudos_d))
-    last=peak-timedelta(days=max(2,int(r.isankstinio_paskelbimo_dienos)//3))
+    publish=peak-timedelta(days=5)
+    start=publish-timedelta(days=get_creation_lead())
+    last=peak+timedelta(days=5)
     return start,publish,peak,last
 
 def examples(r,n=8):
@@ -300,10 +319,14 @@ today=st.sidebar.date_input("Šiandien",date.today())
 for h in [7,14,30]:df[f"{h}d"]=df.apply(lambda r:horizon_score(r,today,h),axis=1)
 df["prioritetas"]=df[["7d","14d","30d"]].max(axis=1)
 
-st.title("📡 Protuoliukas Trend Radar — V7.3.6")
-st.caption("7 / 14 / 30 dienų radaras • konkretus užduoties kampas • KURTI / PERPUBLIKUOTI / IŠPLĖSTI be prieštaravimų")
+st.title("📡 Protuoliukas Trend Radar — V7.4")
+st.caption("V7.4 • pikas kaip atskaitos taškas • KURTI / PERPUBLIKUOTI / IŠPLĖSTI vienoje sprendimų sistemoje")
 
 with st.sidebar:
+    st.markdown("### ⚙️ Mano dabartinis kūrimo tempas")
+    st.radio("Kiek dienų noriu turėti priemonei sukurti?",[1,2,3,5,7],index=2,horizontal=True,key="creation_lead_days",
+             help="Bendras dabartinio užimtumo rezervas. Tai nėra PDF ar PowerPoint trukmė.")
+    st.caption("Kūrybos apimtį Radar vertina pagal pačią idėją: iliustracijas, užduočių kiekį ir interaktyvumą.")
     st.divider()
     st.subheader("Katalogas")
     do_scan=st.checkbox("Tikrinti mokymopriemones.eu",True)
@@ -346,97 +369,73 @@ for _,r in df[df.prioritetas>=65].iterrows():
     if act in ["KURTI","ISPLESTI","PALAUKTI"]:
         save_idea(r,r.prioritetas)
 
-tabs=st.tabs(["🏠 ŠIANDIEN","📅 SAVAITĖ","🚀 ARTĖJANTYS TOPAI","💡 PRODUKTŲ PLANAI","📣 PERPUBLIKUOTI","🔄 IŠPLĖSTI ESAMĄ","🧠 IDĖJŲ BANKAS"])
+tabs=st.tabs(["🏠 ŠIANDIEN","📅 SAVAITĖ","🚀 ARTĖJANTYS TOPAI","💡 PRODUKTŲ PLANAI","🧠 IDĖJŲ BANKAS"])
 
 
-def demand_window(r, today):
-    """
-    Informational only. The visible TOP sections are allocated by horizon score:
-    ŠIANDIEN=7d, SAVAITĖ=14d, ARTĖJANTYS=30d.
-    """
-    start,pub,peak,last=timing(r,today)
-    activation=max(pub, peak-timedelta(days=7))
-    days=(activation-today).days
-    if days <= 7 and last >= today:
-        return "TODAY"
-    if 8 <= days <= 14:
-        return "WEEK"
-    if 15 <= days <= 30:
-        return "COMING"
+def days_to_peak(r,today):
+    return max(0,peak_days(r,today))
+
+def demand_window(r,today):
+    d=days_to_peak(r,today)
+    if d<=7:return "TODAY"
+    if d<=14:return "WEEK"
+    if d<=30:return "COMING"
     return "OUT"
 
-def allocate_top_windows(frame, today_n=8, week_n=8, coming_n=10):
-    """
-    Guarantee useful, non-empty, non-overlapping horizon lists.
-    Each idea is assigned to only one visible TOP horizon:
-    - TODAY by strongest 7d relevance
-    - WEEK by strongest 14d relevance after TODAY exclusions
-    - COMING by strongest 30d relevance after TODAY+WEEK exclusions
-
-    Completed ideas are excluded. This avoids empty sections caused by coarse
-    month-level peak dates while preserving 7/14/30-day prioritization.
-    """
+def allocate_v74(frame):
     eligible=[]
     for _,r in frame.iterrows():
         act,prod=dmap[fp(r)]
-        if act=="ATLIKTA":
-            continue
-        eligible.append((r,act,prod))
-    # TODAY
-    today_sorted=sorted(eligible,key=lambda x:float(x[0]["7d"]),reverse=True)
-    today_rows=today_sorted[:min(today_n,len(today_sorted))]
-    used={fp(x[0]) for x in today_rows}
+        if act!="ATLIKTA": eligible.append((r,act,prod))
+    used=set()
+    out=[]
+    for win,col,n in [("TODAY","7d",12),("WEEK","14d",12),("COMING","30d",12)]:
+        exact=[x for x in eligible if demand_window(x[0],today)==win and fp(x[0]) not in used]
+        exact.sort(key=lambda x:float(x[0][col])+effort_bonus(x[0]),reverse=True)
+        rows=exact[:n]
+        if len(rows)<n:
+            pool=[x for x in eligible if fp(x[0]) not in used and all(fp(x[0])!=fp(y[0]) for y in rows)]
+            pool.sort(key=lambda x:float(x[0][col])+effort_bonus(x[0]),reverse=True)
+            rows+=pool[:n-len(rows)]
+        used|={fp(x[0]) for x in rows}
+        out.append([(r,a,p,float(r[col])+effort_bonus(r)) for r,a,p in rows])
+    return out
 
-    # WEEK
-    remaining=[x for x in eligible if fp(x[0]) not in used]
-    week_sorted=sorted(remaining,key=lambda x:float(x[0]["14d"]),reverse=True)
-    week_rows=week_sorted[:min(week_n,len(week_sorted))]
-    used |= {fp(x[0]) for x in week_rows}
-
-    # COMING
-    remaining=[x for x in eligible if fp(x[0]) not in used]
-    coming_sorted=sorted(remaining,key=lambda x:float(x[0]["30d"]),reverse=True)
-    coming_rows=coming_sorted[:min(coming_n,len(coming_sorted))]
-
-    return today_rows,week_rows,coming_rows
-
-TODAY_ROWS,WEEK_ROWS,COMING_ROWS=allocate_top_windows(df,8,8,10)
+TODAY_ROWS,WEEK_ROWS,COMING_ROWS=allocate_v74(df)
 
 with tabs[0]:
-    st.subheader("🏠 ŠIANDIEN · stipriausi TOP per artimiausias 0–7 dienas")
-    st.caption("Tai stipriausios šio momento galimybės pagal 7 dienų prognozę. Sąrašas visada užpildomas geriausiais signalais ir nesidubliuoja su SAVAITE ar ARTĖJANČIAIS TOPAIS.")
-    if not TODAY_ROWS:
-        st.info("Šiuo metu nėra aktyvių neįgyvendintų idėjų.")
-    for i,(r,act,prod) in enumerate(TODAY_ROWS,1):
-        sc=float(r["7d"])
-        label={"KURTI":"🔥 KURTI NAUJĄ","PERPUBLIKUOTI":"📣 PERPUBLIKUOTI","ISPLESTI":"🔄 IŠPLĖSTI ESAMĄ","PALAUKTI":"🔥 TOP DABAR"}.get(act,"🔥 TOP DABAR")
+    st.subheader("🏠 ŠIANDIEN · ką labiausiai apsimoka daryti dabar")
+    st.caption("Iki 12 stipriausių galimybių. Radar pats parenka veiksmą pagal katalogą: KURTI, PERPUBLIKUOTI arba IŠPLĖSTI.")
+    for i,(r,act,prod,sc) in enumerate(TODAY_ROWS,1):
+        start,pub,peak,last=timing(r,today)
+        label={"KURTI":"🔥 KURTI","PERPUBLIKUOTI":"📣 PERPUBLIKUOTI","ISPLESTI":"🔄 IŠPLĖSTI"}.get(act,"💡 KURTI")
         st.markdown(f"## {i}. {label} · {int(sc)}/100")
+        st.write(f"**Iki piko:** {days_to_peak(r,today)} d. • **Kūrybos apimtis:** {effort_level(r)} • **Grąža už pastangas:** {roi_label(r,sc)}")
+        st.write(f"**Pradėti kurti:** {start.strftime('%Y-%m-%d')} • **Publikuoti:** {pub.strftime('%Y-%m-%d')}–{(peak-timedelta(days=2)).strftime('%Y-%m-%d')} • **Pikas:** {peak.strftime('%Y-%m-%d')}")
         full_card(r,act if act in ["KURTI","PERPUBLIKUOTI","ISPLESTI"] else "IDĖJA",prod,key_prefix=f"today{i}",show_buttons=act in ["KURTI","PERPUBLIKUOTI","ISPLESTI"])
         st.divider()
 
 with tabs[1]:
-    st.subheader("📅 SAVAITĖ · stipriausi TOP po maždaug savaitės")
-    st.caption("8–14 dienų perspektyva pagal 14 dienų prognozę. Čia rodomos kitos idėjos nei ŠIANDIEN, kad matytum, apie ką pradėti galvoti kitą savaitę.")
-    if not WEEK_ROWS:
-        st.info("Šiuo metu nėra papildomų 8–14 dienų signalų.")
-    for i,(r,act,prod) in enumerate(WEEK_ROWS,1):
-        sc=float(r["14d"])
+    st.subheader("📅 SAVAITĖ · kas taps stipru po savaitės")
+    st.caption("8–14 dienų iki piko. Matai, kas netrukus pereis į aktyvų ŠIANDIEN langą.")
+    for i,(r,act,prod,sc) in enumerate(WEEK_ROWS,1):
         start,pub,peak,last=timing(r,today)
-        st.markdown(f"## {i}. 👀 TOP PO SAVAITĖS · {int(sc)}/100")
-        st.write(f"**Rekomenduojamas pasiruošimo taškas:** {start.strftime('%Y-%m-%d')} • **optimalu publikuoti:** {pub.strftime('%Y-%m-%d')} • **tikėtinas pikas:** {peak.strftime('%Y-%m-%d')}")
+        label={"KURTI":"💡 PLANUOTI KURTI","PERPUBLIKUOTI":"📣 RUOŠTIS PERPUBLIKUOTI","ISPLESTI":"🔄 PLANUOTI IŠPLĖSTI"}.get(act,"👀 STEBĖTI")
+        st.markdown(f"## {i}. {label} · {int(sc)}/100")
+        st.write(f"**Iki piko:** {days_to_peak(r,today)} d. • **Kūrybos apimtis:** {effort_level(r)} • **Grąža už pastangas:** {roi_label(r,sc)}")
+        st.write(f"**Pagal {get_creation_lead()} d. tempą pradėti:** {start.strftime('%Y-%m-%d')} • **Publikuoti:** {pub.strftime('%Y-%m-%d')}–{(peak-timedelta(days=2)).strftime('%Y-%m-%d')}")
         full_card(r,act if act in ["ISPLESTI","PERPUBLIKUOTI"] else "IDĖJA",prod,key_prefix=f"week{i}",show_buttons=False)
         st.divider()
 
 with tabs[2]:
-    st.subheader("🚀 ARTĖJANTYS TOPAI · stipriausi 15–30 dienų signalai")
-    st.caption("30 dienų perspektyva. Čia rodomos dar kitos idėjos, kurių nematai nei ŠIANDIEN, nei SAVAITĖJE. Tai ankstyvas būsimos paklausos radaras.")
-    if not COMING_ROWS:
-        st.info("Šiuo metu nėra papildomų 15–30 dienų signalų.")
-    for i,(r,act,prod) in enumerate(COMING_ROWS,1):
-        sc=float(r["30d"])
+    st.subheader("🚀 ARTĖJANTYS TOPAI · 15–30 dienų iki piko")
+    st.caption("Ankstyvas radaras. Čia dar nereikia publikuoti – tik matai būsimas stiprias galimybes ir numatomą veiksmą.")
+    for i,(r,act,prod,sc) in enumerate(COMING_ROWS,1):
         start,pub,peak,last=timing(r,today)
-        st.markdown(f"## {i}. 🔭 ARTĖJANTIS TOP · {int(sc)}/100")
-        st.write(f"**Pradėti ruoštis:** {start.strftime('%Y-%m-%d')} • **optimalu publikuoti:** {pub.strftime('%Y-%m-%d')} • **tikėtinas pikas:** {peak.strftime('%Y-%m-%d')}")
+        label={"KURTI":"🔭 BŪSIMA KŪRIMO GALIMYBĖ","PERPUBLIKUOTI":"🔭 VĖL RODYTI ARTĖJANT PIKUI","ISPLESTI":"🔭 GALIMA IŠPLĖSTI"}.get(act,"🔭 STEBĖTI")
+        st.markdown(f"## {i}. {label} · {int(sc)}/100")
+        st.write(f"**Iki piko:** {days_to_peak(r,today)} d. • **Kūrybos apimtis:** {effort_level(r)} • **Grąža už pastangas:** {roi_label(r,sc)}")
+        st.write(f"**Numatomas kūrimo startas:** {start.strftime('%Y-%m-%d')} • **Publikavimo langas:** {pub.strftime('%Y-%m-%d')}–{(peak-timedelta(days=2)).strftime('%Y-%m-%d')} • **Pikas:** {peak.strftime('%Y-%m-%d')}")
         full_card(r,act if act in ["ISPLESTI","PERPUBLIKUOTI"] else "IDĖJA",prod,key_prefix=f"coming{i}",show_buttons=False)
         st.divider()
 
@@ -453,28 +452,6 @@ with tabs[3]:
             full_card(r,act if act in ["KURTI","ISPLESTI","PERPUBLIKUOTI"] else "IDĖJA",prod,key_prefix=f"plan{i}",show_buttons=False)
 
 with tabs[4]:
-    st.subheader("📣 Perpublikuoti – su terminais ir atlikimo istorija")
-    count=0
-    for _,r in df.sort_values("7d",ascending=False).iterrows():
-        act,prod=dmap[fp(r)]
-        if act=="PERPUBLIKUOTI":
-            count+=1; full_card(r,act,prod,key_prefix=f"rep{count}"); st.divider()
-        if count>=12:break
-    if count==0:st.info("Šiuo metu nėra produktų, kuriems Radar matytų pagrįstą perpublikavimo langą.")
-
-with tabs[5]:
-    st.subheader("🔄 Išplėsti esamą – visas katalogas, ne tik dekorai")
-    count=0
-    for _,r in df.sort_values("30d",ascending=False).iterrows():
-        act,prod=dmap[fp(r)]
-        if act=="ISPLESTI":
-            count+=1
-            full_card(r,act,prod,key_prefix=f"exp{count}")
-            st.divider()
-        if count>=15:break
-    if count==0:st.info("Katalogo skaitytuvas šiuo metu nerado patikimų plėtros atitikmenų.")
-
-with tabs[6]:
     st.subheader("🧠 Idėjų bankas – tik tai, ko dar nesukūrei")
     st.caption("Geros neįgyvendintos idėjos čia lieka neribotai. Paspaudus SUKŪRIAU ar PRAPLĖČIAU jos iš aktyvaus banko dingsta, bet Supabase istorijoje išlieka.")
     bank=idea_bank()
