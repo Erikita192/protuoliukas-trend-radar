@@ -36,10 +36,23 @@ def load_verified_program_timing():
 def load_program_membership():
     return pd.read_csv("program_membership_v9.csv")
 
+@st.cache_data
+def load_parent_demand_calendar():
+    x=pd.read_csv("parent_demand_calendar_v10.csv")
+    x["start"]=pd.to_datetime(x["start"]).dt.date
+    x["end"]=pd.to_datetime(x["end"]).dt.date
+    return x
+
+@st.cache_data
+def load_occasion_product_ideas():
+    return pd.read_csv("occasion_product_ideas_v10.csv")
+
 SCHOOL_CAL=load_school_calendar()
 OCCASIONS=load_occasions()
 VERIFIED_TIMING=load_verified_program_timing()
 PROGRAM_MEMBERSHIP=load_program_membership()
+PARENT_DEMAND=load_parent_demand_calendar()
+OCCASION_IDEAS=load_occasion_product_ideas()
 
 def is_school_holiday(day):
     for _,x in SCHOOL_CAL[SCHOOL_CAL["type"]=="atostogos"].iterrows():
@@ -288,12 +301,41 @@ def parent_signal(r):
     t=_norm(f"{r.tema} {r.mikrotema}")
     return any(k in t for k in [
         "raid","abėc","skaič","raš","skaity","emoc","kūnas","spalv","forma",
-        "sudėt","atimt","daugyb","dalyb"
+        "sudėt","atimt","daugyb","dalyb","dėmes","pastab","mokykl"
     ])
+
+def parent_demand_signal(r,today):
+    """A real parent-demand time window, not merely a +6 score bonus."""
+    text=f"{r.tema} {r.mikrotema} {r.sritis}"
+    best=None
+    for _,x in PARENT_DEMAND.iterrows():
+        # Include current/near-future windows so SAVAITĖ can be populated before they start.
+        if x["end"] < today-timedelta(days=3) or x["start"] > today+timedelta(days=35):
+            continue
+        ov=keyword_overlap(text,x["keywords"])
+        if ov<=0:
+            continue
+        # Suggested buying peak is early in the strongest part of the window.
+        window_len=max(1,(x["end"]-x["start"]).days)
+        peak=x["start"]+timedelta(days=min(5,max(2,window_len//3)))
+        score=int(x["strength"])+min(10,ov*2)
+        cand={
+            "score":min(100,score),
+            "label":str(x["label"]),
+            "start":x["start"],
+            "end":x["end"],
+            "peak":peak,
+            "note":str(x["note"]),
+            "confidence":82 if int(x["strength"])>=85 else 72
+        }
+        if best is None or cand["score"]>best["score"]:
+            best=cand
+    return best
 
 def signal_stack(r,today):
     ps=program_signal(r,today)
     osig=occasion_signal(r,today)
+    pds=parent_demand_signal(r,today)
     signals=[]
     extra=0
 
@@ -312,11 +354,14 @@ def signal_stack(r,today):
         signals.append("🌿 evergreen")
         extra+=6
 
-    if parent_signal(r):
-        signals.append("👨‍👩‍👧 tėvų paklausa")
-        extra+=6
+    if pds:
+        signals.append(f"👨‍👩‍👧 {pds['label']}")
+        extra+=min(16,max(6,(pds["score"]-60)//2))
+    elif parent_signal(r):
+        signals.append("👨‍👩‍👧 tėvų evergreen paklausa")
+        extra+=4
 
-    return ps,osig,signals,extra
+    return ps,osig,pds,signals,extra
 
 def seasonal_peak(r,today):
     vals=[]
@@ -339,7 +384,7 @@ def pedagogical_peak(r,today):
     3) low-confidence seasonality.
     Program membership without timing never creates a peak.
     """
-    ps,osig,signals,extra=signal_stack(r,today)
+    ps,osig,pds,signals,extra=signal_stack(r,today)
     candidates=[]
 
     if ps and ps.get("all_windows"):
@@ -363,6 +408,15 @@ def pedagogical_peak(r,today):
             "use_date":osig["date"],
             "detail":osig,
             "confidence":95
+        })
+
+    if pds:
+        candidates.append({
+            "peak":pds["peak"],
+            "kind":"tevai",
+            "use_date":pds["end"],
+            "detail":pds,
+            "confidence":int(pds["confidence"])
         })
 
     eligible=[c for c in candidates if c["peak"]>=today-timedelta(days=3)]
@@ -466,7 +520,7 @@ def save_idea(r, score):
         else:
             sb.table("ideas").insert({
                 "fingerprint":f,"tema":str(r.tema),"mikrotema":str(r.mikrotema),"amzius":str(r.amzius),"sritis":str(r.sritis),
-                "produkto_ideja":str(r.produkto_ideja),"formatas":str(r.formatas),"examples":str(r.uzduociu_pavyzdziai),
+                "produkto_ideja":str(r.produkto_ideja).replace("Pastatyk skaičių","Sudėliok skaičių"),"formatas":str(r.formatas),"examples":str(r.uzduociu_pavyzdziai),
                 "evergreen":int(r.evergreen),"competition":str(r.konkurencija),"sales":str(r.pardavimo_potencialas),
                 "first_seen":today,"last_seen":today,"top_count":1,"last_score":float(score),"status":"IDEJA","product_code":""
             }).execute()
@@ -551,6 +605,62 @@ def _session_completed():
         st.session_state["completed_fingerprints"]=set()
     return st.session_state["completed_fingerprints"]
 
+def persist_completed_idea(r,status,code=""):
+    """
+    Persist completion in Supabase and VERIFY it before hiding the card.
+    Uses explicit SELECT -> UPDATE/INSERT instead of relying on a silent UPDATE
+    that may match zero rows.
+    """
+    try:
+        sb=supabase_client()
+        f=fp(r)
+        now=datetime.utcnow().isoformat()
+        existing=sb.table("ideas").select("fingerprint").eq("fingerprint",f).limit(1).execute().data
+
+        if existing:
+            sb.table("ideas").update({
+                "status":str(status),
+                "product_code":str(code or "").strip(),
+                "last_seen":str(date.today()),
+                "last_score":float(getattr(r,"prioritetas",0) or 0),
+                "updated_at":now
+            }).eq("fingerprint",f).execute()
+        else:
+            sb.table("ideas").insert({
+                "fingerprint":f,
+                "tema":str(r.tema),
+                "mikrotema":str(r.mikrotema),
+                "amzius":str(r.amzius),
+                "sritis":str(r.sritis),
+                "produkto_ideja":str(r.produkto_ideja).replace("Pastatyk skaičių","Sudėliok skaičių"),
+                "formatas":str(r.formatas),
+                "examples":str(r.uzduociu_pavyzdziai),
+                "evergreen":int(r.evergreen),
+                "competition":str(r.konkurencija),
+                "sales":str(r.pardavimo_potencialas),
+                "first_seen":str(date.today()),
+                "last_seen":str(date.today()),
+                "top_count":1,
+                "last_score":float(getattr(r,"prioritetas",0) or 0),
+                "status":str(status),
+                "product_code":str(code or "").strip(),
+                "updated_at":now
+            }).execute()
+
+        # Read back from DB. Only success if persistence is really there.
+        check=sb.table("ideas").select("status,product_code,updated_at").eq("fingerprint",f).limit(1).execute().data
+        if not check:
+            return False
+        row=check[0]
+        if str(row.get("status") or "") != str(status):
+            return False
+
+        load_idea_status_map.clear()
+        return True
+    except Exception:
+        return False
+
+
 def mark_shared(r, product):
     """
     Persist PASIDALINAU safely:
@@ -561,10 +671,10 @@ def mark_shared(r, product):
     """
     code=str(getattr(product,"kodas","") or "")
     republish_done(code,str(r.tema),str(r.mikrotema),fb_angle(r))
-    save_idea(r,float(getattr(r,"prioritetas",0) or 0))
-    set_idea_status(fp(r),"SUKURTA",code)
-    load_idea_status_map.clear()
-    _session_completed().add(fp(r))
+    ok=persist_completed_idea(r,"SUKURTA",code)
+    if ok:
+        _session_completed().add(fp(r))
+    return ok
 
 
 def prior_score(fingerprint,days=1):
@@ -616,7 +726,7 @@ def timing(r,today):
     start=publish-timedelta(days=get_creation_lead())
     start=shift_before_holiday(start)
     publish=shift_before_holiday(publish)
-    last=(use_date+timedelta(days=2)) if kind in ["programa","proga"] else (peak+timedelta(days=5))
+    last=(use_date+timedelta(days=2)) if kind in ["programa","proga","tevai"] else (peak+timedelta(days=5))
     return start,publish,peak,last
 
 
@@ -776,7 +886,8 @@ def full_card(r,action_label=None,product=None,key_prefix="card",show_buttons=Tr
         st.write(f"**FB kampas:** {fb_angle(r)}")
         if product.nuoroda:st.write(f"**Nuoroda:** {product.nuoroda}")
         if show_buttons and st.button("✅ PASIDALINAU",key=f"{key_prefix}_share_{fp(r)}"):
-            mark_shared(r,product); st.rerun()
+            if mark_shared(r,product): st.rerun()
+            else: st.warning("Nepavyko išsaugoti PASIDALINAU į Supabase.")
         return
     if action_label=="ISPLESTI" and product is not None:
         st.write(f"**🔄 Esamas produktas:** {product.pavadinimas} • **Kodas:** {product.kodas or 'nerastas'}")
@@ -792,7 +903,7 @@ def full_card(r,action_label=None,product=None,key_prefix="card",show_buttons=Tr
     for x in examples(r,8):st.write("• "+x)
     st.markdown("**📅 Laikas**")
     st.write(f"**Pradėti kurti:** {'dabar' if today>=start else start.strftime('%Y-%m-%d')}  •  **Optimalu publikuoti:** {pub.strftime('%Y-%m-%d')}  •  **Paskutinė verta diena:** {last.strftime('%Y-%m-%d')}  •  **Tikėtinas pirkimo pikas:** {peak.strftime('%Y-%m-%d')}")
-    ps,osig,signals,extra=signal_stack(r,today)
+    ps,osig,pds,signals,extra=signal_stack(r,today)
     st.markdown("**🧭 Kodėl ši idėja dabar?**")
     if signals:
         st.write(" + ".join(signals))
@@ -845,8 +956,10 @@ def compact_done_controls(r,act,prod,key_prefix):
     """Every recommendation gets a completion action, regardless of action type."""
     if act=="PERPUBLIKUOTI" and prod is not None:
         if st.button("✅ ATLIKTA · PASIDALINAU",key=f"{key_prefix}_compact_share_{fp(r)}",use_container_width=True):
-            mark_shared(r,prod)
-            st.rerun()
+            if mark_shared(r,prod):
+                st.rerun()
+            else:
+                st.warning("Nepavyko išsaugoti PASIDALINAU į Supabase, todėl rekomendacija nepažymėta atlikta. Pabandyk dar kartą.")
         return
 
     # For every other idea, allow marking it completed as a created/expanded product.
@@ -868,15 +981,12 @@ def compact_done_controls(r,act,prod,key_prefix):
         if not code.strip():
             st.warning("Įvesk produkto kodą – tada Radar prisimins, kad ši idėja jau įgyvendinta.")
         else:
-            # Some lower-priority/fallback recommendations may not yet exist in Ideas.
-            # Ensure a row exists before changing status.
-            save_idea(r, float(getattr(r,"prioritetas",0) or 0))
-            ok=set_idea_status(fp(r),status,code.strip())
+            ok=persist_completed_idea(r,status,code.strip())
             if ok:
                 _session_completed().add(fp(r))
                 st.rerun()
             else:
-                st.warning("Nepavyko įrašyti būsenos į Supabase. Pabandyk dar kartą po kelių sekundžių.")
+                st.warning("Nepavyko įrašyti ATLIKTA į Supabase, todėl rekomendacija liko aktyvi. Pabandyk dar kartą.")
 
 
 
@@ -922,7 +1032,7 @@ def fast_detail_card(r,action_label=None,product=None):
         f"• **Tikėtinas pirkimo pikas:** {peak.strftime('%Y-%m-%d')}"
     )
 
-    ps,osig,signals,extra=signal_stack(r,today)
+    ps,osig,pds,signals,extra=signal_stack(r,today)
     st.markdown("**🧭 Kodėl ši idėja dabar?**")
     st.write(" + ".join(signals) if signals else "Sezoninis / bendras paklausos signalas.")
 
@@ -978,7 +1088,7 @@ def compact_recommendation(r,act,prod,sc,i,key_prefix,time_text):
     elif act=="ISPLESTI" and prod is not None:
         st.caption(f"Išplėsti: {prod.pavadinimas} → {r.produkto_ideja}")
     else:
-        st.caption(str(r.produkto_ideja))
+        st.caption(str(r.produkto_ideja).replace("Pastatyk skaičių","Sudėliok skaičių"))
 
     st.write(time_text)
 
@@ -1004,8 +1114,8 @@ with st.spinner("Radar skaičiuoja artimiausius paklausos signalus..."):
         df[f"{h}d"]=df.apply(lambda r:horizon_score(r,today,h),axis=1)
 df["prioritetas"]=df[["7d","14d","30d"]].max(axis=1)
 
-st.title("📡 Protuoliukas Trend Radar — V9.0.2 FIX")
-st.caption("V9.0.2 FIX • PASIDALINAU rekomendacija po paspaudimo iškart dingsta iš aktyvaus TOP sąrašo")
+st.title("📡 Protuoliukas Trend Radar — V10.0")
+st.caption("V10.0 • programinės datos + tėvų paklausos kalendorius + progos pagal amžių + evergreen + patvarus ATLIKTA")
 
 with st.sidebar:
     st.markdown("### ⚙️ Mano dabartinis kūrimo tempas")
@@ -1017,7 +1127,12 @@ with st.sidebar:
         st.markdown("**📅 Artimiausios ugdymo progos**")
         for _,o in upcoming.iterrows():
             st.caption(f"{o['date'].strftime('%m-%d')} · {o['occasion']}")
-    st.markdown("**📚 V9 programinių datų aprėptis**")
+    active_parent=PARENT_DEMAND[(PARENT_DEMAND["end"]>=today) & (PARENT_DEMAND["start"]<=today+timedelta(days=14))].sort_values("strength",ascending=False).head(3)
+    if len(active_parent):
+        st.markdown("**👨‍👩‍👧 Tėvų paklausos langai**")
+        for _,x in active_parent.iterrows():
+            st.caption(f"{x['start'].strftime('%m-%d')}–{x['end'].strftime('%m-%d')} · {x['label']}")
+    st.markdown("**📚 V10 programinių datų aprėptis**")
     st.caption("✅ Matematika 5–8 kl.: konkretūs 2–3 sav. langai iš oficialių pavyzdinių planų.")
     st.caption("📘 Pradinė matematika ir dalis LT temų: klasė patvirtinta, bet savaitė nerodoma, kol neturime patikimo planavimo šaltinio.")
     st.caption("🚫 Platūs 1–35 / 1–36 sav. intervalai piko skaičiavimui nebenaudojami.")
@@ -1066,7 +1181,7 @@ if not st.session_state.get(_autosave_key,False):
             save_idea(r,r.prioritetas)
     st.session_state[_autosave_key]=True
 
-tabs=st.tabs(["🏠 ŠIANDIEN","📅 SAVAITĖ","🚀 ARTĖJANTYS TOPAI","💡 PRODUKTŲ PLANAI","🧠 IDĖJŲ BANKAS"])
+tabs=st.tabs(["🏠 ŠIANDIEN","📅 SAVAITĖ","🚀 ARTĖJANTYS TOPAI","💡 PRODUKTŲ PLANAI","📅 PROGŲ IDĖJOS","🌿 EVERGREEN","🧠 IDĖJŲ BANKAS"])
 
 
 def days_to_peak(r,today):
@@ -1157,7 +1272,56 @@ with tabs[3]:
         with st.expander(f"{r.tema} → {r.mikrotema} · {int(r[f'{horizon}d'])}/100 · {wtxt}"):
             full_card(r,act if act in ["KURTI","ISPLESTI","PERPUBLIKUOTI"] else "IDĖJA",prod,key_prefix=f"plan{i}",show_buttons=False)
 
+
 with tabs[4]:
+    st.subheader("📅 Progų idėjos pagal amžių")
+    st.caption("Čia proga nėra vien priminimas – matai konkrečius produktų kampus skirtingoms amžiaus grupėms.")
+    future=OCCASIONS[(OCCASIONS["date"]>=today-timedelta(days=2)) & (OCCASIONS["date"]<=today+timedelta(days=45))].sort_values("date")
+    if future.empty:
+        st.info("Artimiausioms 45 dienoms progų bazėje nieko nėra.")
+    else:
+        for _,o in future.iterrows():
+            ideas=OCCASION_IDEAS[OCCASION_IDEAS["occasion"]==o["occasion"]]
+            with st.expander(f"{o['date'].strftime('%Y-%m-%d')} · {o['occasion']}"):
+                if ideas.empty:
+                    st.caption("Šiai progai konkrečių produktų kampų bazę dar pildysime.")
+                else:
+                    for _,it in ideas.iterrows():
+                        st.markdown(f"**{it['age']} · {it['format']} · {it['product_idea']}**")
+                        st.write(it["mechanic"])
+                        st.caption(f"Pardavimo potencialas: {it['sales_potential']}")
+                        st.divider()
+
+with tabs[5]:
+    st.subheader("🌿 Evergreen · ką verta kurti laisvesniu metu")
+    st.caption("Čia tik temos, kurios gali pardavinėtis visus metus. Jei joms artėja programinis ar progos pikas, jos keliamos į ŠIANDIEN / SAVAITĘ / ARTĖJANČIUS, o ne dubliuojamos čia.")
+    evergreen=[]
+    active_fps={fp(x[0]) for x in TODAY_ROWS+WEEK_ROWS+COMING_ROWS}
+    for _,r in df.sort_values("prioritetas",ascending=False).iterrows():
+        if int(r.evergreen)<4:
+            continue
+        if fp(r) in active_fps:
+            continue
+        act,prod=dmap[fp(r)]
+        if act=="ATLIKTA":
+            continue
+        # Prioritize commercial value but do not pretend there's an immediate date.
+        ev_score=sales_score(r.pardavimo_potencialas)+comp_score(r.konkurencija)*0.2+int(r.evergreen)*3
+        evergreen.append((ev_score,r,act,prod))
+    evergreen=sorted(evergreen,key=lambda x:x[0],reverse=True)[:15]
+    if not evergreen:
+        st.info("Šiuo metu nėra papildomų evergreen idėjų už aktyvaus TOP ribų.")
+    for sc,r,act,prod in evergreen:
+        with st.expander(f"{r.tema} → {r.mikrotema} · evergreen {stars(r.evergreen)}"):
+            st.write(f"**💡 {r.produkto_ideja}**")
+            st.write(f"**Kam:** {r.amzius} • {r.sritis} • **Formatas:** {r.formatas}")
+            st.write(f"**Pardavimo potencialas:** {r.pardavimo_potencialas} • **Konkurencija:** {r.konkurencija}")
+            st.caption("Nėra būtina kurti dabar. Radar šią idėją iškels į TOP, kai atsiras stipresnis programinis, progos ar tėvų paklausos signalas.")
+            st.markdown("**Užduočių pavyzdžiai**")
+            for x in examples(r,5):
+                st.write("• "+x)
+
+with tabs[6]:
     st.subheader("🧠 Idėjų bankas – tik tai, ko dar nesukūrei")
     st.caption("Geros neįgyvendintos idėjos čia lieka neribotai. Paspaudus SUKŪRIAU ar PRAPLĖČIAU jos iš aktyvaus banko dingsta, bet Supabase istorijoje išlieka.")
     bank=idea_bank()
