@@ -304,6 +304,21 @@ def parent_signal(r):
         "sudėt","atimt","daugyb","dalyb","dėmes","pastab","mokykl"
     ])
 
+def parent_window_topics(x):
+    raw=[k.strip() for k in str(x.get("keywords","")).split(";") if k.strip()]
+    out=[]
+    for k in raw:
+        if _norm(k) not in [_norm(y) for y in out]:
+            out.append(k)
+    return out[:7]
+
+def parent_window_stage(x,today):
+    if x["start"] <= today <= x["end"]:
+        return "Didžiausias potencialas" if int(x["strength"])>=92 else ("Paklausa aukšta" if int(x["strength"])>=85 else "Aktualu dabar")
+    if x["start"] > today:
+        return "Paklausa kyla" if (x["start"]-today).days<=14 else "Artėja"
+    return "Baigiasi"
+
 def parent_demand_signal(r,today):
     """A real parent-demand time window, not merely a +6 score bonus."""
     text=f"{r.tema} {r.mikrotema} {r.sritis}"
@@ -326,7 +341,9 @@ def parent_demand_signal(r,today):
             "end":x["end"],
             "peak":peak,
             "note":str(x["note"]),
-            "confidence":82 if int(x["strength"])>=85 else 72
+            "confidence":82 if int(x["strength"])>=85 else 72,
+            "topics":parent_window_topics(x),
+            "audience":"TĖVAI"
         }
         if best is None or cand["score"]>best["score"]:
             best=cand
@@ -347,7 +364,7 @@ def signal_stack(r,today):
         extra+=4
 
     if osig:
-        signals.append(f"📅 {osig['occasion']}")
+        signals.append(f"📅 PROGA · {osig['occasion']}")
         extra+=min(18,osig["score"])
 
     if int(r.evergreen)>=4:
@@ -355,10 +372,10 @@ def signal_stack(r,today):
         extra+=6
 
     if pds:
-        signals.append(f"👨‍👩‍👧 {pds['label']}")
-        extra+=min(16,max(6,(pds["score"]-60)//2))
+        signals.append(f"👨‍👩‍👧 TĖVAI · {pds['start'].strftime('%m-%d')}–{pds['end'].strftime('%m-%d')}")
+        extra+=min(28,max(10,(pds["score"]-50)//2))
     elif parent_signal(r):
-        signals.append("👨‍👩‍👧 tėvų evergreen paklausa")
+        signals.append("👨‍👩‍👧 TĖVAI · evergreen paklausa")
         extra+=4
 
     return ps,osig,pds,signals,extra
@@ -411,8 +428,9 @@ def pedagogical_peak(r,today):
         })
 
     if pds:
+        parent_target=today if pds["start"]<=today<=pds["end"] else pds["start"]
         candidates.append({
-            "peak":pds["peak"],
+            "peak":parent_target,
             "kind":"tevai",
             "use_date":pds["end"],
             "detail":pds,
@@ -993,6 +1011,12 @@ def fast_detail_card(r,action_label=None,product=None):
     )
 
     ps,osig,pds,signals,extra=signal_stack(r,today)
+    audiences=[]
+    if any("PEDAGOGAI" in s for s in signals): audiences.append("📚 pedagogams")
+    if any("TĖVAI" in s for s in signals): audiences.append("👨‍👩‍👧 tėvams")
+    if any("PROGA" in s for s in signals): audiences.append("📅 progai")
+    if audiences:
+        st.caption("Paklausos šaltinis: " + " + ".join(audiences))
     st.markdown("**🧭 Kodėl ši idėja dabar?**")
     st.write(" + ".join(signals) if signals else "Sezoninis / bendras paklausos signalas.")
 
@@ -1069,8 +1093,8 @@ with st.spinner("Radar skaičiuoja artimiausius paklausos signalus..."):
         df[f"{h}d"]=df.apply(lambda r:horizon_score(r,today,h),axis=1)
 df["prioritetas"]=df[["7d","14d","30d"]].max(axis=1)
 
-st.title("📡 Protuoliukas Trend Radar — V10.1 CLEAN")
-st.caption("V10.1 CLEAN • programinės datos + tėvų paklausos kalendorius + progos pagal amžių + evergreen")
+st.title("📡 Protuoliukas Trend Radar — V10.2")
+st.caption("V10.2 • stipriausios idėjos nepriklausomai nuo auditorijos • pedagogai + tėvai + progos")
 
 with st.sidebar:
     st.markdown("### ⚙️ Mano dabartinis kūrimo tempas")
@@ -1082,11 +1106,12 @@ with st.sidebar:
         st.markdown("**📅 Artimiausios ugdymo progos**")
         for _,o in upcoming.iterrows():
             st.caption(f"{o['date'].strftime('%m-%d')} · {o['occasion']}")
-    active_parent=PARENT_DEMAND[(PARENT_DEMAND["end"]>=today) & (PARENT_DEMAND["start"]<=today+timedelta(days=14))].sort_values("strength",ascending=False).head(3)
+    active_parent=PARENT_DEMAND[(PARENT_DEMAND["end"]>=today) & (PARENT_DEMAND["start"]<=today+timedelta(days=21))].sort_values(["start","strength"],ascending=[True,False]).head(3)
     if len(active_parent):
-        st.markdown("**👨‍👩‍👧 Tėvų paklausos langai**")
+        st.markdown("**👨‍👩‍👧 Ką dabar / netrukus perka tėvai**")
         for _,x in active_parent.iterrows():
-            st.caption(f"{x['start'].strftime('%m-%d')}–{x['end'].strftime('%m-%d')} · {x['label']}")
+            st.markdown(f"**{x['start'].strftime('%m-%d')}–{x['end'].strftime('%m-%d')} · {parent_window_stage(x,today)}**")
+            st.caption(" • ".join(parent_window_topics(x)))
     st.markdown("**📚 V10 programinių datų aprėptis**")
     st.caption("✅ Matematika 5–8 kl.: konkretūs 2–3 sav. langai iš oficialių pavyzdinių planų.")
     st.caption("📘 Pradinė matematika ir dalis LT temų: klasė patvirtinta, bet savaitė nerodoma, kol neturime patikimo planavimo šaltinio.")
