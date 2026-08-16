@@ -6,6 +6,7 @@ from supabase import create_client, Client
 from bs4 import BeautifulSoup
 from datetime import date, datetime, timedelta
 from urllib.parse import urljoin, urlparse
+from urllib.parse import quote_plus
 
 st.set_page_config(page_title="Protuoliukas Trend Radar V9.0", page_icon="📡", layout="wide")
 MONTH_NUM={"sausis":1,"vasaris":2,"kovas":3,"balandis":4,"gegužė":5,"birželis":6,"liepa":7,"rugpjūtis":8,"rugsėjis":9,"spalis":10,"lapkritis":11,"gruodis":12}
@@ -1093,8 +1094,8 @@ with st.spinner("Radar skaičiuoja artimiausius paklausos signalus..."):
         df[f"{h}d"]=df.apply(lambda r:horizon_score(r,today,h),axis=1)
 df["prioritetas"]=df[["7d","14d","30d"]].max(axis=1)
 
-st.title("📡 Protuoliukas Trend Radar — V10.2")
-st.caption("V10.2 • stipriausios idėjos nepriklausomai nuo auditorijos • pedagogai + tėvai + progos")
+st.title("📡 Protuoliukas Trend Radar — V10.3")
+st.caption("V10.3 • pedagogai + tėvai + progos • Pinterest įkvėpimas pagal aktyvias Radaro temas")
 
 with st.sidebar:
     st.markdown("### ⚙️ Mano dabartinis kūrimo tempas")
@@ -1161,7 +1162,83 @@ if not st.session_state.get(_autosave_key,False):
             save_idea(r,r.prioritetas)
     st.session_state[_autosave_key]=True
 
-tabs=st.tabs(["🏠 ŠIANDIEN","📅 SAVAITĖ","🚀 ARTĖJANTYS TOPAI","💡 PRODUKTŲ PLANAI","📅 PROGŲ IDĖJOS","🌿 EVERGREEN","🧠 IDĖJŲ BANKAS"])
+
+def pinterest_search_terms(r):
+    """Generate several English Pinterest discovery angles from a Radar idea."""
+    text=_norm(f"{r.tema} {r.mikrotema} {r.produkto_ideja}")
+    age=str(r.amzius)
+    base=[]
+    # Mechanic-oriented English searches; Pinterest tends to have more useful
+    # inspiration in English than literal Lithuanian translations.
+    rules=[
+        (["abėc","raid"],["alphabet activities","letter recognition activities","letter formation activities","phonics task cards"]),
+        (["rašyt","rašym"],["handwriting activities","letter tracing activities","writing center activities","fine motor writing activities"]),
+        (["skaity"],["early reading activities","reading comprehension activities","literacy centers","reading task cards"]),
+        (["skaič"],["number sense activities","number recognition activities","math task cards","counting activities"]),
+        (["sudėt","atimt"],["addition subtraction activities","math centers","addition task cards","number bond activities"]),
+        (["daugyb"],["multiplication activities","multiplication games","math task cards","multiplication centers"]),
+        (["dalyb"],["division activities","division games","math task cards","division centers"]),
+        (["trupmen"],["fractions activities","fraction games","fraction task cards","fraction visual models"]),
+        (["geometr","figūr"],["geometry activities","shape activities","geometry task cards","hands on geometry"]),
+        (["emoc"],["social emotional learning activities","feelings activities","emotion cards","SEL activities"]),
+        (["kūn"],["human body activities for kids","body parts activities","human body preschool activities","human body task cards"]),
+        (["spalv"],["colors activities preschool","color matching activities","color sorting activities","color task cards"]),
+        (["dėmes","pastab"],["visual discrimination activities","attention activities for kids","spot the difference activities","visual perception activities"]),
+        (["toler","draug"],["friendship activities","kindness activities","social skills activities","SEL task cards"]),
+        (["žem","ekolog","atliek"],["earth day activities","recycling activities for kids","environment activities","earth day task cards"]),
+    ]
+    for keys,queries in rules:
+        if any(k in text for k in keys):
+            base.extend(queries)
+    if not base:
+        # fallback from the radar's own topic, with generic activity mechanics
+        raw=f"{r.tema} {r.mikrotema}".strip()
+        base=[f"{raw} activities",f"{raw} task cards",f"{raw} games",f"{raw} classroom activity"]
+    # de-duplicate and cap
+    out=[]
+    for q in base:
+        if q not in out: out.append(q)
+    return out[:6]
+
+def pinterest_mechanic_label(q):
+    ql=q.lower()
+    mapping=[
+        ("task cards","Užduočių kortelės"),
+        ("centers","Veiklos stotelės / centrai"),
+        ("games","Žaidybinė mechanika"),
+        ("visual models","Vaizdiniai modeliai"),
+        ("matching","Poravimo / atitikimo užduotis"),
+        ("sorting","Rūšiavimo užduotis"),
+        ("tracing","Apvedžiojimo / rašymo mechanika"),
+        ("formation","Raidės formavimo mechanika"),
+        ("recognition","Atpažinimo užduotis"),
+        ("comprehension","Teksto suvokimo mechanika"),
+        ("fine motor","Smulkiosios motorikos mechanika"),
+        ("visual discrimination","Vizualinio pastabumo mechanika"),
+        ("social emotional","Socialinė-emocinė veikla"),
+        ("feelings","Emocijų atpažinimo mechanika"),
+    ]
+    for key,label in mapping:
+        if key in ql:return label
+    return "Veiklos pateikimo idėjos"
+
+def pinterest_url(query):
+    return "https://www.pinterest.com/search/pins/?q="+quote_plus(query)
+
+def radar_inspiration_rows():
+    """Use only topics Radar has already selected; no manual Pinterest search box."""
+    rows=[]
+    seen=set()
+    for horizon,data in [("ŠIANDIEN",TODAY_ROWS),("SAVAITĖ",WEEK_ROWS),("ARTĖJANTYS",COMING_ROWS)]:
+        for item in data:
+            r=item[0]
+            key=_norm(f"{r.tema}|{r.mikrotema}")
+            if key in seen: continue
+            seen.add(key)
+            rows.append((horizon,r))
+    return rows[:12]
+
+tabs=st.tabs(["🏠 ŠIANDIEN","📅 SAVAITĖ","🚀 ARTĖJANTYS TOPAI","💡 PRODUKTŲ PLANAI","📌 PINTEREST ĮKVĖPIMAS","📅 PROGŲ IDĖJOS","🌿 EVERGREEN","🧠 IDĖJŲ BANKAS"])
 
 
 def days_to_peak(r,today):
@@ -1253,7 +1330,26 @@ with tabs[3]:
             full_card(r,act if act in ["KURTI","ISPLESTI","PERPUBLIKUOTI"] else "IDĖJA",prod,key_prefix=f"plan{i}",show_buttons=False)
 
 
+
 with tabs[4]:
+    st.subheader("📌 Pinterest įkvėpimas")
+    st.caption("Tik toms temoms, kurias Radar jau atrinko kaip aktualias. Čia ieškome ne kopijuoti dizainą, o rasti kitokių užduoties mechanikų ir pateikimo kampų.")
+    insp=radar_inspiration_rows()
+    if not insp:
+        st.info("Šiuo metu Radar neturi aktyvių temų, todėl Pinterest įkvėpimo sąrašas tuščias.")
+    else:
+        for horizon,r in insp:
+            with st.expander(f"{horizon} · {r.tema} → {r.mikrotema}"):
+                st.write(f"**Radaro idėja:** {r.produkto_ideja}")
+                st.caption(f"{r.amzius} • {r.sritis} • {r.formatas}")
+                queries=pinterest_search_terms(r)
+                for q in queries:
+                    label=pinterest_mechanic_label(q)
+                    st.markdown(f"**📌 {label}**")
+                    st.link_button(f"Peržiūrėti Pinterest · {q}",pinterest_url(q),use_container_width=True)
+                st.caption("💡 Tikslas: greitai peržiūrėti skirtingus užsienyje naudojamus pateikimo principus ir pritaikyti mechaniką lietuviškam turiniui, nekopijuojant konkretaus dizaino.")
+
+with tabs[5]:
     st.subheader("📅 Progų idėjos pagal amžių")
     st.caption("Čia proga nėra vien priminimas – matai konkrečius produktų kampus skirtingoms amžiaus grupėms.")
     future=OCCASIONS[(OCCASIONS["date"]>=today-timedelta(days=2)) & (OCCASIONS["date"]<=today+timedelta(days=45))].sort_values("date")
@@ -1272,7 +1368,7 @@ with tabs[4]:
                         st.caption(f"Pardavimo potencialas: {it['sales_potential']}")
                         st.divider()
 
-with tabs[5]:
+with tabs[6]:
     st.subheader("🌿 Evergreen · ką verta kurti laisvesniu metu")
     st.caption("Čia tik temos, kurios gali pardavinėtis visus metus. Jei joms artėja programinis ar progos pikas, jos keliamos į ŠIANDIEN / SAVAITĘ / ARTĖJANČIUS, o ne dubliuojamos čia.")
     evergreen=[]
@@ -1301,7 +1397,7 @@ with tabs[5]:
             for x in examples(r,5):
                 st.write("• "+x)
 
-with tabs[6]:
+with tabs[7]:
     st.subheader("🧠 Idėjų bankas – tik tai, ko dar nesukūrei")
     st.caption("Geros neįgyvendintos idėjos čia lieka neribotai. Paspaudus SUKŪRIAU ar PRAPLĖČIAU jos iš aktyvaus banko dingsta, bet Supabase istorijoje išlieka.")
     bank=idea_bank()
