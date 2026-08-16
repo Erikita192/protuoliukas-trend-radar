@@ -826,9 +826,7 @@ def _synthetic_product(code,r):
     })
 
 def decision(r,catalog,today):
-    if fp(r) in _session_completed():
-        return "ATLIKTA",None
-    stt=idea_status(fp(r))
+    stt={"status":"IDEJA","product_code":""}
     status=str(stt.get("status") or "IDEJA")
     stored_code=str(stt.get("product_code") or "")
 
@@ -885,9 +883,6 @@ def full_card(r,action_label=None,product=None,key_prefix="card",show_buttons=Tr
         st.write(f"**Auditorija:** {aud}")
         st.write(f"**FB kampas:** {fb_angle(r)}")
         if product.nuoroda:st.write(f"**Nuoroda:** {product.nuoroda}")
-        if show_buttons and st.button("✅ PASIDALINAU",key=f"{key_prefix}_share_{fp(r)}"):
-            if mark_shared(r,product): st.rerun()
-            else: st.warning("Nepavyko išsaugoti PASIDALINAU į Supabase.")
         return
     if action_label=="ISPLESTI" and product is not None:
         st.write(f"**🔄 Esamas produktas:** {product.pavadinimas} • **Kodas:** {product.kodas or 'nerastas'}")
@@ -952,43 +947,8 @@ def full_card(r,action_label=None,product=None,key_prefix="card",show_buttons=Tr
                 if code.strip():set_idea_status(fp(r),"SUKURTA",code);st.rerun()
                 else:st.warning("Įvesk produkto kodą.")
 
-def compact_done_controls(r,act,prod,key_prefix):
-    """Every recommendation gets a completion action, regardless of action type."""
-    if act=="PERPUBLIKUOTI" and prod is not None:
-        if st.button("✅ ATLIKTA · PASIDALINAU",key=f"{key_prefix}_compact_share_{fp(r)}",use_container_width=True):
-            if mark_shared(r,prod):
-                st.rerun()
-            else:
-                st.warning("Nepavyko išsaugoti PASIDALINAU į Supabase, todėl rekomendacija nepažymėta atlikta. Pabandyk dar kartą.")
-        return
-
-    # For every other idea, allow marking it completed as a created/expanded product.
-    code=st.text_input(
-        "Produkto kodas",
-        key=f"{key_prefix}_compact_code_{fp(r)}",
-        placeholder="pvz. P129 arba 301",
-        label_visibility="collapsed"
-    )
-
-    if act=="ISPLESTI":
-        btn="✅ ATLIKTA · PRAPLĖČIAU"
-        status="PRAPLESTA"
-    else:
-        btn="✅ ATLIKTA · SUKŪRIAU"
-        status="SUKURTA"
-
-    if st.button(btn,key=f"{key_prefix}_compact_done_{fp(r)}",use_container_width=True):
-        if not code.strip():
-            st.warning("Įvesk produkto kodą – tada Radar prisimins, kad ši idėja jau įgyvendinta.")
-        else:
-            ok=persist_completed_idea(r,status,code.strip())
-            if ok:
-                _session_completed().add(fp(r))
-                st.rerun()
-            else:
-                st.warning("Nepavyko įrašyti ATLIKTA į Supabase, todėl rekomendacija liko aktyvi. Pabandyk dar kartą.")
-
-
+def compact_done_controls(*args,**kwargs):
+    return
 
 def fast_detail_card(r,action_label=None,product=None):
     """Detail content for TOP expanders with no extra DB/network calls.
@@ -1071,9 +1031,6 @@ def fast_detail_card(r,action_label=None,product=None):
 
 
 def compact_recommendation(r,act,prod,sc,i,key_prefix,time_text):
-    if fp(r) in _session_completed():
-        return
-    """Short TOP row; details use native Streamlit expander for instant opening."""
     label_map={
         "KURTI":"🔥 KURTI",
         "PERPUBLIKUOTI":"📣 PERPUBLIKUOTI",
@@ -1093,8 +1050,6 @@ def compact_recommendation(r,act,prod,sc,i,key_prefix,time_text):
     st.write(time_text)
 
     # Completion action remains visible for EVERY recommendation.
-    compact_done_controls(r,act,prod,key_prefix)
-
     # Native expander = same interaction style as Produktų planai.
     # No button / st.rerun, so opening and closing is immediate in the browser.
     with st.expander("🔎 Išskleisti visą idėją", expanded=False):
@@ -1114,8 +1069,8 @@ with st.spinner("Radar skaičiuoja artimiausius paklausos signalus..."):
         df[f"{h}d"]=df.apply(lambda r:horizon_score(r,today,h),axis=1)
 df["prioritetas"]=df[["7d","14d","30d"]].max(axis=1)
 
-st.title("📡 Protuoliukas Trend Radar — V10.0")
-st.caption("V10.0 • programinės datos + tėvų paklausos kalendorius + progos pagal amžių + evergreen + patvarus ATLIKTA")
+st.title("📡 Protuoliukas Trend Radar — V10.1 CLEAN")
+st.caption("V10.1 CLEAN • programinės datos + tėvų paklausos kalendorius + progos pagal amžių + evergreen")
 
 with st.sidebar:
     st.markdown("### ⚙️ Mano dabartinis kūrimo tempas")
