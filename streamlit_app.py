@@ -8,7 +8,7 @@ from datetime import date, datetime, timedelta
 from urllib.parse import urljoin, urlparse
 from urllib.parse import quote_plus
 
-st.set_page_config(page_title="Protuoliukas Trend Radar V10.5", page_icon="📡", layout="wide")
+st.set_page_config(page_title="Protuoliukas Trend Radar V10.6", page_icon="📡", layout="wide")
 MONTH_NUM={"sausis":1,"vasaris":2,"kovas":3,"balandis":4,"gegužė":5,"birželis":6,"liepa":7,"rugpjūtis":8,"rugsėjis":9,"spalis":10,"lapkritis":11,"gruodis":12}
 SHOP="https://mokymopriemones.eu/"
 
@@ -1290,126 +1290,450 @@ def radar_inspiration_rows():
 
 
 
-# ========================= SEO OPTIMIZATORIUS · V10.5 · BE API =========================
+# ========================= SEO OPTIMIZATORIUS · V10.6 · BE API =========================
 def _seo_clean_col(c):
-    return _norm(str(c)).replace(" ", "_")
+    s = _norm(str(c))
+    s = s.translate(str.maketrans({"ą":"a","č":"c","ę":"e","ė":"e","į":"i","š":"s","ų":"u","ū":"u","ž":"z"}))
+    return s.replace(" ", "_")
+
 
 def _xlsx_frames_without_openpyxl(raw):
-    ns={"m":"http://schemas.openxmlformats.org/spreadsheetml/2006/main","r":"http://schemas.openxmlformats.org/officeDocument/2006/relationships"}
+    """Read ordinary Search Console .xlsx exports without openpyxl."""
+    ns = {
+        "m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+        "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+    }
     with zipfile.ZipFile(io.BytesIO(raw)) as z:
-        shared=[]
+        shared = []
         if "xl/sharedStrings.xml" in z.namelist():
-            root=ET.fromstring(z.read("xl/sharedStrings.xml"))
-            for si in root.findall("m:si",ns): shared.append("".join(t.text or "" for t in si.findall(".//m:t",ns)))
-        wb=ET.fromstring(z.read("xl/workbook.xml")); rr=ET.fromstring(z.read("xl/_rels/workbook.xml.rels")); rels={x.attrib["Id"]:x.attrib["Target"] for x in rr}
-        out={}
-        for sh in wb.findall("m:sheets/m:sheet",ns):
-            name=sh.attrib.get("name","Sheet"); rid=sh.attrib.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"); target=rels.get(rid,""); path=target.lstrip("/") if target.startswith("/") else "xl/"+target.replace("../","")
-            if path not in z.namelist(): continue
-            root=ET.fromstring(z.read(path)); rows=[]
-            for row in root.findall(".//m:sheetData/m:row",ns):
-                vals={}
-                for c in row.findall("m:c",ns):
-                    mt=re.match(r"([A-Z]+)",c.attrib.get("r",""))
-                    if not mt: continue
-                    idx=0
-                    for ch in mt.group(1): idx=idx*26+ord(ch)-64
-                    idx-=1; typ=c.attrib.get("t"); v=c.find("m:v",ns); val=""
-                    if typ=="inlineStr": val="".join(t.text or "" for t in c.findall(".//m:t",ns))
+            root = ET.fromstring(z.read("xl/sharedStrings.xml"))
+            for si in root.findall("m:si", ns):
+                shared.append("".join(t.text or "" for t in si.findall(".//m:t", ns)))
+
+        wb = ET.fromstring(z.read("xl/workbook.xml"))
+        rr = ET.fromstring(z.read("xl/_rels/workbook.xml.rels"))
+        rels = {x.attrib["Id"]: x.attrib["Target"] for x in rr}
+        out = {}
+
+        for sh in wb.findall("m:sheets/m:sheet", ns):
+            name = sh.attrib.get("name", "Sheet")
+            rid = sh.attrib.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id")
+            target = rels.get(rid, "")
+            path = target.lstrip("/") if target.startswith("/") else "xl/" + target.replace("../", "")
+            if path not in z.namelist():
+                continue
+
+            root = ET.fromstring(z.read(path))
+            rows = []
+            for row in root.findall(".//m:sheetData/m:row", ns):
+                vals = {}
+                for c in row.findall("m:c", ns):
+                    mt = re.match(r"([A-Z]+)", c.attrib.get("r", ""))
+                    if not mt:
+                        continue
+                    idx = 0
+                    for ch in mt.group(1):
+                        idx = idx * 26 + ord(ch) - 64
+                    idx -= 1
+                    typ = c.attrib.get("t")
+                    v = c.find("m:v", ns)
+                    val = ""
+                    if typ == "inlineStr":
+                        val = "".join(t.text or "" for t in c.findall(".//m:t", ns))
                     elif v is not None:
-                        val=v.text or ""
-                        if typ=="s":
-                            try: val=shared[int(val)]
-                            except Exception: pass
-                    vals[idx]=val
+                        val = v.text or ""
+                        if typ == "s":
+                            try:
+                                val = shared[int(val)]
+                            except Exception:
+                                pass
+                    vals[idx] = val
+
                 if vals:
-                    a=[""]*(max(vals)+1)
-                    for i,v in vals.items(): a[i]=v
+                    a = [""] * (max(vals) + 1)
+                    for i, v in vals.items():
+                        a[i] = v
                     rows.append(a)
+
             if rows:
-                w=max(map(len,rows)); rows=[r+[""]*(w-len(r)) for r in rows]; hdr=[str(x).strip() or f"col_{i}" for i,x in enumerate(rows[0])]; out[name]=pd.DataFrame(rows[1:],columns=hdr)
+                width = max(map(len, rows))
+                rows = [r + [""] * (width - len(r)) for r in rows]
+                hdr = [str(x).strip() or f"col_{i}" for i, x in enumerate(rows[0])]
+                out[name] = pd.DataFrame(rows[1:], columns=hdr)
         return out
 
-def read_search_console_upload(uploaded):
-    name=(getattr(uploaded,"name","") or "").lower(); raw=uploaded.getvalue()
-    if name.endswith(".xlsx"):
-        books=_xlsx_frames_without_openpyxl(raw); frames=list(books.values())
-        if not frames: return pd.DataFrame()
-        qframes=[z for z in frames if any("query" in _seo_clean_col(c) or "uzklaus" in _seo_clean_col(c) for c in z.columns)]
-        x=qframes[0] if qframes else frames[0]
-    elif name.endswith(".xls"):
-        raise ValueError("Senas .xls formatas nepalaikomas. Eksportuok kaip .xlsx arba CSV.")
-    else: x=pd.read_csv(io.BytesIO(raw),sep=None,engine="python")
-    x=x.copy(); aliases={"query":"query","queries":"query","top_queries":"query","uzklausa":"query","uzklausos":"query","page":"page","pages":"page","puslapis":"page","puslapiai":"page","clicks":"clicks","click":"clicks","paspaudimai":"clicks","impressions":"impressions","impression":"impressions","parodymai":"impressions","ctr":"ctr","position":"position","average_position":"position","pozicija":"position","vidutine_pozicija":"position"}
-    ren={}
+
+def _standardize_gsc_frame(x, kind=None):
+    x = x.copy()
+    aliases = {
+        "query": "query", "queries": "query", "top_queries": "query",
+        "uzklausa": "query", "uzklausos": "query", "populiariausios_uzklausos": "query",
+        "page": "page", "pages": "page", "puslapis": "page", "puslapiai": "page",
+        "populiariausi_puslapiai": "page",
+        "date": "date", "data": "date",
+        "clicks": "clicks", "click": "clicks", "paspaudimai": "clicks", "spustelejimai": "clicks",
+        "impressions": "impressions", "impression": "impressions", "parodymai": "impressions",
+        "ctr": "ctr", "pr": "ctr",
+        "position": "position", "average_position": "position", "pozicija": "position", "vidutine_pozicija": "position",
+    }
+    ren = {}
     for c in x.columns:
-        k=_seo_clean_col(c)
-        if k in aliases: ren[c]=aliases[k]
-        elif "query" in k or "uzklaus" in k: ren[c]="query"
-        elif "impression" in k or "parodym" in k: ren[c]="impressions"
-        elif "click" in k or "paspaud" in k: ren[c]="clicks"
-        elif k=="ctr" or "click_through" in k: ren[c]="ctr"
-        elif "position" in k or "pozic" in k: ren[c]="position"
-        elif k in ("page","pages") or "puslap" in k: ren[c]="page"
-    x=x.rename(columns=ren)
-    for c in ["clicks","impressions","position"]:
-        if c in x.columns: x[c]=pd.to_numeric(x[c].astype(str).str.replace(" ","",regex=False).str.replace(",",".",regex=False),errors="coerce")
+        k = _seo_clean_col(c)
+        if k in aliases:
+            ren[c] = aliases[k]
+        elif "uzklaus" in k or "query" in k:
+            ren[c] = "query"
+        elif "puslap" in k or k in ("page", "pages"):
+            ren[c] = "page"
+        elif "spustelej" in k or "paspaud" in k or "click" in k:
+            ren[c] = "clicks"
+        elif "parodym" in k or "impression" in k:
+            ren[c] = "impressions"
+        elif k in ("pr", "ctr") or "click_through" in k:
+            ren[c] = "ctr"
+        elif "pozic" in k or "position" in k:
+            ren[c] = "position"
+        elif k in ("data", "date"):
+            ren[c] = "date"
+    x = x.rename(columns=ren)
+
+    for c in ["clicks", "impressions", "position"]:
+        if c in x.columns:
+            x[c] = pd.to_numeric(
+                x[c].astype(str).str.replace(" ", "", regex=False).str.replace(",", ".", regex=False),
+                errors="coerce",
+            )
     if "ctr" in x.columns:
-        vals=x["ctr"].astype(str).str.replace("%","",regex=False).str.replace(",",".",regex=False); x["ctr"]=pd.to_numeric(vals,errors="coerce")
-        if len(x["ctr"].dropna()) and x["ctr"].dropna().max()<=1: x["ctr"]*=100
+        raw = x["ctr"].astype(str)
+        had_pct = raw.str.contains("%", regex=False).any()
+        vals = raw.str.replace("%", "", regex=False).str.replace(",", ".", regex=False)
+        x["ctr"] = pd.to_numeric(vals, errors="coerce")
+        if not had_pct and len(x["ctr"].dropna()) and x["ctr"].dropna().max() <= 1:
+            x["ctr"] *= 100
+    if "date" in x.columns:
+        x["date"] = pd.to_datetime(x["date"], errors="coerce")
     return x
 
+
+def read_search_console_workbook(uploaded):
+    """Return all useful Search Console sheets instead of assuming one table."""
+    name = (getattr(uploaded, "name", "") or "").lower()
+    raw = uploaded.getvalue()
+
+    if name.endswith(".xlsx"):
+        sheets = _xlsx_frames_without_openpyxl(raw)
+    elif name.endswith(".xls"):
+        raise ValueError("Senas .xls formatas nepalaikomas. Eksportuok kaip .xlsx arba CSV.")
+    else:
+        frame = pd.read_csv(io.BytesIO(raw), sep=None, engine="python")
+        sheets = {"CSV": frame}
+
+    result = {"queries": pd.DataFrame(), "pages": pd.DataFrame(), "trend": pd.DataFrame(), "filters": pd.DataFrame(), "raw_sheets": sheets}
+
+    for sheet_name, frame in sheets.items():
+        sn = _seo_clean_col(sheet_name)
+        std = _standardize_gsc_frame(frame)
+        cols = set(std.columns)
+
+        if "query" in cols or "uzklaus" in sn:
+            if result["queries"].empty:
+                result["queries"] = std
+        if "page" in cols or "puslap" in sn:
+            if result["pages"].empty:
+                result["pages"] = std
+        if "date" in cols or "diagram" in sn:
+            if result["trend"].empty:
+                result["trend"] = std
+        if "filtr" in sn:
+            result["filters"] = frame.copy()
+
+    # CSV can be a page-filtered query export with no separate sheets.
+    if name.endswith(".csv"):
+        std = _standardize_gsc_frame(next(iter(sheets.values())))
+        if "query" in std.columns:
+            result["queries"] = std
+        if "page" in std.columns:
+            result["pages"] = std
+        if "date" in std.columns:
+            result["trend"] = std
+
+    return result
+
+
+def _filter_value_map(filters_df):
+    out = {}
+    if filters_df is None or filters_df.empty or len(filters_df.columns) < 2:
+        return out
+    a, b = filters_df.columns[:2]
+    for _, row in filters_df.iterrows():
+        key = _norm(row.get(a, ""))
+        val = str(row.get(b, "") or "").strip()
+        if key:
+            out[key] = val
+    return out
+
+
+def gsc_is_page_filtered(book, product_url=""):
+    fm = _filter_value_map(book.get("filters"))
+    page_val = ""
+    for k, v in fm.items():
+        if "puslap" in k or "page" in k:
+            page_val = v
+            break
+    if not page_val:
+        return False, ""
+    if product_url:
+        return page_val.rstrip("/") == product_url.rstrip("/"), page_val
+    return True, page_val
+
+
 def fetch_product_seo(url):
-    headers={"User-Agent":"Mozilla/5.0 (compatible; ProtuoliukasSEO/1.0)"}; r=requests.get(url,headers=headers,timeout=15); r.raise_for_status(); soup=BeautifulSoup(r.text,"html.parser")
-    title=(soup.title.get_text(" ",strip=True) if soup.title else ""); md=soup.find("meta",attrs={"name":re.compile("^description$",re.I)}); meta_desc=md.get("content","").strip() if md else ""; h1=soup.find("h1"); product_name=h1.get_text(" ",strip=True) if h1 else title.split("|")[0].strip()
-    main=soup.find("main") or soup.find(attrs={"class":re.compile("product.*description|description.*product",re.I)}) or soup.body; text=main.get_text("\n",strip=True) if main else ""; text=re.sub(r"\n{3,}","\n\n",text)
-    return {"url":url,"product_name":product_name,"meta_title":title,"meta_description":meta_desc,"description":text[:12000]}
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; ProtuoliukasSEO/1.1)"}
+    r = requests.get(url, headers=headers, timeout=15)
+    r.raise_for_status()
+    soup = BeautifulSoup(r.text, "html.parser")
 
-def seo_opportunity_table(gsc, product_url=""):
-    x=gsc.copy()
-    if "query" not in x.columns: return pd.DataFrame()
-    if product_url and "page" in x.columns:
-        exact=x[x["page"].astype(str).str.rstrip("/")==product_url.rstrip("/")]
-        if not exact.empty: x=exact
-    for c in ["clicks","impressions","ctr","position"]:
-        if c not in x.columns: x[c]=0.0
-    x=x.dropna(subset=["query"]).copy(); x["query"]=x["query"].astype(str).str.strip(); x=x[x["query"]!=""]
-    def wag(g,col,w="impressions"):
-        ww=g[w].fillna(0)
-        return float((g[col].fillna(0)*ww).sum()/ww.sum()) if ww.sum()>0 else float(g[col].fillna(0).mean())
-    rows=[]
-    for q,g in x.groupby("query",dropna=False):
-        imp=float(g.impressions.fillna(0).sum()); clk=float(g.clicks.fillna(0).sum()); ctr=(clk/imp*100) if imp else wag(g,"ctr"); pos=wag(g,"position")
-        score=min(100,round(min(55,math.log10(max(imp,1)+1)*18)+(22 if 3<=pos<=20 else 10 if pos<=30 else 2)+max(0,23-min(23,ctr*4))))
-        rows.append({"Užklausa":q,"Paspaudimai":int(clk),"Parodymai":int(imp),"CTR %":round(ctr,2),"Pozicija":round(pos,1),"SEO galimybė":score})
-    return pd.DataFrame(rows).sort_values(["SEO galimybė","Parodymai"],ascending=False).head(30)
+    title = soup.title.get_text(" ", strip=True) if soup.title else ""
+    md = soup.find("meta", attrs={"name": re.compile("^description$", re.I)})
+    meta_desc = md.get("content", "").strip() if md else ""
+    h1 = soup.find("h1")
+    product_name = h1.get_text(" ", strip=True) if h1 else title.split("|")[0].strip()
 
-def current_seo_health(product,opp):
-    text=_norm(" ".join([product.get("product_name",""),product.get("meta_title",""),product.get("meta_description",""),product.get("description","")]))
-    if opp.empty:return 50,[]
-    top=opp.head(10); covered=sum(1 for q in top["Užklausa"] if _norm(q) in text); mt=len(product.get("meta_title","") or ""); md=len(product.get("meta_description","") or ""); score=35+min(35,covered*5)+(15 if 35<=mt<=65 else 7)+(15 if 110<=md<=165 else 7); notes=[]
-    if covered<3:notes.append("Stipriausios Search Console frazės silpnai atsispindi puslapio tekste.")
-    if not (35<=mt<=65):notes.append("Meta title ilgį / fokusą verta peržiūrėti.")
-    if not (110<=md<=165):notes.append("Meta description ilgį / fokusą verta peržiūrėti.")
-    return min(100,score),notes
+    desc_candidates = [
+        soup.find(attrs={"itemprop": "description"}),
+        soup.find(attrs={"class": re.compile(r"product[-_ ]?description|description[-_ ]?product", re.I)}),
+        soup.find(attrs={"id": re.compile(r"product[-_ ]?description|description", re.I)}),
+    ]
+    main = next((x for x in desc_candidates if x is not None), None) or soup.find("main") or soup.body
+    text = main.get_text("\n", strip=True) if main else ""
+    text = re.sub(r"\n{3,}", "\n\n", text)
 
-def make_chatgpt_prompt(product,opp,health,notes):
-    rows=json.dumps(opp.head(20).to_dict("records"),ensure_ascii=False,indent=2)
-    return ("Padėk optimizuoti šį Protuoliuko produkto puslapį pagal realius Google Search Console duomenis.\n\n"
-        "SVARBU: URL nekeisti. Neišgalvoti amžiaus, klasės, formato, turinio ar funkcijų. "
-        "Netinkamų paieškos intencijų nenaudoti vien dėl parodymų. Jei kažko keisti nereikia, rašyti PALIKTI.\n\n"
-        f"PRODUKTAS\nURL: {product.get('url','')}\nPavadinimas: {product.get('product_name','')}\nMeta title: {product.get('meta_title','')}\nMeta description: {product.get('meta_description','')}\n"
-        f"Aprašymas:\n{product.get('description','')}\n\nRADARO SEO BŪKLĖ: {health}/100\nPastabos: {'; '.join(notes) if notes else 'nėra'}\n\n"
-        f"SEARCH CONSOLE UŽKLAUSOS:\n{rows}\n\n"
-        "Pateik: 1) verdiktą NEKEISTI / PAPILDYTI / OPTIMIZUOTI; 2) pagrindinę ir antrines frazes; "
-        "3) produkto pavadinimą PALIKTI arba naują; 4) Meta title PALIKTI arba gatavą naują; "
-        "5) Meta description PALIKTI arba gatavą naują; 6) jei aprašymą keisti – VISĄ galutinį aprašymą; "
-        "7) ko nekeisti ir kokių klaidinančių frazių nenaudoti.")
+    return {
+        "url": url,
+        "product_name": product_name,
+        "meta_title": title,
+        "meta_description": meta_desc,
+        "description": text[:14000],
+    }
 
 
-def render_copy_field(label,value,height=100):
-    st.markdown(f"**{label}**");st.code(str(value or ""),language=None)
+def _weighted_avg(g, col, weight="impressions"):
+    if col not in g.columns:
+        return 0.0
+    ww = g[weight].fillna(0) if weight in g.columns else pd.Series([1] * len(g), index=g.index)
+    if ww.sum() > 0:
+        return float((g[col].fillna(0) * ww).sum() / ww.sum())
+    return float(g[col].fillna(0).mean()) if len(g) else 0.0
 
+
+def seo_query_table(queries, product, product_specific=False):
+    if queries is None or queries.empty or "query" not in queries.columns:
+        return pd.DataFrame()
+    x = queries.copy()
+    for c in ["clicks", "impressions", "ctr", "position"]:
+        if c not in x.columns:
+            x[c] = 0.0
+    x = x.dropna(subset=["query"]).copy()
+    x["query"] = x["query"].astype(str).str.strip()
+    x = x[x["query"] != ""]
+
+    product_text = _norm(" ".join([
+        product.get("product_name", ""), product.get("meta_title", ""),
+        product.get("meta_description", ""), product.get("description", "")[:5000],
+    ]))
+    ptok = _tokens(product_text, min_len=3)
+
+    rows = []
+    for q, g in x.groupby("query", dropna=False):
+        imp = float(g.impressions.fillna(0).sum())
+        clk = float(g.clicks.fillna(0).sum())
+        ctr = (clk / imp * 100) if imp else _weighted_avg(g, "ctr")
+        pos = _weighted_avg(g, "position")
+        qtok = _tokens(q, min_len=3)
+        overlap = len(qtok & ptok)
+        phrase_in_page = _norm(q) in product_text
+
+        # Product-filtered export: every query is genuinely associated with this page.
+        # Sitewide export: only retain plausible lexical candidates and label them as such.
+        if not product_specific and overlap == 0 and not phrase_in_page:
+            continue
+
+        base = min(55, math.log10(max(imp, 1) + 1) * 18)
+        pos_bonus = 24 if 3 <= pos <= 15 else 16 if pos <= 25 else 6
+        ctr_gap = max(0, 21 - min(21, ctr * 4))
+        relevance = 0 if product_specific else min(18, overlap * 6 + (8 if phrase_in_page else 0))
+        score = min(100, round(base + pos_bonus + ctr_gap + relevance))
+
+        rows.append({
+            "Užklausa": q,
+            "Paspaudimai": int(round(clk)),
+            "Parodymai": int(round(imp)),
+            "CTR %": round(ctr, 2),
+            "Pozicija": round(pos, 1),
+            "SEO galimybė": score,
+            "Tipas": "produkto užklausa" if product_specific else "svetainės užklausa · galima sąsaja",
+        })
+
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame(rows).sort_values(["SEO galimybė", "Parodymai"], ascending=False).head(30)
+
+
+def page_metrics_for_url(pages, product_url):
+    if pages is None or pages.empty or "page" not in pages.columns or not product_url:
+        return None
+    x = pages.copy()
+    exact = x[x["page"].astype(str).str.rstrip("/") == product_url.rstrip("/")]
+    if exact.empty:
+        return None
+    r = exact.iloc[0]
+    return {
+        "clicks": float(r.get("clicks", 0) or 0),
+        "impressions": float(r.get("impressions", 0) or 0),
+        "ctr": float(r.get("ctr", 0) or 0),
+        "position": float(r.get("position", 0) or 0),
+    }
+
+
+def page_opportunities(pages):
+    if pages is None or pages.empty or "page" not in pages.columns:
+        return pd.DataFrame()
+    x = pages.copy()
+    for c in ["clicks", "impressions", "ctr", "position"]:
+        if c not in x.columns:
+            x[c] = 0.0
+    x = x.dropna(subset=["page"])
+    rows = []
+    for _, r in x.iterrows():
+        imp = float(r.get("impressions", 0) or 0)
+        clk = float(r.get("clicks", 0) or 0)
+        ctr = float(r.get("ctr", 0) or 0)
+        pos = float(r.get("position", 0) or 0)
+        if imp < 20:
+            continue
+        volume = min(48, math.log10(imp + 1) * 17)
+        pos_bonus = 28 if 3 <= pos <= 15 else 20 if pos <= 25 else 8 if pos <= 40 else 2
+        ctr_gap = max(0, 24 - min(24, ctr * 5))
+        score = min(100, round(volume + pos_bonus + ctr_gap))
+        rows.append({
+            "SEO galimybė": score,
+            "Puslapis": str(r.get("page", "")),
+            "Paspaudimai": int(round(clk)),
+            "Parodymai": int(round(imp)),
+            "CTR %": round(ctr, 2),
+            "Pozicija": round(pos, 1),
+        })
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame(rows).sort_values(["SEO galimybė", "Parodymai"], ascending=False).head(40)
+
+
+def current_seo_health(product, opp, page_metrics=None, product_specific_queries=False):
+    mt = len(product.get("meta_title", "") or "")
+    md = len(product.get("meta_description", "") or "")
+    desc_len = len(product.get("description", "") or "")
+    score = 45
+    notes = []
+
+    if 35 <= mt <= 65:
+        score += 15
+    else:
+        score += 6
+        notes.append("Meta title ilgį / fokusą verta peržiūrėti.")
+
+    if 110 <= md <= 165:
+        score += 15
+    else:
+        score += 6
+        notes.append("Meta description ilgį / fokusą verta peržiūrėti.")
+
+    if desc_len >= 250:
+        score += 10
+    else:
+        notes.append("Produkto aprašymas labai trumpas arba nepavyko jo pilnai nuskaityti.")
+
+    if page_metrics:
+        ctr = page_metrics.get("ctr", 0)
+        pos = page_metrics.get("position", 0)
+        imp = page_metrics.get("impressions", 0)
+        if imp >= 100 and pos <= 15 and ctr < 2:
+            notes.append("Produktas jau matomas Google, bet CTR žemas – verta peržiūrėti title / description pažadą.")
+        if 5 <= pos <= 20 and imp >= 100:
+            notes.append("Pozicija arti pirmo puslapio / pirmame puslapyje – net nedidelis SEO pagerinimas gali būti vertingas.")
+
+    if product_specific_queries and opp is not None and not opp.empty:
+        page_text = _norm(" ".join([product.get("product_name", ""), product.get("meta_title", ""), product.get("meta_description", ""), product.get("description", "")]))
+        covered = sum(1 for q in opp.head(10)["Užklausa"] if _norm(q) in page_text)
+        if covered >= 3:
+            score += 12
+        else:
+            notes.append("Produkto Search Console užklausos silpnai atsispindi puslapio tekste.")
+    else:
+        score += 4
+
+    return min(100, score), notes
+
+
+def seo_verdict(health, page_metrics=None, product_specific_queries=False, opp=None):
+    if page_metrics and page_metrics.get("impressions", 0) >= 100:
+        ctr = page_metrics.get("ctr", 0)
+        pos = page_metrics.get("position", 99)
+        if pos <= 15 and ctr < 1.5:
+            return "OPTIMIZUOTI", "🟠", "Produktas gauna parodymų ir yra pakankamai aukštai, bet paspaudimų santykis silpnas."
+        if 8 <= pos <= 25:
+            return "PAPILDYTI / PERŽIŪRĖTI", "🟡", "Yra reali galimybė pastumti produktą aukščiau, bet nebūtina perrašyti visko."
+    if product_specific_queries and opp is not None and not opp.empty and opp.iloc[0]["SEO galimybė"] >= 80:
+        return "PAPILDYTI / PERŽIŪRĖTI", "🟡", "Produkto užklausose matyti stiprus neišnaudotas signalas."
+    if health >= 85:
+        return "NEKEISTI", "🟢", "Nėra pakankamo pagrindo perrašyti SEO vien dėl perrašymo."
+    if health >= 68:
+        return "PERŽIŪRĖTI", "🟡", "Yra keli elementai, kuriuos verta patikrinti, bet galima apsieiti be pilno perrašymo."
+    return "OPTIMIZUOTI", "🟠", "Dabartiniame puslapyje yra keli aiškūs SEO silpnumai."
+
+
+def make_chatgpt_prompt(product, opp, health, notes, page_metrics=None, product_specific_queries=False):
+    rows = json.dumps(opp.head(20).to_dict("records") if opp is not None and not opp.empty else [], ensure_ascii=False, indent=2)
+    pm = json.dumps(page_metrics or {}, ensure_ascii=False, indent=2)
+    query_note = (
+        "Šios užklausos yra TIKRAI šio produkto, nes Search Console eksportas filtruotas pagal puslapį."
+        if product_specific_queries else
+        "Šis eksportas nėra filtruotas pagal produkto puslapį. Užklausos yra visos svetainės; pateiktos tik leksiškai susijusios kandidatės. Nelaikyk jų įrodymu, kad būtent šis URL rodėsi pagal tas frazes."
+    )
+    return (
+        "Optimizuok šį Protuoliuko produkto puslapį pagal pateiktą produkto turinį ir Google Search Console duomenis.\n\n"
+        "SVARBU:\n"
+        "- URL nekeisti.\n"
+        "- Neišgalvoti amžiaus, klasės, formato, turinio ar funkcijų.\n"
+        "- Netinkamų paieškos intencijų nenaudoti vien dėl parodymų.\n"
+        "- Jei kažko keisti nereikia, aiškiai rašyti PALIKTI.\n"
+        "- Nekeičiant dėl SEO to, kas jau veikia gerai.\n\n"
+        f"PRODUKTAS\nURL: {product.get('url','')}\n"
+        f"Pavadinimas: {product.get('product_name','')}\n"
+        f"Meta title: {product.get('meta_title','')}\n"
+        f"Meta description: {product.get('meta_description','')}\n"
+        f"Aprašymas:\n{product.get('description','')}\n\n"
+        f"PUSLAPIO SEARCH CONSOLE RODIKLIAI:\n{pm}\n\n"
+        f"RADARO SEO BŪKLĖ: {health}/100\n"
+        f"Pastabos: {'; '.join(notes) if notes else 'nėra'}\n\n"
+        f"UŽKLAUSŲ STATUSAS: {query_note}\n"
+        f"UŽKLAUSOS / KANDIDATĖS:\n{rows}\n\n"
+        "PATEIK GALUTINĮ REZULTATĄ TOKIA TVARKA:\n"
+        "1) Verdiktas: NEKEISTI / PAPILDYTI / OPTIMIZUOTI.\n"
+        "2) Pagrindinė SEO frazė ir 3–8 antrinės frazės.\n"
+        "3) Produkto pavadinimas: PALIKTI arba vienas galutinis naujas variantas.\n"
+        "4) Meta title: PALIKTI arba vienas galutinis naujas variantas.\n"
+        "5) Meta description: PALIKTI arba vienas galutinis naujas variantas.\n"
+        "6) Produkto aprašymas: jei keisti – pateik VISĄ galutinį aprašymą, paruoštą kopijuoti į parduotuvę.\n"
+        "7) Ko nekeisti ir kokių klaidinančių frazių nenaudoti.\n"
+        "8) Trumpai paaiškink, kodėl siūlai būtent šiuos pakeitimus."
+    )
+
+
+def copy_block(label, value, caption=None):
+    st.markdown(f"**{label}**")
+    if caption:
+        st.caption(caption)
+    st.code(str(value or ""), language=None)
 
 tabs=st.tabs(["🏠 ŠIANDIEN","📅 SAVAITĖ","🚀 ARTĖJANTYS TOPAI","💡 PRODUKTŲ PLANAI","🔎 SEO OPTIMIZATORIUS","📌 PINTEREST ĮKVĖPIMAS","📅 PROGŲ IDĖJOS","🌿 EVERGREEN","🧠 IDĖJŲ BANKAS"])
 
@@ -1507,37 +1831,119 @@ with tabs[3]:
 
 with tabs[4]:
     st.subheader("🔎 SEO optimizatorius")
-    st.caption("Įkelk Search Console eksportą ir pateik produktą. Radaras išanalizuos signalus ir paruoš viską ChatGPT – be API rakto ir papildomų mokamų paslaugų.")
-    gsc_file=st.file_uploader("1. Search Console eksportas",type=["xlsx","xls","csv"],key="seo_gsc")
-    source=st.radio("2. Produkto informacija",["Produkto nuoroda","Įklijuosiu ranka"],horizontal=True,key="seo_source")
-    product=None;product_url=""
-    if source=="Produkto nuoroda":
-        product_url=st.text_input("Produkto nuoroda",placeholder="https://mokymopriemones.eu/...",key="seo_url").strip()
-        if product_url:
-            try:product=fetch_product_seo(product_url);st.success(f"Nuskaityta: {product.get('product_name','produktas')}")
-            except Exception:st.warning("Nepavyko patikimai nuskaityti produkto puslapio. Gali pasirinkti „Įklijuosiu ranka“.")
-    else:
-        pn=st.text_input("Produkto pavadinimas",key="seo_pn");mt=st.text_input("Dabartinis Meta title",key="seo_mt");md=st.text_area("Dabartinis Meta description",height=80,key="seo_md");desc=st.text_area("Dabartinis produkto aprašymas",height=220,key="seo_desc")
-        if pn and desc:product={"url":"","product_name":pn,"meta_title":mt,"meta_description":md,"description":desc}
-    if gsc_file is not None and product:
+    st.caption("Įkelk įprastą Search Console Performance .xlsx eksportą. Radaras pats perskaitys lapus „Užklausos“, „Puslapiai“, „Diagrama“ ir „Filtrai“. Jokių API raktų ir papildomų mokamų paslaugų.")
+
+    gsc_file = st.file_uploader("1. Search Console eksportas", type=["xlsx", "xls", "csv"], key="seo_gsc")
+    book = None
+    if gsc_file is not None:
         try:
-            gsc=read_search_console_upload(gsc_file)
-            if "query" not in gsc.columns:st.error("Eksporte neradau užklausų (Queries / Užklausos) stulpelio. Įkelk Search Console Performance eksportą su užklausomis.")
+            book = read_search_console_workbook(gsc_file)
+            qn = len(book["queries"]) if not book["queries"].empty else 0
+            pn = len(book["pages"]) if not book["pages"].empty else 0
+            tn = len(book["trend"]) if not book["trend"].empty else 0
+            st.success(f"Search Console nuskaitytas · užklausų {qn} · puslapių {pn} · dienų {tn}")
+
+            if not book["pages"].empty:
+                with st.expander("🔥 Kurie svetainės puslapiai dabar turi didžiausią SEO galimybę"):
+                    st.caption("Tai atranka pagal parodymus, CTR ir poziciją. Ji padeda pasirinkti, kurį produktą tikrinti pirmiausia.")
+                    po = page_opportunities(book["pages"])
+                    if po.empty:
+                        st.info("Nepakanka puslapių duomenų reitingui.")
+                    else:
+                        st.dataframe(po.head(25), use_container_width=True, hide_index=True)
+        except Exception as e:
+            st.error("Nepavyko perskaityti Search Console failo.")
+            st.caption(str(e)[:500])
+            book = None
+
+    st.divider()
+    source = st.radio("2. Produkto informacija", ["Produkto nuoroda", "Įklijuosiu ranka"], horizontal=True, key="seo_source")
+    product = None
+    product_url = ""
+
+    if source == "Produkto nuoroda":
+        product_url = st.text_input("Produkto nuoroda", placeholder="https://mokymopriemones.eu/...", key="seo_url").strip()
+        if product_url:
+            try:
+                product = fetch_product_seo(product_url)
+                st.success(f"Nuskaityta: {product.get('product_name','produktas')}")
+            except Exception as e:
+                st.warning("Nepavyko patikimai nuskaityti produkto puslapio. Gali pasirinkti „Įklijuosiu ranka“.")
+                st.caption(str(e)[:300])
+    else:
+        pn = st.text_input("Produkto pavadinimas", key="seo_pn")
+        mt = st.text_input("Dabartinis Meta title", key="seo_mt")
+        md = st.text_area("Dabartinis Meta description", height=80, key="seo_md")
+        desc = st.text_area("Dabartinis produkto aprašymas", height=220, key="seo_desc")
+        if pn and desc:
+            product = {"url": "", "product_name": pn, "meta_title": mt, "meta_description": md, "description": desc}
+
+    if book is not None and product:
+        try:
+            page_filtered, filter_page = gsc_is_page_filtered(book, product_url)
+            page_metrics = page_metrics_for_url(book["pages"], product_url) if product_url else None
+            opp = seo_query_table(book["queries"], product, product_specific=page_filtered)
+            health, notes = current_seo_health(product, opp, page_metrics, page_filtered)
+            verdict, icon, why = seo_verdict(health, page_metrics, page_filtered, opp)
+
+            st.divider()
+            st.markdown(f"## {icon} {verdict}")
+            st.write(why)
+
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("SEO būklė", f"{health}/100")
+            if page_metrics:
+                c2.metric("Produkto parodymai", f"{int(page_metrics['impressions']):,}".replace(",", " "))
+                c3.metric("CTR", f"{page_metrics['ctr']:.2f}%")
+                c4.metric("Pozicija", f"{page_metrics['position']:.1f}")
             else:
-                opp=seo_opportunity_table(gsc,product_url)
-                if opp.empty:st.info("Šiam produktui Search Console užklausų neradau.")
+                c2.metric("Produkto parodymai", "–")
+                c3.metric("CTR", "–")
+                c4.metric("Pozicija", "–")
+
+            if not notes:
+                st.success("Aiškių techninių / turinio silpnumų pagal turimus signalus nerasta.")
+            else:
+                for n in notes:
+                    st.write("• " + n)
+
+            if page_filtered:
+                st.success(f"✅ Search Console eksportas filtruotas pagal šį puslapį. Užklausos žemiau yra konkretaus produkto.")
+            else:
+                st.info("ℹ️ Šis Search Console eksportas nėra filtruotas pagal konkretų produkto URL. Todėl užklausų negalima patikimai priskirti šiam produktui. Rodau tik galimas, pagal produkto tekstą susijusias visos svetainės frazes.")
+
+            st.markdown("### Search Console užklausų signalai")
+            if opp.empty:
+                if book["queries"].empty:
+                    st.warning("Eksporte neradau lapo „Užklausos“ arba užklausų stulpelio.")
                 else:
-                    health,notes=current_seo_health(product,opp);st.divider();c1,c2,c3=st.columns(3);c1.metric("Dabartinė SEO būklė",f"{health}/100");c2.metric("Analizuojamų užklausų",len(opp));c3.metric("TOP parodymų",f"{int(opp.iloc[0]['Parodymai']):,}".replace(","," "));st.markdown("### Search Console signalai");st.dataframe(opp.head(15),use_container_width=True,hide_index=True)
-                    if notes:st.caption(" • ".join(notes))
-                    if health>=85: st.success("🟢 SEO atrodo tvarkingai · produkto nereikia perrašyti vien dėl perrašymo")
-                    elif health>=65: st.info("🟡 Yra ką peržiūrėti · gali pakakti papildymo")
-                    else: st.warning("🟠 Verta SEO peržiūra · yra neišnaudotų signalų")
-                    st.markdown("### 📋 Paruošta analizei ChatGPT")
-                    st.caption("Nukopijuok visą tekstą žemiau ir įklijuok į mūsų ChatGPT pokalbį. Aš pateiksiu gatavą aprašymą, Meta title ir Meta description.")
-                    st.code(make_chatgpt_prompt(product,opp,health,notes),language=None)
-                    st.caption("🔒 Be API rakto ir be papildomų mokamų paslaugų. Produkto URL nekeičiamas.")
-        except Exception as e:st.error("SEO analizės nepavyko užbaigti.");st.caption(str(e)[:500])
-    else:st.info("Pradėk nuo Search Console failo ir produkto nuorodos arba aprašymo.")
+                    st.caption("Pagal produkto tekstą neradau aiškiai susijusių visos svetainės užklausų. Tai nėra klaida.")
+            else:
+                st.dataframe(opp.head(20), use_container_width=True, hide_index=True)
+
+            st.markdown("### 📋 Dabartiniai produkto tekstai · kopijavimui")
+            st.caption("Kiekviename bloke yra kopijavimo piktograma. Gali kopijuoti po vieną tekstą arba visą ChatGPT paketą apačioje.")
+            copy_block("Produkto pavadinimas", product.get("product_name", ""))
+            copy_block("Meta title", product.get("meta_title", ""))
+            copy_block("Meta description", product.get("meta_description", ""))
+            copy_block("Produkto aprašymas", product.get("description", ""))
+
+            st.markdown("### 🤖 Visas paketas ChatGPT · vienu kopijavimu")
+            st.caption("Nukopijuok visą bloką ir įklijuok į mūsų ChatGPT pokalbį. Tada gausi galutinį aprašymą, Meta title, Meta description ir, tik jei reikia, naują produkto pavadinimą.")
+            prompt = make_chatgpt_prompt(product, opp, health, notes, page_metrics, page_filtered)
+            st.code(prompt, language=None)
+            st.caption("🔒 Be API rakto. Radaras analizuoja duomenis pats, o kokybišką galutinį tekstą generuojame tavo turimame ChatGPT.")
+
+            if not page_filtered and product_url:
+                with st.expander("🎯 Jei norėsi TIKSLIŲ šio produkto Google užklausų"):
+                    st.write("Search Console pasirink šį konkretų puslapį kaip filtrą, tada eksportuok Performance duomenis dar kartą. Tokiu atveju lapo „Užklausos“ frazės bus būtent šio produkto ir Radaras jas atpažins automatiškai.")
+        except Exception as e:
+            st.error("SEO analizės nepavyko užbaigti.")
+            st.caption(str(e)[:500])
+    elif book is not None:
+        st.info("Dabar įklijuok produkto nuorodą arba pasirink rankinį įvedimą.")
+    else:
+        st.info("Pradėk nuo Search Console failo.")
 
 
 with tabs[5]:
@@ -1655,4 +2061,4 @@ with tabs[8]:
                     label="SUKURTA" if it.status in ["SUKURTA","PASIDALINTA"] else "PRAPLĖSTA"
                     st.write(f"**{label}** · {it.product_code or 'be kodo'} · {it.tema} → {it.mikrotema}")
 
-st.caption("V9.0.1 FIX • tiksli data tik iš patikrinto 2–3 sav. lango • PASIDALINAU saugiai išsaugoma per ideas istoriją.")
+st.caption("V10.6 • SEO optimizatorius skaito lietuvišką Search Console .xlsx struktūrą • be API • produkto tekstai ir ChatGPT paketas kopijavimui.")
