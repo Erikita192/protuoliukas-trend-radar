@@ -8,7 +8,7 @@ from datetime import date, datetime, timedelta
 from urllib.parse import urljoin, urlparse
 from urllib.parse import quote_plus
 
-st.set_page_config(page_title="Protuoliukas Trend Radar V10.6", page_icon="📡", layout="wide")
+st.set_page_config(page_title="Protuoliukas Trend Radar V10.7", page_icon="📡", layout="wide")
 MONTH_NUM={"sausis":1,"vasaris":2,"kovas":3,"balandis":4,"gegužė":5,"birželis":6,"liepa":7,"rugpjūtis":8,"rugsėjis":9,"spalis":10,"lapkritis":11,"gruodis":12}
 SHOP="https://mokymopriemones.eu/"
 
@@ -1628,106 +1628,134 @@ def page_opportunities(pages):
     return pd.DataFrame(rows).sort_values(["SEO galimybė", "Parodymai"], ascending=False).head(40)
 
 
-def current_seo_health(product, opp, page_metrics=None, product_specific_queries=False):
-    mt = len(product.get("meta_title", "") or "")
-    md = len(product.get("meta_description", "") or "")
-    desc_len = len(product.get("description", "") or "")
-    score = 45
-    notes = []
+def _content_hash(product):
+    raw = "\n".join([
+        product.get("product_name", "") or "", product.get("meta_title", "") or "",
+        product.get("meta_description", "") or "", product.get("description", "") or "",
+    ])
+    return hashlib.sha1(raw.encode("utf-8", errors="ignore")).hexdigest()
 
-    if 35 <= mt <= 65:
-        score += 15
+
+def _query_coverage(product, opp):
+    page_text = _norm(" ".join([
+        product.get("product_name", ""), product.get("meta_title", ""),
+        product.get("meta_description", ""), product.get("description", ""),
+    ]))
+    out=[]
+    if opp is None or opp.empty:
+        return out
+    for _, r in opp.head(12).iterrows():
+        q=str(r.get("Užklausa", "")).strip()
+        if not q: continue
+        exact=_norm(q) in page_text
+        toks=_tokens(q, min_len=3)
+        covered=len(toks & _tokens(page_text, min_len=3))
+        ratio=(covered/len(toks)) if toks else 0
+        out.append((q, exact, ratio, int(r.get("Parodymai",0) or 0), float(r.get("Pozicija",0) or 0)))
+    return out
+
+
+def audit_product_seo(product, opp, page_metrics=None, product_specific_queries=False):
+    name=(product.get("product_name","") or "").strip()
+    mt=(product.get("meta_title","") or "").strip()
+    md=(product.get("meta_description","") or "").strip()
+    desc=(product.get("description","") or "").strip()
+    audits={}
+
+    # Product name: conservative. Never change just for length.
+    name_good=[]; name_missing=[]; name_change=[]
+    if len(name) >= 8: name_good.append("Pavadinimas aiškus ir pakankamai informatyvus.")
+    else: name_missing.append("Pavadinimas labai trumpas – neaiški produkto paskirtis.")
+    audits["Produkto pavadinimas"]={"status":"🟢 PALIKTI" if not name_missing else "🟡 PATOBULINTI", "good":name_good, "missing":name_missing, "change":name_change}
+
+    # Meta title
+    good=[]; missing=[]; change=[]
+    if 35 <= len(mt) <= 65: good.append(f"Ilgis tinkamas ({len(mt)} simb.).")
+    elif not mt: missing.append("Meta title nepavyko rasti.")
+    elif len(mt)<35: missing.append(f"Meta title trumpas ({len(mt)} simb.) – galima aiškiau įvardyti produkto paskirtį.")
+    else: missing.append(f"Meta title ilgas ({len(mt)} simb.) – svarbiausia informacija gali būti nukerpama.")
+    audits["Meta title"]={"status":"🟢 PALIKTI" if not missing else "🟡 PATOBULINTI", "good":good, "missing":missing, "change":change}
+
+    # Meta description
+    good=[]; missing=[]; change=[]
+    if 110 <= len(md) <= 165: good.append(f"Ilgis tinkamas ({len(md)} simb.).")
+    elif not md: missing.append("Meta description nerasta.")
+    elif len(md)<110: missing.append(f"Meta description trumpa ({len(md)} simb.) – galima aiškiau pasakyti, ką pirkėjas gaus.")
+    else: missing.append(f"Meta description ilga ({len(md)} simb.) – verta sutrumpinti iki svarbiausio pažado.")
+    audits["Meta description"]={"status":"🟢 PALIKTI" if not missing else "🟡 PATOBULINTI", "good":good, "missing":missing, "change":change}
+
+    # Description
+    good=[]; missing=[]; change=[]
+    words=re.findall(r"\b[\wĄČĘĖĮŠŲŪŽąčęėįšųūž-]+\b", desc, flags=re.UNICODE)
+    if len(words)>=70: good.append(f"Aprašymas nėra per trumpas ({len(words)} žodž.).")
+    else: missing.append(f"Aprašymas trumpas ({len(words)} žodž.) – gali trūkti paskirties, naudos ar turinio paaiškinimo.")
+    if any(x in _norm(desc) for x in ["skirta", "tinka", "vaik", "mokin", "ugd", "lavin"]): good.append("Aprašyme matyti paskirties / ugdomosios naudos signalų.")
+    else: missing.append("Silpnai įvardyta, kam priemonė skirta ir kokį gebėjimą ji ugdo.")
+
+    cov=_query_coverage(product, opp)
+    strong=[]
+    for q, exact, ratio, imp, pos in cov:
+        if imp>=20 and not exact and ratio<0.75:
+            strong.append(q)
+    if product_specific_queries and strong:
+        missing.append("Produkto Search Console duomenyse yra svarbių frazių, kurios dabartiniame puslapyje silpnai atspindėtos: " + ", ".join(strong[:4]) + ".")
+        change.append("Šias frazes naudoti tik natūraliai ir tik jei jos tiksliai atitinka produkto turinį.")
+    elif not product_specific_queries and strong:
+        change.append("Visos svetainės užklausų nelaikyti šio produkto raktažodžiais be produkto URL filtro.")
+    if not missing:
+        status="🟢 PALIKTI"
+    elif len(missing)<=2:
+        status="🟡 PAPILDYTI, NEPERRAŠYTI"
     else:
-        score += 6
-        notes.append("Meta title ilgį / fokusą verta peržiūrėti.")
+        status="🔴 REIKIA RIMČIAU PERŽIŪRĖTI"
+    audits["Produkto aprašymas"]={"status":status,"good":good,"missing":missing,"change":change}
 
-    if 110 <= md <= 165:
-        score += 15
-    else:
-        score += 6
-        notes.append("Meta description ilgį / fokusą verta peržiūrėti.")
+    # CTR signal applies primarily to snippet, not description body.
+    if page_metrics and page_metrics.get("impressions",0)>=100 and page_metrics.get("position",99)<=15 and page_metrics.get("ctr",0)<1.5:
+        audits["Meta title"]["missing"].append("Produktas jau matomas aukštai, bet CTR žemas – verta patikrinti, ar title tiksliai ir patraukliai atspindi produktą.")
+        audits["Meta description"]["missing"].append("Žemas CTR rodo, kad paieškos rezultato aprašas gali nepakankamai paskatinti paspausti.")
+        audits["Meta title"]["status"]="🟡 PATOBULINTI"
+        audits["Meta description"]["status"]="🟡 PATOBULINTI"
 
-    if desc_len >= 250:
-        score += 10
-    else:
-        notes.append("Produkto aprašymas labai trumpas arba nepavyko jo pilnai nuskaityti.")
+    return audits
 
-    if page_metrics:
-        ctr = page_metrics.get("ctr", 0)
-        pos = page_metrics.get("position", 0)
-        imp = page_metrics.get("impressions", 0)
-        if imp >= 100 and pos <= 15 and ctr < 2:
-            notes.append("Produktas jau matomas Google, bet CTR žemas – verta peržiūrėti title / description pažadą.")
-        if 5 <= pos <= 20 and imp >= 100:
-            notes.append("Pozicija arti pirmo puslapio / pirmame puslapyje – net nedidelis SEO pagerinimas gali būti vertingas.")
 
+def audit_score(audits):
+    vals=[]
+    for a in audits.values():
+        stt=a["status"]
+        vals.append(100 if "PALIKTI" in stt else 72 if "PAPILDYTI" in stt or "PATOBULINTI" in stt else 48)
+    return round(sum(vals)/len(vals)) if vals else 0
+
+
+def overall_audit_verdict(audits, watching=False):
+    if watching:
+        return "🕒 STEBĖTI PO PAKEITIMO", "Radaro nuskaitytas produkto turinys pasikeitė. Dabar pirmiausia vertink dabartinį auditą ir neskubėk dar kartą perrašyti vien dėl senesnių Search Console duomenų."
+    statuses=[a["status"] for a in audits.values()]
+    if any("RIMČIAU" in x for x in statuses):
+        return "🔴 REIKIA PERŽIŪRĖTI", "Yra keli konkretūs trūkumai. Keisk tik tas vietas, kurias Radaras nurodo – ne visą puslapį automatiškai."
+    if any("PAPILDYTI" in x or "PATOBULINTI" in x for x in statuses):
+        return "🟡 YRA KĄ PATOBULINTI", "Pilno perrašymo nereikia. Žemiau parodyta, ką palikti ir ką konkrečiai papildyti."
+    return "🟢 SEO TVARKOJE", "Pagal dabartinį puslapį ir turimus signalus nėra pagrindo keisti tekstus vien dėl SEO."
+
+
+def make_chatgpt_audit_prompt(product, audits, opp, page_metrics=None, product_specific_queries=False):
+    actions=[]
+    for name,a in audits.items():
+        if "PALIKTI" in a["status"]: continue
+        actions.append(f"{name}: {a['status']}")
+        for x in a["missing"]: actions.append("- Trūksta / problema: "+x)
+        for x in a["change"]: actions.append("- Taisyklė: "+x)
+    qrows=[]
     if product_specific_queries and opp is not None and not opp.empty:
-        page_text = _norm(" ".join([product.get("product_name", ""), product.get("meta_title", ""), product.get("meta_description", ""), product.get("description", "")]))
-        covered = sum(1 for q in opp.head(10)["Užklausa"] if _norm(q) in page_text)
-        if covered >= 3:
-            score += 12
-        else:
-            notes.append("Produkto Search Console užklausos silpnai atsispindi puslapio tekste.")
-    else:
-        score += 4
-
-    return min(100, score), notes
-
-
-def seo_verdict(health, page_metrics=None, product_specific_queries=False, opp=None):
-    if page_metrics and page_metrics.get("impressions", 0) >= 100:
-        ctr = page_metrics.get("ctr", 0)
-        pos = page_metrics.get("position", 99)
-        if pos <= 15 and ctr < 1.5:
-            return "OPTIMIZUOTI", "🟠", "Produktas gauna parodymų ir yra pakankamai aukštai, bet paspaudimų santykis silpnas."
-        if 8 <= pos <= 25:
-            return "PAPILDYTI / PERŽIŪRĖTI", "🟡", "Yra reali galimybė pastumti produktą aukščiau, bet nebūtina perrašyti visko."
-    if product_specific_queries and opp is not None and not opp.empty and opp.iloc[0]["SEO galimybė"] >= 80:
-        return "PAPILDYTI / PERŽIŪRĖTI", "🟡", "Produkto užklausose matyti stiprus neišnaudotas signalas."
-    if health >= 85:
-        return "NEKEISTI", "🟢", "Nėra pakankamo pagrindo perrašyti SEO vien dėl perrašymo."
-    if health >= 68:
-        return "PERŽIŪRĖTI", "🟡", "Yra keli elementai, kuriuos verta patikrinti, bet galima apsieiti be pilno perrašymo."
-    return "OPTIMIZUOTI", "🟠", "Dabartiniame puslapyje yra keli aiškūs SEO silpnumai."
-
-
-def make_chatgpt_prompt(product, opp, health, notes, page_metrics=None, product_specific_queries=False):
-    rows = json.dumps(opp.head(20).to_dict("records") if opp is not None and not opp.empty else [], ensure_ascii=False, indent=2)
-    pm = json.dumps(page_metrics or {}, ensure_ascii=False, indent=2)
-    query_note = (
-        "Šios užklausos yra TIKRAI šio produkto, nes Search Console eksportas filtruotas pagal puslapį."
-        if product_specific_queries else
-        "Šis eksportas nėra filtruotas pagal produkto puslapį. Užklausos yra visos svetainės; pateiktos tik leksiškai susijusios kandidatės. Nelaikyk jų įrodymu, kad būtent šis URL rodėsi pagal tas frazes."
-    )
+        qrows=opp.head(12)[[c for c in ["Užklausa","Parodymai","CTR %","Pozicija"] if c in opp.columns]].to_dict("records")
     return (
-        "Optimizuok šį Protuoliuko produkto puslapį pagal pateiktą produkto turinį ir Google Search Console duomenis.\n\n"
-        "SVARBU:\n"
-        "- URL nekeisti.\n"
-        "- Neišgalvoti amžiaus, klasės, formato, turinio ar funkcijų.\n"
-        "- Netinkamų paieškos intencijų nenaudoti vien dėl parodymų.\n"
-        "- Jei kažko keisti nereikia, aiškiai rašyti PALIKTI.\n"
-        "- Nekeičiant dėl SEO to, kas jau veikia gerai.\n\n"
-        f"PRODUKTAS\nURL: {product.get('url','')}\n"
-        f"Pavadinimas: {product.get('product_name','')}\n"
-        f"Meta title: {product.get('meta_title','')}\n"
-        f"Meta description: {product.get('meta_description','')}\n"
-        f"Aprašymas:\n{product.get('description','')}\n\n"
-        f"PUSLAPIO SEARCH CONSOLE RODIKLIAI:\n{pm}\n\n"
-        f"RADARO SEO BŪKLĖ: {health}/100\n"
-        f"Pastabos: {'; '.join(notes) if notes else 'nėra'}\n\n"
-        f"UŽKLAUSŲ STATUSAS: {query_note}\n"
-        f"UŽKLAUSOS / KANDIDATĖS:\n{rows}\n\n"
-        "PATEIK GALUTINĮ REZULTATĄ TOKIA TVARKA:\n"
-        "1) Verdiktas: NEKEISTI / PAPILDYTI / OPTIMIZUOTI.\n"
-        "2) Pagrindinė SEO frazė ir 3–8 antrinės frazės.\n"
-        "3) Produkto pavadinimas: PALIKTI arba vienas galutinis naujas variantas.\n"
-        "4) Meta title: PALIKTI arba vienas galutinis naujas variantas.\n"
-        "5) Meta description: PALIKTI arba vienas galutinis naujas variantas.\n"
-        "6) Produkto aprašymas: jei keisti – pateik VISĄ galutinį aprašymą, paruoštą kopijuoti į parduotuvę.\n"
-        "7) Ko nekeisti ir kokių klaidinančių frazių nenaudoti.\n"
-        "8) Trumpai paaiškink, kodėl siūlai būtent šiuos pakeitimus."
+        "Patobulink šio produkto tekstus pagal SEO Radaro auditą. NEPERRAŠYK to, kas pažymėta PALIKTI, ir neišgalvok produkto savybių. URL nekeisti.\n\n"
+        f"PRODUKTAS\nPavadinimas: {product.get('product_name','')}\nMeta title: {product.get('meta_title','')}\nMeta description: {product.get('meta_description','')}\nAprašymas:\n{product.get('description','')}\n\n"
+        "RADARO NUSTATYTI PAKEITIMAI:\n" + ("\n".join(actions) if actions else "Nieko keisti nereikia.") + "\n\n"
+        + ("KONKRETAUS PRODUKTO SEARCH CONSOLE UŽKLAUSOS:\n"+json.dumps(qrows,ensure_ascii=False,indent=2)+"\n\n" if qrows else "")
+        + "Pateik tik tuos galutinius tekstus, kuriuos pagal auditą reikia keisti. Jei elementą reikia palikti – parašyk PALIKTI. Išlaikyk natūralią lietuvių kalbą ir negrūsk raktažodžių."
     )
-
 
 def copy_block(label, value, caption=None):
     st.markdown(f"**{label}**")
@@ -1831,115 +1859,108 @@ with tabs[3]:
 
 with tabs[4]:
     st.subheader("🔎 SEO optimizatorius")
-    st.caption("Įkelk įprastą Search Console Performance .xlsx eksportą. Radaras pats perskaitys lapus „Užklausos“, „Puslapiai“, „Diagrama“ ir „Filtrai“. Jokių API raktų ir papildomų mokamų paslaugų.")
+    st.caption("SEO auditas: Radaras pats nuskaitys dabartinį produkto puslapį, palygins jį su Search Console signalais ir pasakys, ką PALIKTI, ką PAPILDYTI ir ką KEISTI. Be mokamo AI API.")
 
     gsc_file = st.file_uploader("1. Search Console eksportas", type=["xlsx", "xls", "csv"], key="seo_gsc")
     book = None
     if gsc_file is not None:
         try:
             book = read_search_console_workbook(gsc_file)
-            qn = len(book["queries"]) if not book["queries"].empty else 0
-            pn = len(book["pages"]) if not book["pages"].empty else 0
-            tn = len(book["trend"]) if not book["trend"].empty else 0
+            qn=len(book["queries"]) if not book["queries"].empty else 0
+            pn=len(book["pages"]) if not book["pages"].empty else 0
+            tn=len(book["trend"]) if not book["trend"].empty else 0
             st.success(f"Search Console nuskaitytas · užklausų {qn} · puslapių {pn} · dienų {tn}")
-
             if not book["pages"].empty:
-                with st.expander("🔥 Kurie svetainės puslapiai dabar turi didžiausią SEO galimybę"):
-                    st.caption("Tai atranka pagal parodymus, CTR ir poziciją. Ji padeda pasirinkti, kurį produktą tikrinti pirmiausia.")
-                    po = page_opportunities(book["pages"])
-                    if po.empty:
-                        st.info("Nepakanka puslapių duomenų reitingui.")
-                    else:
-                        st.dataframe(po.head(25), use_container_width=True, hide_index=True)
+                with st.expander("🔥 Kurie svetainės puslapiai turi didžiausią SEO galimybę"):
+                    st.caption("Atranka pagal parodymus, CTR ir poziciją – kad žinotum, kurį produktą verta audituoti pirmiausia.")
+                    po=page_opportunities(book["pages"])
+                    st.dataframe(po.head(25),use_container_width=True,hide_index=True) if not po.empty else st.info("Nepakanka duomenų reitingui.")
         except Exception as e:
-            st.error("Nepavyko perskaityti Search Console failo.")
-            st.caption(str(e)[:500])
-            book = None
+            st.error("Nepavyko perskaityti Search Console failo."); st.caption(str(e)[:500]); book=None
 
     st.divider()
-    source = st.radio("2. Produkto informacija", ["Produkto nuoroda", "Įklijuosiu ranka"], horizontal=True, key="seo_source")
-    product = None
-    product_url = ""
-
-    if source == "Produkto nuoroda":
-        product_url = st.text_input("Produkto nuoroda", placeholder="https://mokymopriemones.eu/...", key="seo_url").strip()
+    source=st.radio("2. Produkto informacija",["Produkto nuoroda","Įklijuosiu ranka"],horizontal=True,key="seo_source")
+    product=None; product_url=""
+    if source=="Produkto nuoroda":
+        product_url=st.text_input("Produkto nuoroda",placeholder="https://mokymopriemones.eu/...",key="seo_url").strip()
         if product_url:
             try:
-                product = fetch_product_seo(product_url)
+                product=fetch_product_seo(product_url)
                 st.success(f"Nuskaityta: {product.get('product_name','produktas')}")
             except Exception as e:
-                st.warning("Nepavyko patikimai nuskaityti produkto puslapio. Gali pasirinkti „Įklijuosiu ranka“.")
-                st.caption(str(e)[:300])
+                st.warning("Nepavyko patikimai nuskaityti produkto puslapio. Gali pasirinkti „Įklijuosiu ranka“."); st.caption(str(e)[:300])
     else:
-        pn = st.text_input("Produkto pavadinimas", key="seo_pn")
-        mt = st.text_input("Dabartinis Meta title", key="seo_mt")
-        md = st.text_area("Dabartinis Meta description", height=80, key="seo_md")
-        desc = st.text_area("Dabartinis produkto aprašymas", height=220, key="seo_desc")
-        if pn and desc:
-            product = {"url": "", "product_name": pn, "meta_title": mt, "meta_description": md, "description": desc}
+        pn=st.text_input("Produkto pavadinimas",key="seo_pn")
+        mt=st.text_input("Dabartinis Meta title",key="seo_mt")
+        md=st.text_area("Dabartinis Meta description",height=80,key="seo_md")
+        desc=st.text_area("Dabartinis produkto aprašymas",height=220,key="seo_desc")
+        if pn and desc: product={"url":"","product_name":pn,"meta_title":mt,"meta_description":md,"description":desc}
 
     if book is not None and product:
         try:
-            page_filtered, filter_page = gsc_is_page_filtered(book, product_url)
-            page_metrics = page_metrics_for_url(book["pages"], product_url) if product_url else None
-            opp = seo_query_table(book["queries"], product, product_specific=page_filtered)
-            health, notes = current_seo_health(product, opp, page_metrics, page_filtered)
-            verdict, icon, why = seo_verdict(health, page_metrics, page_filtered, opp)
+            page_filtered,_=gsc_is_page_filtered(book,product_url)
+            page_metrics=page_metrics_for_url(book["pages"],product_url) if product_url else None
+            opp=seo_query_table(book["queries"],product,product_specific=page_filtered)
+            audits=audit_product_seo(product,opp,page_metrics,page_filtered)
 
-            st.divider()
-            st.markdown(f"## {icon} {verdict}")
-            st.write(why)
+            # Automatic change detection, no Done/Optimized buttons.
+            watching=False
+            if product_url:
+                key="seo_seen_"+hashlib.md5(product_url.rstrip('/').encode()).hexdigest()
+                now_hash=_content_hash(product)
+                prev=st.session_state.get(key)
+                if prev and prev!=now_hash: watching=True
+                st.session_state[key]=now_hash
 
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("SEO būklė", f"{health}/100")
+            verdict,why=overall_audit_verdict(audits,watching)
+            score=audit_score(audits)
+            st.divider(); st.markdown(f"## {verdict}"); st.write(why)
+            c1,c2,c3,c4=st.columns(4)
+            c1.metric("SEO auditas",f"{score}/100")
             if page_metrics:
-                c2.metric("Produkto parodymai", f"{int(page_metrics['impressions']):,}".replace(",", " "))
-                c3.metric("CTR", f"{page_metrics['ctr']:.2f}%")
-                c4.metric("Pozicija", f"{page_metrics['position']:.1f}")
+                c2.metric("Produkto parodymai",f"{int(page_metrics['impressions']):,}".replace(","," "))
+                c3.metric("CTR",f"{page_metrics['ctr']:.2f}%")
+                c4.metric("Pozicija",f"{page_metrics['position']:.1f}")
             else:
-                c2.metric("Produkto parodymai", "–")
-                c3.metric("CTR", "–")
-                c4.metric("Pozicija", "–")
+                c2.metric("Produkto parodymai","–"); c3.metric("CTR","–"); c4.metric("Pozicija","–")
 
-            if not notes:
-                st.success("Aiškių techninių / turinio silpnumų pagal turimus signalus nerasta.")
-            else:
-                for n in notes:
-                    st.write("• " + n)
+            if watching:
+                st.info("🕒 Radaras automatiškai pastebėjo, kad šio URL tekstai nuo ankstesnio nuskaitymo pasikeitė. Naujo Search Console eksporto rezultatai dar gali atspindėti senesnę versiją, todėl nesiūloma vėl visko perrašyti.")
+
+            st.markdown("### 🩺 Dabartinio puslapio auditas")
+            for section,a in audits.items():
+                with st.expander(f"{a['status']} · {section}",expanded=("PALIKTI" not in a['status'])):
+                    if a["good"]:
+                        st.markdown("**Kas gerai**")
+                        for x in a["good"]: st.write("✅ "+x)
+                    if a["missing"]:
+                        st.markdown("**Ko trūksta / ką verta taisyti**")
+                        for x in a["missing"]: st.write("• "+x)
+                    if a["change"]:
+                        st.markdown("**Kaip keisti**")
+                        for x in a["change"]: st.write("• "+x)
+                    if not a["missing"] and not a["change"]: st.success("Šio elemento dabar keisti nereikia.")
 
             if page_filtered:
-                st.success(f"✅ Search Console eksportas filtruotas pagal šį puslapį. Užklausos žemiau yra konkretaus produkto.")
+                st.success("✅ Search Console eksportas filtruotas pagal šį produkto puslapį – užklausų signalus galima naudoti konkrečiam produktui.")
             else:
-                st.info("ℹ️ Šis Search Console eksportas nėra filtruotas pagal konkretų produkto URL. Todėl užklausų negalima patikimai priskirti šiam produktui. Rodau tik galimas, pagal produkto tekstą susijusias visos svetainės frazes.")
+                st.info("ℹ️ Bendrame Search Console eksporte užklausų negalima patikimai priskirti vienam produktui. Todėl jos nenaudojamos kaip privalomi raktažodžiai; konkretaus URL parodymai, CTR ir pozicija imami iš lapo „Puslapiai“.")
 
-            st.markdown("### Search Console užklausų signalai")
-            if opp.empty:
-                if book["queries"].empty:
-                    st.warning("Eksporte neradau lapo „Užklausos“ arba užklausų stulpelio.")
-                else:
-                    st.caption("Pagal produkto tekstą neradau aiškiai susijusių visos svetainės užklausų. Tai nėra klaida.")
-            else:
-                st.dataframe(opp.head(20), use_container_width=True, hide_index=True)
+            with st.expander("Search Console užklausų signalai"):
+                if opp.empty: st.caption("Aiškių susijusių užklausų signalų nerasta.")
+                else: st.dataframe(opp.head(20),use_container_width=True,hide_index=True)
 
-            st.markdown("### 📋 Dabartiniai produkto tekstai · kopijavimui")
-            st.caption("Kiekviename bloke yra kopijavimo piktograma. Gali kopijuoti po vieną tekstą arba visą ChatGPT paketą apačioje.")
-            copy_block("Produkto pavadinimas", product.get("product_name", ""))
-            copy_block("Meta title", product.get("meta_title", ""))
-            copy_block("Meta description", product.get("meta_description", ""))
-            copy_block("Produkto aprašymas", product.get("description", ""))
+            st.markdown("### 📋 Dabartiniai tekstai · kopijavimui")
+            copy_block("Produkto pavadinimas",product.get("product_name",""))
+            copy_block("Meta title",product.get("meta_title",""))
+            copy_block("Meta description",product.get("meta_description",""))
+            copy_block("Produkto aprašymas",product.get("description",""))
 
-            st.markdown("### 🤖 Visas paketas ChatGPT · vienu kopijavimu")
-            st.caption("Nukopijuok visą bloką ir įklijuok į mūsų ChatGPT pokalbį. Tada gausi galutinį aprašymą, Meta title, Meta description ir, tik jei reikia, naują produkto pavadinimą.")
-            prompt = make_chatgpt_prompt(product, opp, health, notes, page_metrics, page_filtered)
-            st.code(prompt, language=None)
-            st.caption("🔒 Be API rakto. Radaras analizuoja duomenis pats, o kokybišką galutinį tekstą generuojame tavo turimame ChatGPT.")
-
-            if not page_filtered and product_url:
-                with st.expander("🎯 Jei norėsi TIKSLIŲ šio produkto Google užklausų"):
-                    st.write("Search Console pasirink šį konkretų puslapį kaip filtrą, tada eksportuok Performance duomenis dar kartą. Tokiu atveju lapo „Užklausos“ frazės bus būtent šio produkto ir Radaras jas atpažins automatiškai.")
+            st.markdown("### 📋 Tikslus Radaro auditas ChatGPT")
+            st.caption("Kai norėsi pataisyti tekstą, nukopijuok šį vieną bloką į ChatGPT. Jame jau sudėta tik tai, ką Radaras nustatė keisti – nereikia kopijuoti visos statistikos atskirai.")
+            st.code(make_chatgpt_audit_prompt(product,audits,opp,page_metrics,page_filtered),language=None)
         except Exception as e:
-            st.error("SEO analizės nepavyko užbaigti.")
-            st.caption(str(e)[:500])
+            st.error("SEO analizės nepavyko užbaigti."); st.caption(str(e)[:500])
     elif book is not None:
         st.info("Dabar įklijuok produkto nuorodą arba pasirink rankinį įvedimą.")
     else:
@@ -2061,4 +2082,4 @@ with tabs[8]:
                     label="SUKURTA" if it.status in ["SUKURTA","PASIDALINTA"] else "PRAPLĖSTA"
                     st.write(f"**{label}** · {it.product_code or 'be kodo'} · {it.tema} → {it.mikrotema}")
 
-st.caption("V10.6 • SEO optimizatorius skaito lietuvišką Search Console .xlsx struktūrą • be API • produkto tekstai ir ChatGPT paketas kopijavimui.")
+st.caption("V10.7 • SEO auditas: PALIKTI / PAPILDYTI / KEISTI / STEBĖTI • lietuviškas Search Console .xlsx • be API • automatinis puslapio pakeitimų aptikimas.")
