@@ -1,14 +1,18 @@
 
 import streamlit as st
 import pandas as pd
-import math, re, requests, xml.etree.ElementTree as ET
+import math, re, requests, xml.etree.ElementTree as ET, io, json, hashlib
 from supabase import create_client, Client
 from bs4 import BeautifulSoup
+try:
+    from openai import OpenAI
+except Exception:
+    OpenAI = None
 from datetime import date, datetime, timedelta
 from urllib.parse import urljoin, urlparse
 from urllib.parse import quote_plus
 
-st.set_page_config(page_title="Protuoliukas Trend Radar V9.0", page_icon="📡", layout="wide")
+st.set_page_config(page_title="Protuoliukas Trend Radar V10.5", page_icon="📡", layout="wide")
 MONTH_NUM={"sausis":1,"vasaris":2,"kovas":3,"balandis":4,"gegužė":5,"birželis":6,"liepa":7,"rugpjūtis":8,"rugsėjis":9,"spalis":10,"lapkritis":11,"gruodis":12}
 SHOP="https://mokymopriemones.eu/"
 
@@ -1288,7 +1292,103 @@ def radar_inspiration_rows():
             rows.append((horizon,r))
     return rows[:12]
 
-tabs=st.tabs(["🏠 ŠIANDIEN","📅 SAVAITĖ","🚀 ARTĖJANTYS TOPAI","💡 PRODUKTŲ PLANAI","📌 PINTEREST ĮKVĖPIMAS","📅 PROGŲ IDĖJOS","🌿 EVERGREEN","🧠 IDĖJŲ BANKAS"])
+
+
+# ========================= SEO OPTIMIZATORIUS · V10.5 =========================
+def _seo_clean_col(c):
+    return _norm(str(c)).replace(" ", "_")
+
+def read_search_console_upload(uploaded):
+    name=(getattr(uploaded,"name","") or "").lower(); raw=uploaded.getvalue()
+    if name.endswith((".xlsx",".xls")):
+        book=pd.ExcelFile(io.BytesIO(raw)); frames=[]
+        for sh in book.sheet_names:
+            try:
+                z=pd.read_excel(io.BytesIO(raw),sheet_name=sh)
+                if len(z): frames.append(z)
+            except Exception: pass
+        if not frames: return pd.DataFrame()
+        qframes=[z for z in frames if any("query" in _seo_clean_col(c) or "uzklaus" in _seo_clean_col(c) for c in z.columns)]
+        x=qframes[0] if qframes else frames[0]
+    else: x=pd.read_csv(io.BytesIO(raw),sep=None,engine="python")
+    x=x.copy(); aliases={"query":"query","queries":"query","top_queries":"query","uzklausa":"query","uzklausos":"query","page":"page","pages":"page","puslapis":"page","puslapiai":"page","clicks":"clicks","click":"clicks","paspaudimai":"clicks","impressions":"impressions","impression":"impressions","parodymai":"impressions","ctr":"ctr","position":"position","average_position":"position","pozicija":"position","vidutine_pozicija":"position"}
+    ren={}
+    for c in x.columns:
+        k=_seo_clean_col(c)
+        if k in aliases: ren[c]=aliases[k]
+        elif "query" in k or "uzklaus" in k: ren[c]="query"
+        elif "impression" in k or "parodym" in k: ren[c]="impressions"
+        elif "click" in k or "paspaud" in k: ren[c]="clicks"
+        elif k=="ctr" or "click_through" in k: ren[c]="ctr"
+        elif "position" in k or "pozic" in k: ren[c]="position"
+        elif k in ("page","pages") or "puslap" in k: ren[c]="page"
+    x=x.rename(columns=ren)
+    for c in ["clicks","impressions","position"]:
+        if c in x.columns: x[c]=pd.to_numeric(x[c].astype(str).str.replace(" ","",regex=False).str.replace(",",".",regex=False),errors="coerce")
+    if "ctr" in x.columns:
+        vals=x["ctr"].astype(str).str.replace("%","",regex=False).str.replace(",",".",regex=False); x["ctr"]=pd.to_numeric(vals,errors="coerce")
+        if len(x["ctr"].dropna()) and x["ctr"].dropna().max()<=1: x["ctr"]*=100
+    return x
+
+def fetch_product_seo(url):
+    headers={"User-Agent":"Mozilla/5.0 (compatible; ProtuoliukasSEO/1.0)"}; r=requests.get(url,headers=headers,timeout=15); r.raise_for_status(); soup=BeautifulSoup(r.text,"html.parser")
+    title=(soup.title.get_text(" ",strip=True) if soup.title else ""); md=soup.find("meta",attrs={"name":re.compile("^description$",re.I)}); meta_desc=md.get("content","").strip() if md else ""; h1=soup.find("h1"); product_name=h1.get_text(" ",strip=True) if h1 else title.split("|")[0].strip()
+    main=soup.find("main") or soup.find(attrs={"class":re.compile("product.*description|description.*product",re.I)}) or soup.body; text=main.get_text("\n",strip=True) if main else ""; text=re.sub(r"\n{3,}","\n\n",text)
+    return {"url":url,"product_name":product_name,"meta_title":title,"meta_description":meta_desc,"description":text[:12000]}
+
+def seo_opportunity_table(gsc, product_url=""):
+    x=gsc.copy()
+    if "query" not in x.columns: return pd.DataFrame()
+    if product_url and "page" in x.columns:
+        exact=x[x["page"].astype(str).str.rstrip("/")==product_url.rstrip("/")]
+        if not exact.empty: x=exact
+    for c in ["clicks","impressions","ctr","position"]:
+        if c not in x.columns: x[c]=0.0
+    x=x.dropna(subset=["query"]).copy(); x["query"]=x["query"].astype(str).str.strip(); x=x[x["query"]!=""]
+    def wag(g,col,w="impressions"):
+        ww=g[w].fillna(0)
+        return float((g[col].fillna(0)*ww).sum()/ww.sum()) if ww.sum()>0 else float(g[col].fillna(0).mean())
+    rows=[]
+    for q,g in x.groupby("query",dropna=False):
+        imp=float(g.impressions.fillna(0).sum()); clk=float(g.clicks.fillna(0).sum()); ctr=(clk/imp*100) if imp else wag(g,"ctr"); pos=wag(g,"position")
+        score=min(100,round(min(55,math.log10(max(imp,1)+1)*18)+(22 if 3<=pos<=20 else 10 if pos<=30 else 2)+max(0,23-min(23,ctr*4))))
+        rows.append({"Užklausa":q,"Paspaudimai":int(clk),"Parodymai":int(imp),"CTR %":round(ctr,2),"Pozicija":round(pos,1),"SEO galimybė":score})
+    return pd.DataFrame(rows).sort_values(["SEO galimybė","Parodymai"],ascending=False).head(30)
+
+def current_seo_health(product,opp):
+    text=_norm(" ".join([product.get("product_name",""),product.get("meta_title",""),product.get("meta_description",""),product.get("description","")]))
+    if opp.empty:return 50,[]
+    top=opp.head(10); covered=sum(1 for q in top["Užklausa"] if _norm(q) in text); mt=len(product.get("meta_title","") or ""); md=len(product.get("meta_description","") or ""); score=35+min(35,covered*5)+(15 if 35<=mt<=65 else 7)+(15 if 110<=md<=165 else 7); notes=[]
+    if covered<3:notes.append("Stipriausios Search Console frazės silpnai atsispindi puslapio tekste.")
+    if not (35<=mt<=65):notes.append("Meta title ilgį / fokusą verta peržiūrėti.")
+    if not (110<=md<=165):notes.append("Meta description ilgį / fokusą verta peržiūrėti.")
+    return min(100,score),notes
+
+def _seo_ai_key():
+    try:return str(st.secrets.get("OPENAI_API_KEY",""))
+    except Exception:return ""
+
+@st.cache_data(show_spinner=False,ttl=86400)
+def generate_seo_package(product_json,opp_json,health):
+    key=_seo_ai_key()
+    if not key or OpenAI is None:return None
+    product=json.loads(product_json);opp=json.loads(opp_json)
+    prompt=f'''Tu esi lietuviškos edukacinių priemonių e. parduotuvės SEO redaktorius.
+Tikslas – ne prikimšti raktažodžių, o tiksliai ir natūraliai pagerinti KONKRETAUS produkto puslapį pagal realius Google Search Console duomenis.
+TAISYKLĖS: URL NIEKADA nekeisk. Neišgalvok amžiaus, klasės, formato, turinio ar funkcijų. Jei dabartinis elementas geras, pažymėk PALIKTI. Natūrali lietuvių kalba svarbiau už raktažodžių kiekį. Meta title siekis 45–60 simbolių, meta description 120–160. Netinkamos intencijos Search Console frazių nenaudok vien dėl parodymų. Grąžink TIK validų JSON be markdown.
+DABARTINIS PRODUKTAS: {json.dumps(product,ensure_ascii=False)}
+SEO SVEIKATA: {health}/100
+SEARCH CONSOLE: {json.dumps(opp,ensure_ascii=False)}
+JSON schema: {{"verdict":"NEKEISTI|OPTIMIZUOTI|PAPILDYTI","reason":"2-4 sakiniai","primary_keyword":"","secondary_keywords":["",""],"product_name_action":"PALIKTI|KEISTI","product_name":"","meta_title_action":"PALIKTI|KEISTI","meta_title":"","meta_description_action":"PALIKTI|KEISTI","meta_description":"","description_action":"PALIKTI|KEISTI|PAPILDYTI","description":"visas galutinis produkto aprašymas","do_not_use_keywords":[],"what_changed":[]}}'''
+    client=OpenAI(api_key=key);resp=client.responses.create(model="gpt-5.6-luna",input=prompt);raw=resp.output_text.strip();raw=re.sub(r"^```(?:json)?\s*|\s*```$","",raw,flags=re.I|re.S)
+    try:return json.loads(raw)
+    except Exception:return {"verdict":"OPTIMIZUOTI","reason":"AI atsakymas gautas, bet nepavyko jo suskaidyti į laukus.","raw":raw}
+
+def render_copy_field(label,value,height=100):
+    st.markdown(f"**{label}**");st.code(str(value or ""),language=None)
+
+
+tabs=st.tabs(["🏠 ŠIANDIEN","📅 SAVAITĖ","🚀 ARTĖJANTYS TOPAI","💡 PRODUKTŲ PLANAI","🔎 SEO OPTIMIZATORIUS","📌 PINTEREST ĮKVĖPIMAS","📅 PROGŲ IDĖJOS","🌿 EVERGREEN","🧠 IDĖJŲ BANKAS"])
 
 
 def days_to_peak(r,today):
@@ -1381,7 +1481,55 @@ with tabs[3]:
 
 
 
+
 with tabs[4]:
+    st.subheader("🔎 SEO optimizatorius")
+    st.caption("Įkelk Search Console eksportą ir pateik produktą. Radar pats analizuoja – nereikia žymėti „optimizuota“. URL nekeičiamas.")
+    gsc_file=st.file_uploader("1. Search Console eksportas",type=["xlsx","xls","csv"],key="seo_gsc")
+    source=st.radio("2. Produkto informacija",["Produkto nuoroda","Įklijuosiu ranka"],horizontal=True,key="seo_source")
+    product=None;product_url=""
+    if source=="Produkto nuoroda":
+        product_url=st.text_input("Produkto nuoroda",placeholder="https://mokymopriemones.eu/...",key="seo_url").strip()
+        if product_url:
+            try:product=fetch_product_seo(product_url);st.success(f"Nuskaityta: {product.get('product_name','produktas')}")
+            except Exception:st.warning("Nepavyko patikimai nuskaityti produkto puslapio. Gali pasirinkti „Įklijuosiu ranka“.")
+    else:
+        pn=st.text_input("Produkto pavadinimas",key="seo_pn");mt=st.text_input("Dabartinis Meta title",key="seo_mt");md=st.text_area("Dabartinis Meta description",height=80,key="seo_md");desc=st.text_area("Dabartinis produkto aprašymas",height=220,key="seo_desc")
+        if pn and desc:product={"url":"","product_name":pn,"meta_title":mt,"meta_description":md,"description":desc}
+    if gsc_file is not None and product:
+        try:
+            gsc=read_search_console_upload(gsc_file)
+            if "query" not in gsc.columns:st.error("Eksporte neradau užklausų (Queries / Užklausos) stulpelio. Įkelk Search Console Performance eksportą su užklausomis.")
+            else:
+                opp=seo_opportunity_table(gsc,product_url)
+                if opp.empty:st.info("Šiam produktui Search Console užklausų neradau.")
+                else:
+                    health,notes=current_seo_health(product,opp);st.divider();c1,c2,c3=st.columns(3);c1.metric("Dabartinė SEO būklė",f"{health}/100");c2.metric("Analizuojamų užklausų",len(opp));c3.metric("TOP parodymų",f"{int(opp.iloc[0]['Parodymai']):,}".replace(","," "));st.markdown("### Search Console signalai");st.dataframe(opp.head(15),use_container_width=True,hide_index=True)
+                    if notes:st.caption(" • ".join(notes))
+                    package=generate_seo_package(json.dumps(product,ensure_ascii=False,sort_keys=True),json.dumps(opp.head(20).to_dict("records"),ensure_ascii=False,sort_keys=True),health)
+                    if package is None:
+                        st.warning("SEO analizė veikia, tačiau gataviems tekstams trūksta OPENAI_API_KEY Streamlit Secrets. Įdėjus raktą, ši skiltis automatiškai pateiks naują aprašymą ir meta laukus.");st.markdown("**Stipriausios galimybės:** "+", ".join(opp.head(5)["Užklausa"].astype(str)))
+                    elif "raw" in package:st.markdown("### AI SEO rekomendacija");st.write(package.get("reason",""));st.code(package.get("raw",""),language=None)
+                    else:
+                        verdict=package.get("verdict","OPTIMIZUOTI")
+                        if verdict=="NEKEISTI":st.success("🟢 SEO TVARKOJE · dabar produkto neliesti")
+                        elif verdict=="PAPILDYTI":st.info("🟡 PAPILDYTI · viso puslapio perrašyti nereikia")
+                        else:st.warning("🟠 OPTIMIZUOTI · yra reali Search Console galimybė")
+                        st.write(package.get("reason",""));st.markdown(f"**Pagrindinė frazė:** {package.get('primary_keyword','—')}");sec=package.get("secondary_keywords",[]) or []
+                        if sec:st.caption("Antrinės: "+" • ".join(sec))
+                        st.divider();st.markdown("### Paruošta įkelti į parduotuvę");render_copy_field(f"Produkto pavadinimas · {package.get('product_name_action','')}",package.get("product_name",""));render_copy_field(f"Meta title · {package.get('meta_title_action','')}",package.get("meta_title",""));render_copy_field(f"Meta description · {package.get('meta_description_action','')}",package.get("meta_description",""));render_copy_field(f"Produkto aprašymas · {package.get('description_action','')}",package.get("description",""),260)
+                        bad=package.get("do_not_use_keywords",[]) or []
+                        if bad:st.caption("Sąmoningai nenaudoti: "+" • ".join(bad))
+                        changes=package.get("what_changed",[]) or []
+                        if changes:
+                            st.markdown("**Kas pakeista:**")
+                            for x in changes:st.write("• "+str(x))
+                        st.caption("🔒 Produkto URL nekeičiamas. Vėliau įkėlus naujesnį Search Console eksportą ir tą pačią produkto nuorodą, Radar vertins dabartinį puslapį iš naujo ir nesiūlys perrašyti vien dėl perrašymo.")
+        except Exception as e:st.error("SEO analizės nepavyko užbaigti.");st.caption(str(e)[:500])
+    else:st.info("Pradėk nuo Search Console failo ir produkto nuorodos arba aprašymo.")
+
+
+with tabs[5]:
     st.subheader("📌 Pinterest įkvėpimas")
     st.caption("Tik toms temoms, kurias Radar jau atrinko kaip aktualias. Čia ieškome ne kopijuoti dizainą, o rasti kitokių užduoties mechanikų ir pateikimo kampų.")
     insp=radar_inspiration_rows()
@@ -1399,7 +1547,7 @@ with tabs[4]:
                     st.link_button(f"Peržiūrėti Pinterest · {q}",pinterest_url(q),use_container_width=True)
                 st.caption("💡 Tikslas: greitai peržiūrėti skirtingus užsienyje naudojamus pateikimo principus ir pritaikyti mechaniką lietuviškam turiniui, nekopijuojant konkretaus dizaino.")
 
-with tabs[5]:
+with tabs[6]:
     st.subheader("📅 Progų idėjos pagal amžių")
     st.caption("Čia proga nėra vien priminimas – matai konkrečius produktų kampus skirtingoms amžiaus grupėms.")
     future=OCCASIONS[(OCCASIONS["date"]>=today-timedelta(days=2)) & (OCCASIONS["date"]<=today+timedelta(days=45))].sort_values("date")
@@ -1418,7 +1566,7 @@ with tabs[5]:
                         st.caption(f"Pardavimo potencialas: {it['sales_potential']}")
                         st.divider()
 
-with tabs[6]:
+with tabs[7]:
     st.subheader("🌿 Evergreen · ką verta kurti laisvesniu metu")
     st.caption("Čia tik temos, kurios gali pardavinėtis visus metus. Jei joms artėja programinis ar progos pikas, jos keliamos į ŠIANDIEN / SAVAITĘ / ARTĖJANČIUS, o ne dubliuojamos čia.")
     evergreen=[]
@@ -1447,7 +1595,7 @@ with tabs[6]:
             for x in examples(r,5):
                 st.write("• "+x)
 
-with tabs[7]:
+with tabs[8]:
     st.subheader("🧠 Idėjų bankas")
     st.caption("Čia lieka anksčiau Radaro užfiksuotos idėjos. Rankinio ATLIKTA žymėjimo nebenaudojame.")
     bank=idea_bank()
