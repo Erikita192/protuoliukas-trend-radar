@@ -1,13 +1,9 @@
 
 import streamlit as st
 import pandas as pd
-import math, re, requests, xml.etree.ElementTree as ET, io, json, hashlib
+import math, re, requests, xml.etree.ElementTree as ET, io, json, hashlib, zipfile
 from supabase import create_client, Client
 from bs4 import BeautifulSoup
-try:
-    from openai import OpenAI
-except Exception:
-    OpenAI = None
 from datetime import date, datetime, timedelta
 from urllib.parse import urljoin, urlparse
 from urllib.parse import quote_plus
@@ -1294,22 +1290,55 @@ def radar_inspiration_rows():
 
 
 
-# ========================= SEO OPTIMIZATORIUS · V10.5 =========================
+# ========================= SEO OPTIMIZATORIUS · V10.5 · BE API =========================
 def _seo_clean_col(c):
     return _norm(str(c)).replace(" ", "_")
 
+def _xlsx_frames_without_openpyxl(raw):
+    ns={"m":"http://schemas.openxmlformats.org/spreadsheetml/2006/main","r":"http://schemas.openxmlformats.org/officeDocument/2006/relationships"}
+    with zipfile.ZipFile(io.BytesIO(raw)) as z:
+        shared=[]
+        if "xl/sharedStrings.xml" in z.namelist():
+            root=ET.fromstring(z.read("xl/sharedStrings.xml"))
+            for si in root.findall("m:si",ns): shared.append("".join(t.text or "" for t in si.findall(".//m:t",ns)))
+        wb=ET.fromstring(z.read("xl/workbook.xml")); rr=ET.fromstring(z.read("xl/_rels/workbook.xml.rels")); rels={x.attrib["Id"]:x.attrib["Target"] for x in rr}
+        out={}
+        for sh in wb.findall("m:sheets/m:sheet",ns):
+            name=sh.attrib.get("name","Sheet"); rid=sh.attrib.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"); target=rels.get(rid,""); path=target.lstrip("/") if target.startswith("/") else "xl/"+target.replace("../","")
+            if path not in z.namelist(): continue
+            root=ET.fromstring(z.read(path)); rows=[]
+            for row in root.findall(".//m:sheetData/m:row",ns):
+                vals={}
+                for c in row.findall("m:c",ns):
+                    mt=re.match(r"([A-Z]+)",c.attrib.get("r",""))
+                    if not mt: continue
+                    idx=0
+                    for ch in mt.group(1): idx=idx*26+ord(ch)-64
+                    idx-=1; typ=c.attrib.get("t"); v=c.find("m:v",ns); val=""
+                    if typ=="inlineStr": val="".join(t.text or "" for t in c.findall(".//m:t",ns))
+                    elif v is not None:
+                        val=v.text or ""
+                        if typ=="s":
+                            try: val=shared[int(val)]
+                            except Exception: pass
+                    vals[idx]=val
+                if vals:
+                    a=[""]*(max(vals)+1)
+                    for i,v in vals.items(): a[i]=v
+                    rows.append(a)
+            if rows:
+                w=max(map(len,rows)); rows=[r+[""]*(w-len(r)) for r in rows]; hdr=[str(x).strip() or f"col_{i}" for i,x in enumerate(rows[0])]; out[name]=pd.DataFrame(rows[1:],columns=hdr)
+        return out
+
 def read_search_console_upload(uploaded):
     name=(getattr(uploaded,"name","") or "").lower(); raw=uploaded.getvalue()
-    if name.endswith((".xlsx",".xls")):
-        book=pd.ExcelFile(io.BytesIO(raw)); frames=[]
-        for sh in book.sheet_names:
-            try:
-                z=pd.read_excel(io.BytesIO(raw),sheet_name=sh)
-                if len(z): frames.append(z)
-            except Exception: pass
+    if name.endswith(".xlsx"):
+        books=_xlsx_frames_without_openpyxl(raw); frames=list(books.values())
         if not frames: return pd.DataFrame()
         qframes=[z for z in frames if any("query" in _seo_clean_col(c) or "uzklaus" in _seo_clean_col(c) for c in z.columns)]
         x=qframes[0] if qframes else frames[0]
+    elif name.endswith(".xls"):
+        raise ValueError("Senas .xls formatas nepalaikomas. Eksportuok kaip .xlsx arba CSV.")
     else: x=pd.read_csv(io.BytesIO(raw),sep=None,engine="python")
     x=x.copy(); aliases={"query":"query","queries":"query","top_queries":"query","uzklausa":"query","uzklausos":"query","page":"page","pages":"page","puslapis":"page","puslapiai":"page","clicks":"clicks","click":"clicks","paspaudimai":"clicks","impressions":"impressions","impression":"impressions","parodymai":"impressions","ctr":"ctr","position":"position","average_position":"position","pozicija":"position","vidutine_pozicija":"position"}
     ren={}
@@ -1364,25 +1393,19 @@ def current_seo_health(product,opp):
     if not (110<=md<=165):notes.append("Meta description ilgį / fokusą verta peržiūrėti.")
     return min(100,score),notes
 
-def _seo_ai_key():
-    try:return str(st.secrets.get("OPENAI_API_KEY",""))
-    except Exception:return ""
+def make_chatgpt_prompt(product,opp,health,notes):
+    rows=json.dumps(opp.head(20).to_dict("records"),ensure_ascii=False,indent=2)
+    return ("Padėk optimizuoti šį Protuoliuko produkto puslapį pagal realius Google Search Console duomenis.\n\n"
+        "SVARBU: URL nekeisti. Neišgalvoti amžiaus, klasės, formato, turinio ar funkcijų. "
+        "Netinkamų paieškos intencijų nenaudoti vien dėl parodymų. Jei kažko keisti nereikia, rašyti PALIKTI.\n\n"
+        f"PRODUKTAS\nURL: {product.get('url','')}\nPavadinimas: {product.get('product_name','')}\nMeta title: {product.get('meta_title','')}\nMeta description: {product.get('meta_description','')}\n"
+        f"Aprašymas:\n{product.get('description','')}\n\nRADARO SEO BŪKLĖ: {health}/100\nPastabos: {'; '.join(notes) if notes else 'nėra'}\n\n"
+        f"SEARCH CONSOLE UŽKLAUSOS:\n{rows}\n\n"
+        "Pateik: 1) verdiktą NEKEISTI / PAPILDYTI / OPTIMIZUOTI; 2) pagrindinę ir antrines frazes; "
+        "3) produkto pavadinimą PALIKTI arba naują; 4) Meta title PALIKTI arba gatavą naują; "
+        "5) Meta description PALIKTI arba gatavą naują; 6) jei aprašymą keisti – VISĄ galutinį aprašymą; "
+        "7) ko nekeisti ir kokių klaidinančių frazių nenaudoti.")
 
-@st.cache_data(show_spinner=False,ttl=86400)
-def generate_seo_package(product_json,opp_json,health):
-    key=_seo_ai_key()
-    if not key or OpenAI is None:return None
-    product=json.loads(product_json);opp=json.loads(opp_json)
-    prompt=f'''Tu esi lietuviškos edukacinių priemonių e. parduotuvės SEO redaktorius.
-Tikslas – ne prikimšti raktažodžių, o tiksliai ir natūraliai pagerinti KONKRETAUS produkto puslapį pagal realius Google Search Console duomenis.
-TAISYKLĖS: URL NIEKADA nekeisk. Neišgalvok amžiaus, klasės, formato, turinio ar funkcijų. Jei dabartinis elementas geras, pažymėk PALIKTI. Natūrali lietuvių kalba svarbiau už raktažodžių kiekį. Meta title siekis 45–60 simbolių, meta description 120–160. Netinkamos intencijos Search Console frazių nenaudok vien dėl parodymų. Grąžink TIK validų JSON be markdown.
-DABARTINIS PRODUKTAS: {json.dumps(product,ensure_ascii=False)}
-SEO SVEIKATA: {health}/100
-SEARCH CONSOLE: {json.dumps(opp,ensure_ascii=False)}
-JSON schema: {{"verdict":"NEKEISTI|OPTIMIZUOTI|PAPILDYTI","reason":"2-4 sakiniai","primary_keyword":"","secondary_keywords":["",""],"product_name_action":"PALIKTI|KEISTI","product_name":"","meta_title_action":"PALIKTI|KEISTI","meta_title":"","meta_description_action":"PALIKTI|KEISTI","meta_description":"","description_action":"PALIKTI|KEISTI|PAPILDYTI","description":"visas galutinis produkto aprašymas","do_not_use_keywords":[],"what_changed":[]}}'''
-    client=OpenAI(api_key=key);resp=client.responses.create(model="gpt-5.6-luna",input=prompt);raw=resp.output_text.strip();raw=re.sub(r"^```(?:json)?\s*|\s*```$","",raw,flags=re.I|re.S)
-    try:return json.loads(raw)
-    except Exception:return {"verdict":"OPTIMIZUOTI","reason":"AI atsakymas gautas, bet nepavyko jo suskaidyti į laukus.","raw":raw}
 
 def render_copy_field(label,value,height=100):
     st.markdown(f"**{label}**");st.code(str(value or ""),language=None)
@@ -1484,7 +1507,7 @@ with tabs[3]:
 
 with tabs[4]:
     st.subheader("🔎 SEO optimizatorius")
-    st.caption("Įkelk Search Console eksportą ir pateik produktą. Radar pats analizuoja – nereikia žymėti „optimizuota“. URL nekeičiamas.")
+    st.caption("Įkelk Search Console eksportą ir pateik produktą. Radaras išanalizuos signalus ir paruoš viską ChatGPT – be API rakto ir papildomų mokamų paslaugų.")
     gsc_file=st.file_uploader("1. Search Console eksportas",type=["xlsx","xls","csv"],key="seo_gsc")
     source=st.radio("2. Produkto informacija",["Produkto nuoroda","Įklijuosiu ranka"],horizontal=True,key="seo_source")
     product=None;product_url=""
@@ -1506,25 +1529,13 @@ with tabs[4]:
                 else:
                     health,notes=current_seo_health(product,opp);st.divider();c1,c2,c3=st.columns(3);c1.metric("Dabartinė SEO būklė",f"{health}/100");c2.metric("Analizuojamų užklausų",len(opp));c3.metric("TOP parodymų",f"{int(opp.iloc[0]['Parodymai']):,}".replace(","," "));st.markdown("### Search Console signalai");st.dataframe(opp.head(15),use_container_width=True,hide_index=True)
                     if notes:st.caption(" • ".join(notes))
-                    package=generate_seo_package(json.dumps(product,ensure_ascii=False,sort_keys=True),json.dumps(opp.head(20).to_dict("records"),ensure_ascii=False,sort_keys=True),health)
-                    if package is None:
-                        st.warning("SEO analizė veikia, tačiau gataviems tekstams trūksta OPENAI_API_KEY Streamlit Secrets. Įdėjus raktą, ši skiltis automatiškai pateiks naują aprašymą ir meta laukus.");st.markdown("**Stipriausios galimybės:** "+", ".join(opp.head(5)["Užklausa"].astype(str)))
-                    elif "raw" in package:st.markdown("### AI SEO rekomendacija");st.write(package.get("reason",""));st.code(package.get("raw",""),language=None)
-                    else:
-                        verdict=package.get("verdict","OPTIMIZUOTI")
-                        if verdict=="NEKEISTI":st.success("🟢 SEO TVARKOJE · dabar produkto neliesti")
-                        elif verdict=="PAPILDYTI":st.info("🟡 PAPILDYTI · viso puslapio perrašyti nereikia")
-                        else:st.warning("🟠 OPTIMIZUOTI · yra reali Search Console galimybė")
-                        st.write(package.get("reason",""));st.markdown(f"**Pagrindinė frazė:** {package.get('primary_keyword','—')}");sec=package.get("secondary_keywords",[]) or []
-                        if sec:st.caption("Antrinės: "+" • ".join(sec))
-                        st.divider();st.markdown("### Paruošta įkelti į parduotuvę");render_copy_field(f"Produkto pavadinimas · {package.get('product_name_action','')}",package.get("product_name",""));render_copy_field(f"Meta title · {package.get('meta_title_action','')}",package.get("meta_title",""));render_copy_field(f"Meta description · {package.get('meta_description_action','')}",package.get("meta_description",""));render_copy_field(f"Produkto aprašymas · {package.get('description_action','')}",package.get("description",""),260)
-                        bad=package.get("do_not_use_keywords",[]) or []
-                        if bad:st.caption("Sąmoningai nenaudoti: "+" • ".join(bad))
-                        changes=package.get("what_changed",[]) or []
-                        if changes:
-                            st.markdown("**Kas pakeista:**")
-                            for x in changes:st.write("• "+str(x))
-                        st.caption("🔒 Produkto URL nekeičiamas. Vėliau įkėlus naujesnį Search Console eksportą ir tą pačią produkto nuorodą, Radar vertins dabartinį puslapį iš naujo ir nesiūlys perrašyti vien dėl perrašymo.")
+                    if health>=85: st.success("🟢 SEO atrodo tvarkingai · produkto nereikia perrašyti vien dėl perrašymo")
+                    elif health>=65: st.info("🟡 Yra ką peržiūrėti · gali pakakti papildymo")
+                    else: st.warning("🟠 Verta SEO peržiūra · yra neišnaudotų signalų")
+                    st.markdown("### 📋 Paruošta analizei ChatGPT")
+                    st.caption("Nukopijuok visą tekstą žemiau ir įklijuok į mūsų ChatGPT pokalbį. Aš pateiksiu gatavą aprašymą, Meta title ir Meta description.")
+                    st.code(make_chatgpt_prompt(product,opp,health,notes),language=None)
+                    st.caption("🔒 Be API rakto ir be papildomų mokamų paslaugų. Produkto URL nekeičiamas.")
         except Exception as e:st.error("SEO analizės nepavyko užbaigti.");st.caption(str(e)[:500])
     else:st.info("Pradėk nuo Search Console failo ir produkto nuorodos arba aprašymo.")
 
