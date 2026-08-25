@@ -1,14 +1,15 @@
 
 import streamlit as st
 import pandas as pd
-import math, re, requests, xml.etree.ElementTree as ET, io, json, hashlib, zipfile
+import math, re, requests, xml.etree.ElementTree as ET, io, json, hashlib, zipfile, os
+from pathlib import Path
 from supabase import create_client, Client
 from bs4 import BeautifulSoup
 from datetime import date, datetime, timedelta
 from urllib.parse import urljoin, urlparse
 from urllib.parse import quote_plus
 
-st.set_page_config(page_title="Protuoliukas Trend Radar V10.7", page_icon="📡", layout="wide")
+st.set_page_config(page_title="Protuoliukas Trend Radar V10.8", page_icon="📡", layout="wide")
 MONTH_NUM={"sausis":1,"vasaris":2,"kovas":3,"balandis":4,"gegužė":5,"birželis":6,"liepa":7,"rugpjūtis":8,"rugsėjis":9,"spalis":10,"lapkritis":11,"gruodis":12}
 SHOP="https://mokymopriemones.eu/"
 
@@ -1415,6 +1416,79 @@ def _standardize_gsc_frame(x, kind=None):
     return x
 
 
+SEO_CACHE_DIR = Path(".radar_seo_cache")
+SEO_GSC_META = SEO_CACHE_DIR / "gsc_meta.json"
+SEO_SEEN_META = SEO_CACHE_DIR / "seen_products.json"
+
+class _SavedUpload:
+    def __init__(self, raw, name):
+        self._raw=raw; self.name=name
+    def getvalue(self): return self._raw
+
+def _ensure_seo_cache():
+    try: SEO_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    except Exception: pass
+
+def save_gsc_upload(uploaded):
+    """Keep the latest GSC export so the user does not need to upload it for every product."""
+    _ensure_seo_cache()
+    raw=uploaded.getvalue(); name=getattr(uploaded,"name","search_console.xlsx") or "search_console.xlsx"
+    ext=Path(name).suffix.lower() or ".xlsx"
+    data_path=SEO_CACHE_DIR / ("latest_gsc"+ext)
+    # remove an older export with another extension
+    for old in SEO_CACHE_DIR.glob("latest_gsc.*"):
+        try:
+            if old != data_path: old.unlink()
+        except Exception: pass
+    data_path.write_bytes(raw)
+    meta={"name":name,"saved_at":datetime.now().isoformat(timespec="seconds"),"path":str(data_path)}
+    SEO_GSC_META.write_text(json.dumps(meta,ensure_ascii=False),encoding="utf-8")
+    return meta
+
+def load_saved_gsc():
+    try:
+        meta=json.loads(SEO_GSC_META.read_text(encoding="utf-8"))
+        path=Path(meta.get("path",""))
+        if path.exists(): return _SavedUpload(path.read_bytes(), meta.get("name",path.name)), meta
+    except Exception: pass
+    return None, None
+
+def _gsc_export_date(meta):
+    if not meta: return None
+    name=meta.get("name","")
+    m=re.search(r"(20\\d{2})[-_](\\d{2})[-_](\\d{2})",name)
+    if m:
+        try: return date(int(m.group(1)),int(m.group(2)),int(m.group(3)))
+        except Exception: pass
+    try: return datetime.fromisoformat(meta.get("saved_at","")).date()
+    except Exception: return None
+
+def _gsc_freshness(meta):
+    d=_gsc_export_date(meta)
+    if not d: return "⚪ Data nenustatyta", None
+    age=max(0,(date.today()-d).days)
+    if age<=7: return f"🟢 Švieži duomenys · {age} d.", age
+    if age<=30: return f"🟡 Duomenys {age} d. senumo · auditui tinka, bet galima atnaujinti", age
+    return f"🔴 Duomenys {age} d. senumo · rekomenduojama įkelti naują eksportą", age
+
+def _load_seen_products():
+    try: return json.loads(SEO_SEEN_META.read_text(encoding="utf-8"))
+    except Exception: return {}
+
+def _save_seen_products(data):
+    try:
+        _ensure_seo_cache(); SEO_SEEN_META.write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding="utf-8")
+    except Exception: pass
+
+def detect_product_change(product_url, product):
+    if not product_url: return False
+    key=hashlib.md5(product_url.rstrip('/').encode()).hexdigest()
+    data=_load_seen_products(); now=_content_hash(product); prev=data.get(key,{}).get("hash")
+    changed=bool(prev and prev!=now)
+    data[key]={"url":product_url,"hash":now,"seen_at":datetime.now().isoformat(timespec="seconds")}
+    _save_seen_products(data)
+    return changed
+
 def read_search_console_workbook(uploaded):
     """Return all useful Search Console sheets instead of assuming one table."""
     name = (getattr(uploaded, "name", "") or "").lower()
@@ -1732,6 +1806,8 @@ def overall_audit_verdict(audits, watching=False):
     if watching:
         return "🕒 STEBĖTI PO PAKEITIMO", "Radaro nuskaitytas produkto turinys pasikeitė. Dabar pirmiausia vertink dabartinį auditą ir neskubėk dar kartą perrašyti vien dėl senesnių Search Console duomenų."
     statuses=[a["status"] for a in audits.values()]
+    if any("NEĮVERTINTA" in x for x in statuses):
+        return "⚪ DALINIS AUDITAS", "Vieno ar kelių laukų nepavyko patikimai nuskaityti. Jie nemažina SEO balo – įklijuok trūkstamą tekstą į neprivalomą rankinį lauką, jei nori pilno audito."
     if any("RIMČIAU" in x for x in statuses):
         return "🔴 REIKIA PERŽIŪRĖTI", "Yra keli konkretūs trūkumai. Keisk tik tas vietas, kurias Radaras nurodo – ne visą puslapį automatiškai."
     if any("PAPILDYTI" in x or "PATOBULINTI" in x for x in statuses):
@@ -1859,64 +1935,95 @@ with tabs[3]:
 
 with tabs[4]:
     st.subheader("🔎 SEO optimizatorius")
-    st.caption("SEO auditas: Radaras pats nuskaitys dabartinį produkto puslapį, palygins jį su Search Console signalais ir pasakys, ką PALIKTI, ką PAPILDYTI ir ką KEISTI. Be mokamo AI API.")
+    st.caption("V10.8 · produkto SEO auditas. Search Console neprivalomas: įkėlus vieną kartą, Radaras naudoja paskutinį išsaugotą eksportą, kol įkelsi naujesnį.")
 
-    gsc_file = st.file_uploader("1. Search Console eksportas", type=["xlsx", "xls", "csv"], key="seo_gsc")
-    book = None
+    # ---- Search Console: optional + latest saved export ----
+    st.markdown("### 📊 Search Console duomenys · neprivaloma")
+    saved_upload, saved_meta = load_saved_gsc()
+    gsc_file = st.file_uploader("Įkelti naują Search Console eksportą", type=["xlsx", "xls", "csv"], key="seo_gsc", help="Nebūtina kelti kiekvienam produktui. Naujas failas pakeičia anksčiau išsaugotą.")
     if gsc_file is not None:
         try:
-            book = read_search_console_workbook(gsc_file)
+            saved_meta=save_gsc_upload(gsc_file); saved_upload,_=load_saved_gsc()
+            st.success("Naujas Search Console eksportas išsaugotas ir nuo šiol bus naudojamas SEO auditams.")
+        except Exception as e:
+            st.warning("Failą perskaičiau, bet nepavyko jo išsaugoti ilgesniam naudojimui. Šioje sesijoje vis tiek bandysiu naudoti.")
+            saved_upload=gsc_file; saved_meta={"name":getattr(gsc_file,"name",""),"saved_at":datetime.now().isoformat(timespec="seconds")}
+
+    book=None
+    if saved_upload is not None:
+        try:
+            book=read_search_console_workbook(saved_upload)
             qn=len(book["queries"]) if not book["queries"].empty else 0
             pn=len(book["pages"]) if not book["pages"].empty else 0
             tn=len(book["trend"]) if not book["trend"].empty else 0
-            st.success(f"Search Console nuskaitytas · užklausų {qn} · puslapių {pn} · dienų {tn}")
+            fresh,_=_gsc_freshness(saved_meta)
+            st.info(f"Naudojamas: {saved_meta.get('name','Search Console eksportas')} · {fresh} · užklausų {qn} · puslapių {pn} · dienų {tn}")
             if not book["pages"].empty:
                 with st.expander("🔥 Kurie svetainės puslapiai turi didžiausią SEO galimybę"):
                     st.caption("Atranka pagal parodymus, CTR ir poziciją – kad žinotum, kurį produktą verta audituoti pirmiausia.")
                     po=page_opportunities(book["pages"])
                     st.dataframe(po.head(25),use_container_width=True,hide_index=True) if not po.empty else st.info("Nepakanka duomenų reitingui.")
         except Exception as e:
-            st.error("Nepavyko perskaityti Search Console failo."); st.caption(str(e)[:500]); book=None
+            st.error("Nepavyko perskaityti išsaugoto Search Console failo."); st.caption(str(e)[:500]); book=None
+    else:
+        st.caption("Search Console dar neįkeltas. Auditas vis tiek veiks pagal dabartinį produkto puslapį; tiesiog nebus Google parodymų, CTR, pozicijos ir užklausų signalų.")
 
     st.divider()
-    source=st.radio("2. Produkto informacija",["Produkto nuoroda","Įklijuosiu ranka"],horizontal=True,key="seo_source")
-    product=None; product_url=""
-    if source=="Produkto nuoroda":
-        product_url=st.text_input("Produkto nuoroda",placeholder="https://mokymopriemones.eu/...",key="seo_url").strip()
-        if product_url:
-            try:
-                product=fetch_product_seo(product_url)
-                st.success(f"Nuskaityta: {product.get('product_name','produktas')}")
-            except Exception as e:
-                st.warning("Nepavyko patikimai nuskaityti produkto puslapio. Gali pasirinkti „Įklijuosiu ranka“."); st.caption(str(e)[:300])
-    else:
-        pn=st.text_input("Produkto pavadinimas",key="seo_pn")
-        mt=st.text_input("Dabartinis Meta title",key="seo_mt")
-        md=st.text_area("Dabartinis Meta description",height=80,key="seo_md")
-        desc=st.text_area("Dabartinis produkto aprašymas",height=220,key="seo_desc")
-        if pn and desc: product={"url":"","product_name":pn,"meta_title":mt,"meta_description":md,"description":desc}
-
-    if book is not None and product:
+    st.markdown("### 🔗 Audituoti produktą")
+    product_url=st.text_input("Produkto nuoroda",placeholder="https://mokymopriemones.eu/...",key="seo_url").strip()
+    auto={"url":product_url,"product_name":"","meta_title":"","meta_description":"","description":""}
+    scrape_error=""
+    if product_url:
         try:
-            page_filtered,_=gsc_is_page_filtered(book,product_url)
-            page_metrics=page_metrics_for_url(book["pages"],product_url) if product_url else None
-            opp=seo_query_table(book["queries"],product,product_specific=page_filtered)
+            auto=fetch_product_seo(product_url)
+            st.success(f"Puslapis nuskaitytas: {auto.get('product_name','produktas')}")
+        except Exception as e:
+            scrape_error=str(e); st.warning("Nepavyko patikimai nuskaityti visų produkto puslapio laukų. Žemiau gali įklijuoti trūkstamus tekstus rankiniu būdu.")
+
+    with st.expander("✍️ Neprivalomi rankiniai laukai · naudok tik jei automatinis nuskaitymas netikslus", expanded=bool(product_url and not auto.get("description"))):
+        st.caption("Rankiniu būdu įklijuotas tekstas turi prioritetą prieš automatiškai nuskaitytą. Tuščius laukus Radaras paliks iš URL.")
+        manual_name=st.text_input("Produkto pavadinimas · neprivaloma",key="seo_manual_name",placeholder=auto.get("product_name","")[:180])
+        manual_mt=st.text_input("Meta title · neprivaloma",key="seo_manual_mt",placeholder=auto.get("meta_title","")[:180])
+        manual_md=st.text_area("Meta description · neprivaloma",height=90,key="seo_manual_md",placeholder=auto.get("meta_description","")[:300])
+        manual_desc=st.text_area("Produkto aprašymas · neprivaloma",height=260,key="seo_manual_desc",placeholder="Įklijuok tik jei Radaras aprašymo nenuskaitė arba nuskaitė neteisingai.")
+
+    product={
+        "url":product_url,
+        "product_name":manual_name.strip() or auto.get("product_name","") or "",
+        "meta_title":manual_mt.strip() or auto.get("meta_title","") or "",
+        "meta_description":manual_md.strip() or auto.get("meta_description","") or "",
+        "description":manual_desc.strip() or auto.get("description","") or "",
+    }
+    has_product=bool(product_url and any(product.get(k) for k in ["product_name","meta_title","meta_description","description"]))
+
+    if has_product:
+        try:
+            page_filtered=False; page_metrics=None; opp=pd.DataFrame()
+            if book is not None:
+                page_filtered,_=gsc_is_page_filtered(book,product_url)
+                page_metrics=page_metrics_for_url(book["pages"],product_url) if product_url else None
+                opp=seo_query_table(book["queries"],product,product_specific=page_filtered)
+
             audits=audit_product_seo(product,opp,page_metrics,page_filtered)
+            # A scraper failure must not lower the score as if the page itself lacked content.
+            unknown_sections=set()
+            if not product.get("description") and not manual_desc.strip(): unknown_sections.add("Produkto aprašymas")
+            if not product.get("meta_title") and not manual_mt.strip(): unknown_sections.add("Meta title")
+            if not product.get("meta_description") and not manual_md.strip(): unknown_sections.add("Meta description")
+            for sec in unknown_sections:
+                audits[sec]={"status":"⚪ NEĮVERTINTA · NEPAVYKO NUSKAITYTI","good":[],"missing":[],"change":["Įklijuok šį tekstą į neprivalomą rankinį lauką. Tai techninis nuskaitymo trūkumas, todėl SEO balas dėl jo nemažinamas."]}
 
-            # Automatic change detection, no Done/Optimized buttons.
-            watching=False
-            if product_url:
-                key="seo_seen_"+hashlib.md5(product_url.rstrip('/').encode()).hexdigest()
-                now_hash=_content_hash(product)
-                prev=st.session_state.get(key)
-                if prev and prev!=now_hash: watching=True
-                st.session_state[key]=now_hash
-
+            watching=detect_product_change(product_url,product)
             verdict,why=overall_audit_verdict(audits,watching)
-            score=audit_score(audits)
+            vals=[]
+            for a in audits.values():
+                if "NEĮVERTINTA" in a["status"]: continue
+                vals.append(100 if "PALIKTI" in a["status"] else 72 if "PAPILDYTI" in a["status"] or "PATOBULINTI" in a["status"] else 48)
+            score=round(sum(vals)/len(vals)) if vals else 0
+
             st.divider(); st.markdown(f"## {verdict}"); st.write(why)
             c1,c2,c3,c4=st.columns(4)
-            c1.metric("SEO auditas",f"{score}/100")
+            c1.metric("SEO auditas",f"{score}/100" if vals else "–")
             if page_metrics:
                 c2.metric("Produkto parodymai",f"{int(page_metrics['impressions']):,}".replace(","," "))
                 c3.metric("CTR",f"{page_metrics['ctr']:.2f}%")
@@ -1925,7 +2032,11 @@ with tabs[4]:
                 c2.metric("Produkto parodymai","–"); c3.metric("CTR","–"); c4.metric("Pozicija","–")
 
             if watching:
-                st.info("🕒 Radaras automatiškai pastebėjo, kad šio URL tekstai nuo ankstesnio nuskaitymo pasikeitė. Naujo Search Console eksporto rezultatai dar gali atspindėti senesnę versiją, todėl nesiūloma vėl visko perrašyti.")
+                st.info("🕒 Radaras pastebėjo, kad šio URL tekstai nuo ankstesnio audito pasikeitė. Dabartinį puslapį vertina iš naujo, bet senesni Search Console duomenys dar gali atspindėti ankstesnę versiją – todėl neskubėk vėl perrašyti.")
+            if book is None:
+                st.warning("🟡 Auditas be Search Console duomenų: vertinama dabartinio produkto puslapio SEO kokybė. Google paklausa, realūs parodymai, CTR, pozicija ir užklausos nevertinami.")
+            elif page_metrics is None:
+                st.info("Search Console įkeltas, bet šiame eksporte neradau tikslios šio URL eilutės. Puslapio auditas atliekamas, o produkto Google metrikos nerodomos.")
 
             st.markdown("### 🩺 Dabartinio puslapio auditas")
             for section,a in audits.items():
@@ -1937,18 +2048,18 @@ with tabs[4]:
                         st.markdown("**Ko trūksta / ką verta taisyti**")
                         for x in a["missing"]: st.write("• "+x)
                     if a["change"]:
-                        st.markdown("**Kaip keisti**")
+                        st.markdown("**Kaip keisti / pastaba**")
                         for x in a["change"]: st.write("• "+x)
                     if not a["missing"] and not a["change"]: st.success("Šio elemento dabar keisti nereikia.")
 
-            if page_filtered:
-                st.success("✅ Search Console eksportas filtruotas pagal šį produkto puslapį – užklausų signalus galima naudoti konkrečiam produktui.")
-            else:
-                st.info("ℹ️ Bendrame Search Console eksporte užklausų negalima patikimai priskirti vienam produktui. Todėl jos nenaudojamos kaip privalomi raktažodžiai; konkretaus URL parodymai, CTR ir pozicija imami iš lapo „Puslapiai“.")
-
-            with st.expander("Search Console užklausų signalai"):
-                if opp.empty: st.caption("Aiškių susijusių užklausų signalų nerasta.")
-                else: st.dataframe(opp.head(20),use_container_width=True,hide_index=True)
+            if book is not None:
+                if page_filtered:
+                    st.success("✅ Search Console eksportas filtruotas pagal šį produkto puslapį – užklausų signalus galima naudoti konkrečiam produktui.")
+                else:
+                    st.info("ℹ️ Bendrame Search Console eksporte užklausų negalima patikimai priskirti vienam produktui. Konkretaus URL parodymai, CTR ir pozicija imami iš „Puslapiai“, o bendros užklausos nelaikomos privalomais raktažodžiais.")
+                with st.expander("Search Console užklausų signalai"):
+                    if opp.empty: st.caption("Aiškių susijusių užklausų signalų nerasta arba eksportas nėra filtruotas pagal šį produktą.")
+                    else: st.dataframe(opp.head(20),use_container_width=True,hide_index=True)
 
             st.markdown("### 📋 Dabartiniai tekstai · kopijavimui")
             copy_block("Produkto pavadinimas",product.get("product_name",""))
@@ -1956,15 +2067,15 @@ with tabs[4]:
             copy_block("Meta description",product.get("meta_description",""))
             copy_block("Produkto aprašymas",product.get("description",""))
 
-            st.markdown("### 📋 Tikslus Radaro auditas ChatGPT")
-            st.caption("Kai norėsi pataisyti tekstą, nukopijuok šį vieną bloką į ChatGPT. Jame jau sudėta tik tai, ką Radaras nustatė keisti – nereikia kopijuoti visos statistikos atskirai.")
+            st.markdown("### 📋 Auditas ChatGPT · kai norėsi pataisyti tekstą")
+            st.caption("Nebūtina naudoti, jei Radaras sako PALIKTI. Kai reikia taisyti, nukopijuok šį vieną bloką į ChatGPT.")
             st.code(make_chatgpt_audit_prompt(product,audits,opp,page_metrics,page_filtered),language=None)
         except Exception as e:
             st.error("SEO analizės nepavyko užbaigti."); st.caption(str(e)[:500])
-    elif book is not None:
-        st.info("Dabar įklijuok produkto nuorodą arba pasirink rankinį įvedimą.")
+    elif product_url:
+        st.info("Automatiškai nepavyko gauti produkto tekstų. Įklijuok bent produkto aprašymą į neprivalomą rankinį lauką – Search Console nėra būtinas.")
     else:
-        st.info("Pradėk nuo Search Console failo.")
+        st.info("Įklijuok produkto nuorodą. Search Console failas nėra privalomas.")
 
 
 with tabs[5]:
@@ -2082,4 +2193,4 @@ with tabs[8]:
                     label="SUKURTA" if it.status in ["SUKURTA","PASIDALINTA"] else "PRAPLĖSTA"
                     st.write(f"**{label}** · {it.product_code or 'be kodo'} · {it.tema} → {it.mikrotema}")
 
-st.caption("V10.7 • SEO auditas: PALIKTI / PAPILDYTI / KEISTI / STEBĖTI • lietuviškas Search Console .xlsx • be API • automatinis puslapio pakeitimų aptikimas.")
+st.caption("V10.8 • SEO auditas • Search Console neprivalomas ir naudojamas pakartotinai • rankiniai fallback laukai • PALIKTI / PAPILDYTI / KEISTI / STEBĖTI • be API.")
