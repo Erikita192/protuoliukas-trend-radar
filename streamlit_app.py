@@ -969,6 +969,49 @@ def full_card(r,action_label=None,product=None,key_prefix="card",show_buttons=Tr
 def compact_done_controls(*args,**kwargs):
     return
 
+
+def separate_product_angles(r):
+    """Suggest distinct sellable product directions from one Radar topic.
+    These are alternatives/series ideas, not a requirement to bundle everything together.
+    """
+    text=_norm(f"{r.tema} {r.mikrotema} {r.produkto_ideja}")
+    age=str(r.amzius)
+    fmt=str(r.formatas)
+    candidates=[]
+
+    def add(title,mechanic):
+        if title not in [x[0] for x in candidates]:
+            candidates.append((title,mechanic))
+
+    if any(k in text for k in ["procent","trupmen","dešimtain"]):
+        add("Sujunk lygiaverčius","Poravimo / trejetų sudarymo kortelės.")
+        add("Kuris netinka?","Klaidos aptikimo ir argumentavimo užduotys.")
+        add("Užpildyk trūkstamą","Vienos ar dviejų reikšmių konversijos užduotys.")
+        add("Vaizdas → užrašas","Vizualinis modelis ir skaitinis atitikmuo.")
+    elif any(k in text for k in ["skaič","sudėt","atimt","daugyb","dalyb"]):
+        add("Atpažink ir pasirink","Trumpų pasirinkimo užduočių kortelės.")
+        add("Vaizdas → veiksmas","Iš paveikslėlio sudaromas skaitinis veiksmas.")
+        add("Klaidos detektyvas","Reikia rasti neteisingą sprendimą ar vaizdą.")
+        add("Trūkstamas narys","Nežinomo skaičiaus / dėmens paieškos užduotys.")
+    elif any(k in text for k in ["raid","abėc","skaity","raš"]):
+        add("Atpažink ir rask","Raidės / garso / žodžio atpažinimo kortelės.")
+        add("Sujunk poras","Raidė–garsas–paveikslėlis arba žodis–vaizdas.")
+        add("Sudėk / sukurk","Žodžių, skiemenų ar sakinių konstravimo priemonė.")
+        add("Klaidos paieška","Neteisingos raidės, žodžio ar sakinio aptikimas.")
+    elif any(k in text for k in ["emoc","draug","toler","social"]):
+        add("Atpažink situaciją","Paveikslėlių / situacijų kortelės.")
+        add("Kaip pasielgtum?","Pasirinkimo ir sprendimo scenarijai.")
+        add("Ką pasakytum?","Kalbinės reakcijos ir empatijos užduotys.")
+        add("Rūšiuok elgesį","Tinka / netinka, saugu / nesaugu, pagarbu / nepagarbu.")
+    else:
+        aa=angles(r)
+        ex=examples(r,8)
+        for i,a in enumerate(aa[:4]):
+            mech=ex[i] if i < len(ex) else "Atskira tos pačios temos užduočių mechanika."
+            add(a,mech)
+
+    return candidates[:4]
+
 def fast_detail_card(r,action_label=None,product=None):
     """Detail content for TOP expanders with no extra DB/network calls.
     Because Streamlit expander itself opens client-side, details appear instantly."""
@@ -1002,6 +1045,13 @@ def fast_detail_card(r,action_label=None,product=None):
     st.markdown("**🧩 Konkretūs užduočių pavyzdžiai**")
     for x in examples(r,8):
         st.write("• "+x)
+
+    series=separate_product_angles(r)
+    if len(series)>=3:
+        st.markdown("**💎 Potencialas kelioms atskiroms priemonėms**")
+        st.caption("Viena aktuali tema nebūtinai = vienas produktas. Žemiau – skirtingi parduodami kampai; jų nereikia sugrūsti į vieną priemonę.")
+        for n,(title,mechanic) in enumerate(series,1):
+            st.write(f"**{n}. {title}** — {mechanic}")
 
     st.markdown("**📅 Laikas**")
     st.write(
@@ -1094,8 +1144,8 @@ with st.spinner("Radar skaičiuoja artimiausius paklausos signalus..."):
         df[f"{h}d"]=df.apply(lambda r:horizon_score(r,today,h),axis=1)
 df["prioritetas"]=df[["7d","14d","30d"]].max(axis=1)
 
-st.title("📡 Protuoliukas Trend Radar — V10.3")
-st.caption("V10.3 • pedagogai + tėvai + progos • Pinterest įkvėpimas pagal aktyvias Radaro temas")
+st.title("📡 Protuoliukas Trend Radar — V10.4")
+st.caption("V10.4 • viena aktuali tema gali virsti keliomis atskiromis priemonėmis • Pinterest įkvėpimas")
 
 with st.sidebar:
     st.markdown("### ⚙️ Mano dabartinis kūrimo tempas")
@@ -1398,13 +1448,13 @@ with tabs[6]:
                 st.write("• "+x)
 
 with tabs[7]:
-    st.subheader("🧠 Idėjų bankas – tik tai, ko dar nesukūrei")
-    st.caption("Geros neįgyvendintos idėjos čia lieka neribotai. Paspaudus SUKŪRIAU ar PRAPLĖČIAU jos iš aktyvaus banko dingsta, bet Supabase istorijoje išlieka.")
+    st.subheader("🧠 Idėjų bankas")
+    st.caption("Čia lieka anksčiau Radaro užfiksuotos idėjos. Rankinio ATLIKTA žymėjimo nebenaudojame.")
     bank=idea_bank()
     if bank.empty:
         st.info("Bankas dar tuščias.")
     else:
-        # Aktyvus bankas rodo tik neįgyvendintas idėjas.
+        # Bankas paliekamas kaip istorinis idėjų sąrašas; rankinio atlikimo darbo srauto nebėra.
         active_bank=bank[~bank.status.isin(["SUKURTA","PRAPLESTA","PASIDALINTA"])].copy()
         done_bank=bank[bank.status.isin(["SUKURTA","PRAPLESTA","PASIDALINTA"])].copy()
 
