@@ -9,9 +9,9 @@ from datetime import date, datetime, timedelta
 from urllib.parse import urljoin, urlparse
 from urllib.parse import quote_plus
 
-st.set_page_config(page_title="Protuoliukas Trend Radar V11.1", page_icon="📡", layout="wide")
+st.set_page_config(page_title="Protuoliukas Trend Radar V11.2", page_icon="📡", layout="wide")
 
-# --- V11.1 subtle visual system ---
+# --- V11.2 subtle visual system ---
 st.markdown("""
 <style>
 :root {
@@ -1146,18 +1146,38 @@ def separate_product_angles(r):
 def render_theme_coverage(r, product=None):
     series=separate_product_angles(r)
     if not series: return
-    st.markdown("**🧭 Temos padengimas · kokiais dar kampais ją galima išplėtoti**")
-    if product is not None:
-        st.write(f"**Jau turima susijusi priemonė:** {product.pavadinimas}. Radar jos nevertina kaip silpnos ar stiprios – ji yra viena temos dalis. Žemiau tikriname, kokių kitų prasmingų gebėjimų ir užduočių mechanikų tema dar gali turėti.")
+    st.markdown("**🧭 Temos padengimas · ką jau turime ir kokiais dar kampais ją galima išplėtoti**")
+
+    # Temos padengimui neužtenka vieno sprendimui parinkto produkto. Surenkame visas
+    # katalogo priemones, kurias skeneris su šia tema gali pagrįstai susieti.
+    try:
+        related_all=catalog_matches(catalog,r) if 'catalog' in globals() else pd.DataFrame()
+    except Exception:
+        related_all=pd.DataFrame()
+
+    if related_all is not None and not related_all.empty:
+        st.write(f"**Kataloge rasta susijusių priemonių: {len(related_all)}.** Prieš siūlydamas kitus kampus Radar pirmiausia parodo, ką pavyko susieti su šia tema:")
+        for _,cp in related_all.iterrows():
+            name=str(cp.get('pavadinimas','')).strip()
+            code=str(cp.get('kodas','')).strip()
+            url=str(cp.get('nuoroda','')).strip()
+            label=f"• **{name}**" + (f" · kodas {code}" if code else "")
+            st.markdown(label)
+            if url:
+                st.caption(url)
+        st.caption("Pastaba: katalogo susiejimas atliekamas pagal produkto pavadinimą, nuorodą ir temos raktažodžius. Todėl tai yra rastos susijusios priemonės, o ne garantija, kad automatinis skeneris aptiko absoliučiai visą temos turinį.")
+        st.write("**Ką tikriname toliau:** ne ar šios priemonės yra geros – jos jau yra vertingos temos dalys. Radar ieško, kokių kitų gebėjimų, sudėtingumo lygių ar užduočių mechanikų visa tema dar gali neapimti.")
     else:
-        st.write("Net jei šia tema jau yra priemonių, verta patikrinti, ar jos padengia visus prasmingus gebėjimus ir užduočių mechanikas. Žemiau – galimos atskiros kryptys.")
+        st.warning("🔎 **Kataloge nepavyko patikimai susieti šios temos su konkrečiomis turimomis priemonėmis.** Todėl žemiau pateikiami galimi temos plėtimo kampai neatsižvelgiant į esamų priemonių turinį. Tai nereiškia, kad parduotuvėje šios temos priemonių nėra.")
+
+    st.markdown("**💡 Galimi dar nepadengti arba papildomi temos kampai**")
     for n,item in enumerate(series,1):
         st.markdown(f"**{n}. {item['title']}**")
         st.write(item['skill'])
         st.write("**Ką vaikas galėtų atlikti:** " + "; ".join(item['tasks']) + ".")
         st.caption("Kuo tai kitas kampas: " + item['difference'])
     if len(series)>=3:
-        st.info("💎 **Galimas produktų šeimos / rinkinio potencialas.** Atskiros priemonės gali padengti skirtingus tos pačios temos gebėjimus, o vėliau kartu sudaryti nuoseklų teminį rinkinį. Nebūtina visko sutalpinti į vieną produktą.")
+        st.info("💎 **Galimas produktų šeimos / rinkinio potencialas.** Turimos ir naujais kampais sukurtos atskiros priemonės gali padengti skirtingus tos pačios temos gebėjimus ir vėliau kartu sudaryti nuoseklų teminį rinkinį. Nebūtina visko sutalpinti į vieną produktą.")
 
 
 def fast_detail_card(r,action_label=None,product=None):
@@ -1290,8 +1310,8 @@ with st.spinner("Radar skaičiuoja artimiausius paklausos signalus..."):
         df[f"{h}d"]=df.apply(lambda r:horizon_score(r,today,h),axis=1)
 df["prioritetas"]=df[["7d","14d","30d"]].max(axis=1)
 
-st.title("📡 Protuoliukas Trend Radar — V11.1")
-st.caption("V11.1 • sprendimų sistema • fiksuoti pikai • temos padengimas • produktų šeimos • SEO")
+st.title("📡 Protuoliukas Trend Radar — V11.2")
+st.caption("V11.2 • sprendimų sistema • katalogo temos padengimas • fiksuoti pikai • produktų šeimos • SEO")
 
 with st.sidebar:
     st.markdown("### ⚙️ Mano dabartinis kūrimo tempas")
@@ -2085,7 +2105,7 @@ with tabs[3]:
 
 with tabs[4]:
     st.subheader("🔎 SEO optimizatorius")
-    st.caption("V11.0 · produkto SEO auditas. Search Console neprivalomas: įkėlus vieną kartą, Radaras naudoja paskutinį išsaugotą eksportą, kol įkelsi naujesnį.")
+    st.caption("V11.2 · produkto SEO auditas. Search Console neprivalomas: įkėlus vieną kartą, Radaras naudoja paskutinį išsaugotą eksportą, kol įkelsi naujesnį.")
 
     # ---- Search Console: optional + latest saved export ----
     st.markdown("### 📊 Search Console duomenys · neprivaloma")
@@ -2332,4 +2352,4 @@ with tabs[8]:
                     label="SUKURTA" if it.status in ["SUKURTA","PASIDALINTA"] else "PRAPLĖSTA"
                     st.write(f"**{label}** · {it.product_code or 'be kodo'} · {it.tema} → {it.mikrotema}")
 
-st.caption("V11.1 • fiksuoti pikai • piko aktualumo uodega • temos padengimo ir produktų šeimų analizė • SEO auditas • Search Console neprivalomas ir naudojamas pakartotinai • rankiniai fallback laukai • PALIKTI / PAPILDYTI / KEISTI / STEBĖTI • be API.")
+st.caption("V11.2 • fiksuoti pikai • katalogo temos padengimas • produktų šeimų analizė • SEO auditas • Search Console neprivalomas ir naudojamas pakartotinai • PALIKTI / PAPILDYTI / KEISTI / STEBĖTI.")
