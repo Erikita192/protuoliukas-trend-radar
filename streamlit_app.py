@@ -430,7 +430,7 @@ def pedagogical_peak(r,today):
         })
 
     if pds:
-        parent_target=today if pds["start"]<=today<=pds["end"] else pds["start"]
+        parent_target=pds["peak"]
         candidates.append({
             "peak":parent_target,
             "kind":"tevai",
@@ -439,7 +439,7 @@ def pedagogical_peak(r,today):
             "confidence":int(pds["confidence"])
         })
 
-    eligible=[c for c in candidates if c["peak"]>=today-timedelta(days=3)]
+    eligible=[c for c in candidates if c["peak"]>=today-timedelta(days=5)]
     if eligible:
         chosen=min(eligible,key=lambda c:(c["peak"]-today).days)
         return (chosen["peak"],chosen["kind"],chosen["use_date"],chosen["detail"],
@@ -740,6 +740,36 @@ def horizon_score(r,today,h):
     cap=60+(0.40*conf)
     return round(max(0,min(100,raw,cap)))
 
+def peak_kind_label(kind):
+    return {
+        "programa":"📚 PROGRAMINIS PIKAS",
+        "proga":"📅 PROGOS PIKAS",
+        "tevai":"👨‍👩‍👧 TĖVŲ PAKLAUSOS PIKAS",
+        "sezonika":"🌿 SEZONINĖ PROGNOZĖ",
+    }.get(kind,"📈 PAKLAUSOS PIKAS")
+
+def peak_stage(peak,today,last=None):
+    d=(peak-today).days
+    if d>5: return f"🟢 Pikas po {d} d."
+    if 2<=d<=5: return f"🔥 Pikas artėja · po {d} d."
+    if d==1: return "🔥 Pikas rytoj"
+    if d==0: return "🔥 Pikas šiandien"
+    ago=abs(d)
+    if ago==1: return "🟠 Pikas buvo vakar · dar aktualu"
+    if ago<=3: return f"🟠 Pikas buvo prieš {ago} d. · dar verta rodyti"
+    if ago<=5: return f"🟡 Pikas buvo prieš {ago} d. · paklausa slopsta"
+    return f"⚪ Pikas buvo prieš {ago} d."
+
+def recommended_stage_action(r,today):
+    start,pub,peak,last=timing(r,today)
+    d=(peak-today).days
+    if today < start: return "💡 PLANUOTI · dar nebūtina pradėti"
+    if today < pub: return "🔥 KURTI · kad spėtum iki publikavimo lango"
+    if d>=0: return "📣 PUBLIKUOTI / DALINTIS · aktyvus langas"
+    if (today-peak).days<=3: return "📣 DAR VERTA DALINTIS · pikas ką tik praėjo"
+    if today<=last: return "🟡 PALAIKYTI MATOMUMĄ · paklausa slopsta"
+    return "⚪ AKTYVUS LANGAS BAIGĖSI"
+
 def timing(r,today):
     peak,kind,use_date,detail,signals,extra,conf=pedagogical_peak(r,today)
     publish=peak-timedelta(days=3)
@@ -916,8 +946,12 @@ def full_card(r,action_label=None,product=None,key_prefix="card",show_buttons=Tr
     for i,a in enumerate(aa[:3],1):st.write(f"{['🥇','🥈','🥉'][i-1]} **{a}**")
     st.markdown("**🧩 Konkretūs užduočių pavyzdžiai**")
     for x in examples(r,8):st.write("• "+x)
+    render_theme_coverage(r, product if action_label=="ISPLESTI" else None)
     st.markdown("**📅 Laikas**")
-    st.write(f"**Pradėti kurti:** {'dabar' if today>=start else start.strftime('%Y-%m-%d')}  •  **Optimalu publikuoti:** {pub.strftime('%Y-%m-%d')}  •  **Paskutinė verta diena:** {last.strftime('%Y-%m-%d')}  •  **Tikėtinas pirkimo pikas:** {peak.strftime('%Y-%m-%d')}")
+    _pk,_kind,*_=pedagogical_peak(r,today)
+    st.write(f"**{peak_kind_label(_kind)}:** {peak.strftime('%Y-%m-%d')} · **{peak_stage(peak,today,last)}**")
+    st.write(f"**Pradėti kurti:** {'dabar' if today>=start else start.strftime('%Y-%m-%d')} • **Optimalu publikuoti:** {pub.strftime('%Y-%m-%d')} • **Aktualumo lango pabaiga:** {last.strftime('%Y-%m-%d')}")
+    st.write(f"**Veiksmas šiandien:** {recommended_stage_action(r,today)}")
     ps,osig,pds,signals,extra=signal_stack(r,today)
     st.markdown("**🧭 Kodėl ši idėja dabar?**")
     if signals:
@@ -957,61 +991,76 @@ def full_card(r,action_label=None,product=None,key_prefix="card",show_buttons=Tr
     st.write("**Kur tikrinti:** "+str(getattr(r,"saltiniu_kryptis","Aktualios ugdymo programos ir patikimi dalyko šaltiniai.")))
     if show_buttons:
         code=st.text_input("Produkto kodas, kai atliksi",key=f"{key_prefix}_code_{fp(r)}",placeholder="pvz. P129 arba 301")
-        c1,c2=st.columns(2)
-        if action_label=="ISPLESTI":
-            if c1.button("✅ PRAPLĖČIAU",key=f"{key_prefix}_expanded_{fp(r)}"):
-                if code.strip():set_idea_status(fp(r),"PRAPLESTA",code);st.rerun()
-                else:st.warning("Įvesk naujai sukurtos priemonės kodą.")
-        else:
-            if c1.button("✅ SUKŪRIAU",key=f"{key_prefix}_created_{fp(r)}"):
-                if code.strip():set_idea_status(fp(r),"SUKURTA",code);st.rerun()
-                else:st.warning("Įvesk produkto kodą.")
 
 def compact_done_controls(*args,**kwargs):
     return
 
 
 def separate_product_angles(r):
-    """Suggest distinct sellable product directions from one Radar topic.
-    These are alternatives/series ideas, not a requirement to bundle everything together.
+    """Distinct, clearly explained directions for broader theme coverage.
+    A current product is never labelled weak; it may simply cover one part of a broader theme.
     """
     text=_norm(f"{r.tema} {r.mikrotema} {r.produkto_ideja}")
-    age=str(r.amzius)
-    fmt=str(r.formatas)
     candidates=[]
-
-    def add(title,mechanic):
-        if title not in [x[0] for x in candidates]:
-            candidates.append((title,mechanic))
+    def add(title, skill, tasks, difference):
+        if title not in [x["title"] for x in candidates]:
+            candidates.append({"title":title,"skill":skill,"tasks":tasks,"difference":difference})
 
     if any(k in text for k in ["procent","trupmen","dešimtain"]):
-        add("Sujunk lygiaverčius","Poravimo / trejetų sudarymo kortelės.")
-        add("Kuris netinka?","Klaidos aptikimo ir argumentavimo užduotys.")
-        add("Užpildyk trūkstamą","Vienos ar dviejų reikšmių konversijos užduotys.")
-        add("Vaizdas → užrašas","Vizualinis modelis ir skaitinis atitikmuo.")
-    elif any(k in text for k in ["skaič","sudėt","atimt","daugyb","dalyb"]):
-        add("Atpažink ir pasirink","Trumpų pasirinkimo užduočių kortelės.")
-        add("Vaizdas → veiksmas","Iš paveikslėlio sudaromas skaitinis veiksmas.")
-        add("Klaidos detektyvas","Reikia rasti neteisingą sprendimą ar vaizdą.")
-        add("Trūkstamas narys","Nežinomo skaičiaus / dėmens paieškos užduotys.")
+        add("Lygiaverčių trupmenų, dešimtainių skaičių ir procentų siejimas",
+            "Vaikas supranta, kad tas pats dydis gali būti užrašytas trupmena, dešimtainiu skaičiumi ir procentais, ir mokosi pereiti iš vienos išraiškos į kitą.",
+            ["sujungti 1/2, 0,5 ir 50 % į vieną grupę","prie vaizdinio modelio parinkti tinkamus užrašus","rasti vieną netinkamą reikšmę tarp lygiaverčių","įrašyti trūkstamą trupmeną, dešimtainį skaičių arba procentą","rūšiuoti sumaišytas reikšmes į lygiaverčių dydžių grupes"],
+            "Tai ne vien trupmenos atpažinimas: pagrindinis gebėjimas – suvokti skirtingų skaitinių užrašų lygiavertiškumą.")
+        add("Trupmenų dydžio palyginimas pagal vaizdą ir skaičių",
+            "Vaikas mokosi nustatyti, kuri iš dviejų ar kelių trupmenų yra didesnė, mažesnė arba lygi, pirmiausia remdamasis vaizdu, vėliau – skaitiniu užrašu.",
+            ["palyginti du nuspalvintus modelius","įrašyti >, < arba =","rasti dvi vienodo dydžio trupmenas","surikiuoti 3–4 trupmenas nuo mažiausios iki didžiausios","paaiškinti pasirinkimą pagal vaizdinį modelį"],
+            "Čia lavinamas dydžio suvokimas ir palyginimas, o ne tik trupmenos įvardijimas.")
+        add("Trūkstamos reikšmės ir konversijos",
+            "Vaikas savarankiškai apskaičiuoja arba parenka trūkstamą tos pačios reikšmės užrašą.",
+            ["užpildyti 1/4 = ___ = 25 %","parinkti procentą pateiktai trupmenai","dešimtainį skaičių paversti procentais","užbaigti lygiaverčių reikšmių grandinę","ištaisyti neteisingai atliktą konversiją"],
+            "Šis kampas reikalauja ne atpažinti paruoštą porą, o pačiam atlikti konversiją.")
+        add("Kasdienės situacijos su trupmenomis ir procentais",
+            "Vaikas pritaiko trupmenas ar procentus realistiškose pirkimo, kiekio, nuolaidos ar dalies situacijose.",
+            ["apskaičiuoti nuolaidos dalį","rasti likusią visumos dalį","palyginti dvi nuolaidas","parinkti situacijai tinkamą skaitinį užrašą","spręsti trumpus tekstinius uždavinius"],
+            "Tema perkeliama iš abstraktaus užrašo į praktinį taikymą ir problemų sprendimą.")
+    elif any(k in text for k in ["laikrod","laiką","valand"]):
+        add("Nurodyto laiko pažymėjimas laikrodyje","Vaikas ne perskaito jau parodytą laiką, o pats nustato rodykles pagal pateiktą laiką.",["nustatyti pilną valandą","pažymėti pusvalandį ar ketvirtį","nustatyti laiką pagal skaitmeninį užrašą","rasti ir pataisyti neteisingai nustatytas rodykles","parodyti tą patį laiką analoginiame ir skaitmeniniame laikrodyje"],"Keičiasi vaiko veiksmas: iš laiko atpažinimo pereinama į aktyvų laiko pavaizdavimą.")
+        add("Laiko palyginimas ir rikiavimas","Vaikas suvokia laiko seką ir geba palyginti kelis laikus.",["pasirinkti ankstesnį laiką","pasirinkti vėlesnį laiką","surikiuoti 3–5 laikrodžius","susieti dienos veiklas su laiku","rasti du tą patį laiką rodančius laikrodžius"],"Tai jau ne vien laikrodžio skaitymas – lavinama laiko seka ir santykiai tarp kelių laikų.")
+        add("Praėjusio laiko skaičiavimas","Vaikas nustato, kiek laiko praėjo tarp pradžios ir pabaigos.",["apskaičiuoti trukmę tarp dviejų laikrodžių","rasti veiklos pabaigos laiką","rasti pradžios laiką","palyginti dviejų veiklų trukmę","spręsti trumpas kasdienes situacijas"],"Ši kryptis pereina nuo laiko nuskaitymo prie skaičiavimo ir trukmės suvokimo.")
+        add("Kasdienės situacijos ir dienotvarkė","Vaikas taiko laikrodžio žinias realiose dienos situacijose.",["susieti veiklą su tinkamu laiku","sudėlioti dienos įvykius chronologiškai","nuspręsti, ar spės į veiklą","apskaičiuoti laukimo laiką","parinkti tinkamą pradžios ar pabaigos laiką"],"Tema tampa funkcionali ir artima realiam gyvenimui, o ne izoliuota laikrodžio užduotis.")
     elif any(k in text for k in ["raid","abėc","skaity","raš"]):
-        add("Atpažink ir rask","Raidės / garso / žodžio atpažinimo kortelės.")
-        add("Sujunk poras","Raidė–garsas–paveikslėlis arba žodis–vaizdas.")
-        add("Sudėk / sukurk","Žodžių, skiemenų ar sakinių konstravimo priemonė.")
-        add("Klaidos paieška","Neteisingos raidės, žodžio ar sakinio aptikimas.")
+        add("Raidės ar garso atpažinimas skirtinguose žodžiuose","Vaikas ieško konkrečios raidės ar garso ne pavieniui, o įvairiuose žodžiuose ir paveikslėlių pavadinimuose.",["rasti žodžius, prasidedančius nurodyta raide","atrinkti paveikslėlius pagal pirmą garsą","rasti raidę žodžio viduryje ar gale","išbraukti netinkamą paveikslėlį","sugrupuoti žodžius pagal garsą"],"Plečiama nuo paprasto raidės pažinimo į jos girdėjimą ir atpažinimą žodžiuose.")
+        add("Raidės, skiemens, žodžio ir vaizdo siejimas","Vaikas jungia kelias kalbos reprezentacijas ir turi nustatyti, kas kam priklauso.",["sujungti žodį su paveikslėliu","pridėti trūkstamą pirmą raidę","parinkti skiemenį žodžiui užbaigti","sudaryti poras iš didžiosios ir mažosios raidės","rasti paveikslėlį pagal perskaitytą žodį"],"Čia svarbus ne vien simbolio atpažinimas, o ryšys tarp raidės, garso, skiemens, žodžio ir reikšmės.")
+        add("Žodžių sudarymas ir konstravimas","Vaikas pats kuria žodį iš pateiktų raidžių ar skiemenų.",["sudėti žodį iš raidžių","sudėti žodį iš skiemenų","įrašyti trūkstamą raidę","sukeisti raides į teisingą tvarką","pagal paveikslėlį sudaryti jo pavadinimą"],"Vaikas nebe tik pasirenka atsakymą – pats konstruoja kalbos vienetą.")
+        add("Klaidų paieška ir taisymas","Vaikas turi pastebėti neteisingą raidę, skiemenį ar žodį ir paaiškinti arba pataisyti klaidą.",["rasti neteisingai parašytą žodį","pasirinkti tinkamą raidę klaidai ištaisyti","rasti paveikslėliui netinkantį žodį","palyginti du beveik vienodus žodžius","ištaisyti sumaišytą raidžių seką"],"Ši mechanika lavina atidumą ir kalbinį tikrinimą, o ne vien atpažinimą.")
     elif any(k in text for k in ["emoc","draug","toler","social"]):
-        add("Atpažink situaciją","Paveikslėlių / situacijų kortelės.")
-        add("Kaip pasielgtum?","Pasirinkimo ir sprendimo scenarijai.")
-        add("Ką pasakytum?","Kalbinės reakcijos ir empatijos užduotys.")
-        add("Rūšiuok elgesį","Tinka / netinka, saugu / nesaugu, pagarbu / nepagarbu.")
+        add("Situacijos atpažinimas ir emocijos supratimas","Vaikas analizuoja konkrečią situaciją ir nustato, kaip joje gali jaustis veikėjas.",["parinkti emociją situacijai","paaiškinti, kas galėjo sukelti jausmą","rasti kelias galimas emocijas","susieti kūno ženklus su emocija","palyginti dviejų veikėjų savijautą"],"Emocija nagrinėjama kontekste, ne tik atpažįstama iš veido.")
+        add("Sprendimo pasirinkimas socialinėje situacijoje","Vaikas svarsto kelis elgesio variantus ir pasirenka tinkamiausią.",["pasirinkti, kaip pasielgti konflikto metu","rasti saugų sprendimą","palyginti dvi reakcijas","numatyti galimą pasekmę","pasiūlyti kitą tinkamą veiksmą"],"Pagrindinis gebėjimas – sprendimų priėmimas ir pasekmių numatymas.")
+        add("Ką pasakyti konkrečioje situacijoje","Vaikas mokosi praktiškų frazių, kurios padeda bendrauti, atsiprašyti, paprašyti pagalbos ar nustatyti ribas.",["parinkti tinkamą frazę","užbaigti dialogą","sugalvoti mandagų atsakymą","pasakyti, kaip paprašyti pagalbos","palyginti pagarbų ir nepagarbų atsakymą"],"Tai kalbinė socialinių gebėjimų praktika, o ne vien situacijos įvertinimas.")
+        add("Veiksmas ir pasekmė","Vaikas sieja elgesį su tikėtina pasekme sau ir kitiems.",["sujungti veiksmą su pasekme","sudėti 3 paveikslėlių seką","numatyti, kas nutiks toliau","rasti, kuri pasekmė nelogiška","pasiūlyti kitą veiksmą, kuris pakeistų rezultatą"],"Tema išplečiama į priežasties–pasekmės ir atsakomybės suvokimą.")
     else:
-        aa=angles(r)
-        ex=examples(r,8)
+        aa=angles(r); ex=examples(r,8)
         for i,a in enumerate(aa[:4]):
-            mech=ex[i] if i < len(ex) else "Atskira tos pačios temos užduočių mechanika."
-            add(a,mech)
-
+            task=ex[i:i+4] or ["atlikti kelias skirtingas tos pačios temos užduotis"]
+            add(a, f"Atskira temos kryptis, kurioje vaikas aktyviai atlieka užduotį „{a}“, o ne tik pakartoja tą patį veiksmą kitu dizainu.", task, "Šį kampą verta vertinti kaip atskirą gebėjimą ar užduoties mechaniką ir palyginti su jau turimų priemonių turiniu.")
     return candidates[:4]
+
+def render_theme_coverage(r, product=None):
+    series=separate_product_angles(r)
+    if not series: return
+    st.markdown("**🧭 Temos padengimas · kokiais dar kampais ją galima išplėtoti**")
+    if product is not None:
+        st.write(f"**Jau turima susijusi priemonė:** {product.pavadinimas}. Radar jos nevertina kaip silpnos ar stiprios – ji yra viena temos dalis. Žemiau tikriname, kokių kitų prasmingų gebėjimų ir užduočių mechanikų tema dar gali turėti.")
+    else:
+        st.write("Net jei šia tema jau yra priemonių, verta patikrinti, ar jos padengia visus prasmingus gebėjimus ir užduočių mechanikas. Žemiau – galimos atskiros kryptys.")
+    for n,item in enumerate(series,1):
+        st.markdown(f"**{n}. {item['title']}**")
+        st.write(item['skill'])
+        st.write("**Ką vaikas galėtų atlikti:** " + "; ".join(item['tasks']) + ".")
+        st.caption("Kuo tai kitas kampas: " + item['difference'])
+    if len(series)>=3:
+        st.info("💎 **Galimas produktų šeimos / rinkinio potencialas.** Atskiros priemonės gali padengti skirtingus tos pačios temos gebėjimus, o vėliau kartu sudaryti nuoseklų teminį rinkinį. Nebūtina visko sutalpinti į vieną produktą.")
+
 
 def fast_detail_card(r,action_label=None,product=None):
     """Detail content for TOP expanders with no extra DB/network calls.
@@ -1047,20 +1096,18 @@ def fast_detail_card(r,action_label=None,product=None):
     for x in examples(r,8):
         st.write("• "+x)
 
-    series=separate_product_angles(r)
-    if len(series)>=3:
-        st.markdown("**💎 Potencialas kelioms atskiroms priemonėms**")
-        st.caption("Viena aktuali tema nebūtinai = vienas produktas. Žemiau – skirtingi parduodami kampai; jų nereikia sugrūsti į vieną priemonę.")
-        for n,(title,mechanic) in enumerate(series,1):
-            st.write(f"**{n}. {title}** — {mechanic}")
+    render_theme_coverage(r, product if action_label=="ISPLESTI" else None)
 
     st.markdown("**📅 Laikas**")
+    _pk,_kind,_use,_detail,_sig,_extra,_conf=pedagogical_peak(r,today)
+    st.write(f"**{peak_kind_label(_kind)}:** {peak.strftime('%Y-%m-%d')} · **{peak_stage(peak,today,last)}**")
     st.write(
         f"**Pradėti kurti:** {'dabar' if today>=start else start.strftime('%Y-%m-%d')} "
         f"• **Optimalu publikuoti:** {pub.strftime('%Y-%m-%d')} "
-        f"• **Paskutinė verta diena:** {last.strftime('%Y-%m-%d')} "
-        f"• **Tikėtinas pirkimo pikas:** {peak.strftime('%Y-%m-%d')}"
+        f"• **Aktualumo lango pabaiga:** {last.strftime('%Y-%m-%d')}"
     )
+    st.write(f"**Veiksmas šiandien:** {recommended_stage_action(r,today)}")
+    st.caption("Piko data yra fiksuota pagal signalą ir neperkeliama į šiandieną. Po piko gali likti tik trumpa aktualumo uodega.")
 
     ps,osig,pds,signals,extra=signal_stack(r,today)
     audiences=[]
@@ -1940,7 +1987,7 @@ with tabs[3]:
 
 with tabs[4]:
     st.subheader("🔎 SEO optimizatorius")
-    st.caption("V10.9 · produkto SEO auditas. Search Console neprivalomas: įkėlus vieną kartą, Radaras naudoja paskutinį išsaugotą eksportą, kol įkelsi naujesnį.")
+    st.caption("V11.0 · produkto SEO auditas. Search Console neprivalomas: įkėlus vieną kartą, Radaras naudoja paskutinį išsaugotą eksportą, kol įkelsi naujesnį.")
 
     # ---- Search Console: optional + latest saved export ----
     st.markdown("### 📊 Search Console duomenys · neprivaloma")
@@ -2175,17 +2222,6 @@ with tabs[8]:
                             for x in [q.strip() for q in str(it.examples).split(" | ") if q.strip()][:8]:
                                 st.write("• "+x)
                             st.caption(f"Potencialas: {it.sales} • konkurencija: {it.competition} • pirmą kartą {it.first_seen} • paskutinį {it.last_seen}")
-                            code=st.text_input("Produkto kodas",key=f"bank_code_{it.id}",placeholder="pvz. P129 arba 301")
-                            c1,c2=st.columns(2)
-                            if c1.button("✅ SUKŪRIAU",key=f"bank_created_{it.id}"):
-                                if code.strip():
-                                    set_idea_status(it.fingerprint,"SUKURTA",code)
-                                    st.rerun()
-                                else:
-                                    st.warning("Įvesk sukurto produkto kodą.")
-                            if c2.button("🗑️ IŠTRINTI",key=f"bank_delete_{it.id}"):
-                                supabase_client().table("ideas").delete().eq("fingerprint",it.fingerprint).execute()
-                                st.rerun()
                             st.divider()
 
         # Įgyvendintos idėjos nėra aktyvaus banko dalis, bet prireikus galima
@@ -2198,4 +2234,4 @@ with tabs[8]:
                     label="SUKURTA" if it.status in ["SUKURTA","PASIDALINTA"] else "PRAPLĖSTA"
                     st.write(f"**{label}** · {it.product_code or 'be kodo'} · {it.tema} → {it.mikrotema}")
 
-st.caption("V10.9 • SEO auditas • Search Console neprivalomas ir naudojamas pakartotinai • rankiniai fallback laukai • PALIKTI / PAPILDYTI / KEISTI / STEBĖTI • be API.")
+st.caption("V11.0 • fiksuoti pikai • piko aktualumo uodega • temos padengimo ir produktų šeimų analizė • SEO auditas • Search Console neprivalomas ir naudojamas pakartotinai • rankiniai fallback laukai • PALIKTI / PAPILDYTI / KEISTI / STEBĖTI • be API.")
