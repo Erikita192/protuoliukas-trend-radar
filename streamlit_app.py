@@ -9,7 +9,105 @@ from datetime import date, datetime, timedelta
 from urllib.parse import urljoin, urlparse
 from urllib.parse import quote_plus
 
-st.set_page_config(page_title="Protuoliukas Trend Radar V10.9", page_icon="📡", layout="wide")
+st.set_page_config(page_title="Protuoliukas Trend Radar V11.1", page_icon="📡", layout="wide")
+
+# --- V11.1 subtle visual system ---
+st.markdown("""
+<style>
+:root {
+  --radar-accent: #5f766a;
+  --radar-accent-soft: #eef3f0;
+  --radar-border: #dfe7e2;
+  --radar-panel: #fafcfb;
+  --radar-text-soft: #66736d;
+}
+
+/* Comfortable page width and rhythm */
+.block-container {
+  max-width: 1480px;
+  padding-top: 1.35rem;
+  padding-bottom: 2.5rem;
+}
+
+/* Calm page heading */
+h1 {
+  letter-spacing: -0.02em;
+  margin-bottom: 0.15rem !important;
+}
+h2, h3 {
+  letter-spacing: -0.01em;
+}
+
+/* Tabs: quiet, readable, no loud pills */
+.stTabs [data-baseweb="tab-list"] {
+  gap: 0.3rem;
+  border-bottom: 1px solid var(--radar-border);
+}
+.stTabs [data-baseweb="tab"] {
+  height: 2.8rem;
+  padding: 0 0.85rem;
+  border-radius: 0.55rem 0.55rem 0 0;
+}
+.stTabs [aria-selected="true"] {
+  background: var(--radar-accent-soft);
+  font-weight: 650;
+}
+
+/* Cards / expanders */
+div[data-testid="stExpander"] {
+  border: 1px solid var(--radar-border);
+  border-radius: 0.8rem;
+  background: var(--radar-panel);
+  overflow: hidden;
+}
+div[data-testid="stExpander"] summary:hover {
+  background: var(--radar-accent-soft);
+}
+
+/* Inputs and upload areas */
+div[data-baseweb="select"] > div,
+div[data-testid="stTextInput"] input,
+div[data-testid="stNumberInput"] input,
+div[data-testid="stDateInput"] input,
+div[data-testid="stFileUploader"] section {
+  border-radius: 0.65rem !important;
+}
+
+/* Buttons: neutral by default; primary gets muted accent */
+.stButton > button, .stDownloadButton > button, .stLinkButton > a {
+  border-radius: 0.65rem;
+  border-color: var(--radar-border);
+}
+.stButton > button[kind="primary"], .stDownloadButton > button[kind="primary"] {
+  background: var(--radar-accent);
+  border-color: var(--radar-accent);
+}
+
+/* Sidebar */
+section[data-testid="stSidebar"] {
+  border-right: 1px solid var(--radar-border);
+}
+section[data-testid="stSidebar"] > div {
+  background: linear-gradient(180deg, #f7faf8 0%, #ffffff 42%);
+}
+
+/* Metrics and alerts */
+div[data-testid="stMetric"] {
+  border: 1px solid var(--radar-border);
+  border-radius: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  background: var(--radar-panel);
+}
+div[data-testid="stAlert"] {
+  border-radius: 0.75rem;
+}
+
+/* Captions slightly softer */
+.stCaption, small {
+  color: var(--radar-text-soft);
+}
+</style>
+""", unsafe_allow_html=True)
 MONTH_NUM={"sausis":1,"vasaris":2,"kovas":3,"balandis":4,"gegužė":5,"birželis":6,"liepa":7,"rugpjūtis":8,"rugsėjis":9,"spalis":10,"lapkritis":11,"gruodis":12}
 SHOP="https://mokymopriemones.eu/"
 
@@ -1192,8 +1290,8 @@ with st.spinner("Radar skaičiuoja artimiausius paklausos signalus..."):
         df[f"{h}d"]=df.apply(lambda r:horizon_score(r,today,h),axis=1)
 df["prioritetas"]=df[["7d","14d","30d"]].max(axis=1)
 
-st.title("📡 Protuoliukas Trend Radar — V10.4")
-st.caption("V10.4 • viena aktuali tema gali virsti keliomis atskiromis priemonėmis • Pinterest įkvėpimas")
+st.title("📡 Protuoliukas Trend Radar — V11.1")
+st.caption("V11.1 • sprendimų sistema • fiksuoti pikai • temos padengimas • produktų šeimos • SEO")
 
 with st.sidebar:
     st.markdown("### ⚙️ Mano dabartinis kūrimo tempas")
@@ -2234,4 +2332,4 @@ with tabs[8]:
                     label="SUKURTA" if it.status in ["SUKURTA","PASIDALINTA"] else "PRAPLĖSTA"
                     st.write(f"**{label}** · {it.product_code or 'be kodo'} · {it.tema} → {it.mikrotema}")
 
-st.caption("V11.0 • fiksuoti pikai • piko aktualumo uodega • temos padengimo ir produktų šeimų analizė • SEO auditas • Search Console neprivalomas ir naudojamas pakartotinai • rankiniai fallback laukai • PALIKTI / PAPILDYTI / KEISTI / STEBĖTI • be API.")
+st.caption("V11.1 • fiksuoti pikai • piko aktualumo uodega • temos padengimo ir produktų šeimų analizė • SEO auditas • Search Console neprivalomas ir naudojamas pakartotinai • rankiniai fallback laukai • PALIKTI / PAPILDYTI / KEISTI / STEBĖTI • be API.")
