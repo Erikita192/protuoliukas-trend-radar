@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta
 from urllib.parse import urljoin, urlparse
 from urllib.parse import quote_plus
 
-st.set_page_config(page_title="Protuoliukas Trend Radar V11.3", page_icon="📡", layout="wide")
+st.set_page_config(page_title="Protuoliukas Trend Radar V11.4", page_icon="📡", layout="wide")
 
 # --- V11.2 subtle visual system ---
 st.markdown("""
@@ -1322,8 +1322,8 @@ with st.spinner("Radar skaičiuoja artimiausius paklausos signalus..."):
         df[f"{h}d"]=df.apply(lambda r:horizon_score(r,today,h),axis=1)
 df["prioritetas"]=df[["7d","14d","30d"]].max(axis=1)
 
-st.title("📡 Protuoliukas Trend Radar — V11.3")
-st.caption("V11.3 • sprendimų sistema • prioritetai • fiksuoti pikai • konkretūs produktų briefai • SEO")
+st.title("📡 Protuoliukas Trend Radar — V11.4")
+st.caption("V11.4 • sprendimų sistema • prioritetai • fiksuoti pikai • konkretūs produktų briefai • SEO")
 
 with st.sidebar:
     st.markdown("### ⚙️ Mano dabartinis kūrimo tempas")
@@ -2031,7 +2031,7 @@ def days_to_peak(r,today):
 def demand_window(r,today):
     start,pub,peak,last=timing(r,today)
     d=(peak-today).days
-    # V11.3: pikas niekada neperkeliamas į šiandieną. Po jo tema lieka ŠIANDIEN
+    # V11.4: pikas niekada neperkeliamas į šiandieną. Po jo tema lieka ŠIANDIEN
     # tik iki tikros aktualumo lango pabaigos.
     if d < 0:
         return "TODAY" if today <= last else "OUT"
@@ -2128,7 +2128,7 @@ with tabs[3]:
 
 with tabs[4]:
     st.subheader("🔎 SEO optimizatorius")
-    st.caption("V11.3 · produkto SEO auditas. Search Console neprivalomas: įkėlus vieną kartą, Radaras naudoja paskutinį išsaugotą eksportą, kol įkelsi naujesnį.")
+    st.caption("V11.4 · produkto SEO auditas. Search Console neprivalomas: įkėlus vieną kartą, Radaras naudoja paskutinį išsaugotą eksportą, kol įkelsi naujesnį.")
 
     # ---- Search Console: optional + latest saved export ----
     st.markdown("### 📊 Search Console duomenys · neprivaloma")
@@ -2289,35 +2289,192 @@ with tabs[5]:
                     st.link_button(f"Peržiūrėti Pinterest · {q}",pinterest_url(q),use_container_width=True)
                 st.caption("💡 Tikslas: greitai peržiūrėti skirtingus užsienyje naudojamus pateikimo principus ir pritaikyti mechaniką lietuviškam turiniui, nekopijuojant konkretaus dizaino.")
 
-def generated_occasion_ideas(o):
-    """Fallback so every calendar occasion has real product directions, not only a date."""
-    occ=str(o['occasion']); kw=_norm(str(o.get('keywords',''))); age=str(o.get('age','4–14 m.'))
-    rows=[]
-    if any(x in kw for x in ['kalb','žodyn','lietuvi']):
-        rows=[('5–6 m.','PDF','Paveikslėlių ir žodžių kalbos užduotys','Atpažinimas, poravimas, pirmo garso ar žodžio reikšmės užduotys','aukštas'),('1–4 kl.','PDF/PPT','Kalbos ir žodyno užduočių rinkinys','Žodžių reikšmės, poravimas, trumpas skaitymas ir kalbiniai pasirinkimai','aukštas'),('5–8 kl.','PPT/PDF','Kalbos, kultūros ir teksto užduotys','Trumpi tekstai, palyginimas, argumentavimas ir žodyno plėtimas','aukštas')]
-    elif any(x in kw for x in ['emoc','empat','draug','pagar','konflikt','įtraukt','teis']):
-        rows=[('5–6 m.','PDF','Kas vyksta šioje situacijoje?','Paveikslėlio situacija + emocijos / elgesio pasirinkimas','labai aukštas'),('1–4 kl.','PDF/PPT','Ką darytum ir ką pasakytum?','Kasdienės situacijos + keli sprendimai + paaiškinimas','labai aukštas'),('5–8 kl.','PPT/PDF','Situacijos ir socialinės dilemos','Realesnės dilemos + sprendimo pasekmės + argumentavimas','aukštas')]
-    elif any(x in kw for x in ['gyvūn','gamt','žem','aplink','atmosfer','tvar','maist']):
-        rows=[('4–6 m.','PDF','Atpažink, surūšiuok ir pasirink','Paveikslėlių rūšiavimas, poravimas ir paprasta priežastis–pasekmė','aukštas'),('1–4 kl.','PDF/PPT','Temos faktai ir kasdieniai pasirinkimai','Trumpi faktai + pasirinkimai + sekos + priežastys ir pasekmės','aukštas'),('5–8 kl.','PPT/PDF','Duomenys, problemos ir sprendimai','Duomenų interpretavimas + reali problema + argumentuotas sprendimas','aukštas')]
-    else:
-        rows=[('4–6 m.','PDF',f'{occ} – paveikslėlių užduotys','Atpažinimas, poravimas, rūšiavimas ir paprastos situacijos','aukštas'),('1–4 kl.','PDF/PPT',f'{occ} – pažintinės užduotys','Trumpi faktai, situacijos, sekos ir pasirinkimo klausimai','aukštas'),('5–8 kl.','PPT/PDF',f'{occ} – situacijos ir diskusijos','Faktai, situacijų analizė, argumentavimas ir praktinis pritaikymas','vidutinis')]
-    return [dict(age=a,format=f,product_idea=pi,mechanic=m,sales_potential=sp) for a,f,pi,m,sp in rows]
+def occasion_relevance_label(d, today):
+    delta=(d.date()-today.date()).days
+    if delta < 0:
+        n=abs(delta)
+        return f"buvo prieš {n} d. · dar aktualu" if n>1 else "buvo vakar · dar aktualu"
+    if delta == 0: return "šiandien"
+    if delta == 1: return "rytoj"
+    return f"po {delta} d."
 
-def occasion_examples(occasion, idea, mechanic, age):
-    t=_norm(f"{occasion} {idea} {mechanic}")
-    if "toleranc" in t:
-        if "ką pasak" in t or "pagarb" in t:
-            return ["Naujas vaikas stovi vienas – ką galėtum jam pasakyti?", "Draugas suklydo ir kiti juokiasi – koks atsakymas būtų pagarbus?", "Draugas turi kitokią nuomonę – kaip nesutikti neįžeidžiant?", "Vaikas kalba ar taria žodžius kitaip – kaip tinkamai reaguoti?", "Keli vaikai nepriima lėčiau žaidžiančio draugo – ką galėtum padaryti?", "Du vaikai nori skirtingų žaidimų – kaip pasiūlyti susitarimą?"]
-        return ["Vaikas nepriimamas į žaidimą – pasirink, kaip galėtum jį įtraukti", "Draugas atrodo ar rengiasi kitaip – pagarbus ar nepagarbus elgesys?", "Naujas vaikas nežino grupės taisyklių – kaip jam padėti?", "Draugas nenori to paties žaidimo – ką daryti?", "Kažkas juokiasi iš kito vaiko piešinio – kuris veiksmas padėtų?", "Du vaikai nesutaria – pasirink taikų sprendimą"]
-    if "intern" in t:
-        return ["Nepažįstamas žmogus parašo žinutę – ką daryti?", "Programa prašo slaptažodžio – kam jį galima pasakyti?", "Nori įkelti draugo nuotrauką – ką pirmiausia reikia padaryti?", "Gavai keistą nuorodą – spausti ar kreiptis į suaugusįjį?", "Internete kažkas tyčiojasi – kokio veiksmo imtis?", "Ekrane pasirodo bauginantis turinys – ką daryti toliau?"]
-    if "žem" in t or "atliek" in t or "tvar" in t:
-        return ["Plastikinis buteliukas – į kurį konteinerį?", "Paliktas tekėti vanduo valantis dantis – padeda ar kenkia Žemei?", "Daugkartinis ar vienkartinis maišelis – kuris pasirinkimas tvaresnis?", "Numesta šiukšlė parke – kokia gali būti pasekmė?", "Važiuoti trumpą atstumą automobiliu ar eiti pėsčiomis – palygink pasirinkimus", "Sugalvok vieną veiksmą, kuriuo šiandien gali padėti aplinkai"]
-    if "vand" in t:
-        return ["Kur namuose naudojame vandenį?", "Čiaupas paliktas atsuktas – taupau ar švaistau?", "Sudėliok paprastą vandens kelionės seką", "Palygink, kuri veikla sunaudoja daugiau vandens", "Perskaityk trumpą faktą ir atsakyk į klausimą", "Pasirink, kaip tą pačią veiklą atlikti taupiau"]
-    if "knyg" in t or "tekst" in t:
-        return ["Kas buvo pagrindinis veikėjas?", "Kur vyko istorija?", "Kas nutiko pirmiausia, o kas vėliau?", "Pasirink sakinį, kuris geriausiai nusako pagrindinę mintį", "Atskirk faktą nuo veikėjo nuomonės", "Pagal 3 paveikslėlius sukurk trumpą istorijos tęsinį"]
-    return [f"Pateik konkrečią situaciją tema „{occasion}“ ir leisk vaikui pasirinkti sprendimą", "Sujunk paveikslėlį ar teiginį su tinkama reikšme", "Rask vieną netinkamą variantą ir paaiškink kodėl", "Surūšiuok pavyzdžius į dvi aiškias grupes", "Užbaik situaciją tinkamu veiksmu ar sakiniu", "Pritaikyk temos žinias trumpoje kasdienėje situacijoje"]
+def curated_occasion_ideas(o):
+    """V11.4: only occasion-specific, usable product directions. No generic filler."""
+    occ=str(o['occasion'])
+    pot=str(o.get('commercial_weight','vidutinis'))
+    data={
+      'Mokslo ir žinių diena':[
+        ('4–6 m.','PDF','Pirmosios dienos grupėje – situacijų kortelės','Paveikslėlio situacija + saugus pasirinkimas + pokalbis',[
+          'Vaikas atėjo į naują grupę ir nežino, kur pasidėti daiktus. Iš paveikslėlių pasirink, ko galėtų paklausti auklėtojos.',
+          'Vienas vaikas žaidžia vienas. Pasirink, kaip galima jį pakviesti žaisti kartu.',
+          'Du vaikai nori to paties žaislo. Kuris iš trijų sprendimų padėtų susitarti?',
+          'Paveikslėliuose parodytos grupės veiklos. Surikiuok: atėjau → pasisveikinau → pasidėjau daiktus → prisijungiau prie veiklos.',
+          'Rask paveikslėlį, kuriame vaikas prašo pagalbos tinkamu būdu.',
+          'Pasirink, ką galima padaryti, jei pirmą dieną liūdna ir norisi namo.'
+        ]),
+        ('1–4 kl.','PDF/PPT','Klasės pradžios situacijos – kaip pasielgtum?','Kasdienė mokyklos situacija + keli sprendimai + pasekmė',[
+          'Naujokas per pertrauką lieka vienas. Pasirink du būdus, kaip galima padėti jam įsitraukti.',
+          'Pamiršai vieną mokyklinę priemonę. Kuris sprendimas atsakingiausias?',
+          'Per grupinį darbą visi kalba vienu metu. Kokią taisyklę pasiūlytum?',
+          'Draugas suklydo atsakydamas ir keli mokiniai nusijuokė. Ką galėtum pasakyti?',
+          'Surūšiuok veiksmus į „padeda klasei susitarti“ ir „trukdo“.',
+          'Sukurk vieną klasės susitarimą ir trumpai paaiškink, kam jis reikalingas.'
+        ])],
+      'Tarptautinė ozono sluoksnio apsaugos diena':[
+        ('1–4 kl.','PDF/PPT','Saulė, atmosfera ir apsauga – pažintinės užduotys','Paprastas modelis + faktų atranka + priežasties ir pasekmės ryšiai',[
+          'Schemoje Saulė → atmosfera → Žemė pažymėk, kur yra ozono sluoksnis.',
+          'Iš trijų teiginių pasirink teisingą: ozono sluoksnis padeda sulaikyti dalį žalingos ultravioletinės spinduliuotės.',
+          'Sujunk sąvokas „Saulė“, „UV spinduliai“, „ozono sluoksnis“, „Žemė“ su paprastais paaiškinimais.',
+          'Rask netinkamą teiginį: „ozono sluoksnis yra debesų rūšis“ ir paaiškink, kodėl jis netinka.',
+          'Pagal paveikslėlius pasirink saugaus elgesio saulėje pavyzdžius: pavėsis, kepurė, tinkami drabužiai.',
+          'Užbaik priežasties–pasekmės sakinį: jei ozono sluoksnis suplonėja, Žemės paviršių gali pasiekti daugiau ...'
+        ]),
+        ('5–8 kl.','PPT/PDF','Ozono sluoksnis: duomenys, priežastys ir sprendimai','Mokslinis paaiškinimas + duomenų interpretavimas + aplinkosauginis sprendimas',[
+          'Pagal pateiktą ozono koncentracijos grafiką nustatyk, kuriuo laikotarpiu rodiklis mažiausias.',
+          'Paaiškink skirtumą tarp stratosferos ozono sluoksnio ir pažemio ozono.',
+          'Iš pateikto sąrašo atrink medžiagas ar veiklas, istoriškai siejamas su ozono sluoksnio ardymu, ir pagrįsk pasirinkimą pagal pateiktą informacinį tekstą.',
+          'Sudėliok grandinę: ozoną ardančios medžiagos → cheminiai procesai stratosferoje → mažiau ozono → daugiau UV spinduliuotės.',
+          'Perskaityk trumpą informaciją apie Monrealio protokolą ir įvardyk, kokią problemą šalys sprendė kartu.',
+          'Palygink du sprendimus ir argumentuok, kuris labiau mažina ozono sluoksniui žalingų medžiagų patekimą į aplinką.'
+        ])],
+      'Tarptautinė taikos diena':[
+        ('5–6 m.','PDF','Taikūs sprendimai – paveikslėlių situacijos','Kasdienis konfliktas + emocija + taikus pasirinkimas',[
+          'Du vaikai nori tos pačios mašinėlės. Pasirink paveikslėlį, kuriame jie randa taikų sprendimą.',
+          'Draugas netyčia nugriovė tavo statinį. Kuris atsakymas padėtų nesusipykti?',
+          'Vienas vaikas nepriimamas į žaidimą. Ką galėtų padaryti kitas vaikas?',
+          'Sujunk piktą situaciją su veiksmu, kuris padeda nusiraminti prieš kalbantis.',
+          'Surūšiuok paveikslėlius į „sprendžiame taikiai“ ir „konfliktą didiname“.',
+          'Užbaik sakinį: „Kai su draugu nesutariame, galime...“ pasirinkdamas vieną iš trijų variantų.'
+        ]),
+        ('1–4 kl.','PDF/PPT','Ką darytum ir ką pasakytum? – konfliktų sprendimas','Reali situacija + keli atsakymai + pasekmės aptarimas',[
+          'Du klasės draugai nori būti komandos kapitonais. Pasiūlyk sprendimą, kuriame abu būtų išgirsti.',
+          'Draugas paėmė tavo daiktą neatsiklausęs. Kuris sakinys aiškiai pasako ribą, bet neįžeidžia?',
+          'Klasės pokalbyje prasidėjo ginčas. Pasirink žinutę, kuri konfliktą ramina, o ne kursto.',
+          'Vienas vaikas atsisako žaisti pagal kitų pasiūlytas taisykles. Kaip grupė galėtų susitarti?',
+          'Rask, kuris iš keturių atsakymų yra kompromisas.',
+          'Palygink dvi to paties konflikto baigtis ir paaiškink, kuri padėtų išsaugoti santykius.'
+        ]),
+        ('5–8 kl.','PPT/PDF','Socialinės dilemos: konfliktas, spaudimas ir kompromisas','Realesnė dilema + galimų veiksmų pasekmės + argumentuotas sprendimas',[
+          'Du klasės draugai susipyko grupiniame pokalbyje, o vienas prašo kitų pasirinkti pusę. Įvertink tris galimus veiksmus ir jų pasekmes.',
+          'Per grupinį darbą du mokiniai nori vadovauti. Pasiūlyk sprendimą be „laimėtojo“ ir „pralaimėtojo“.',
+          'Draugas pasako žeidžiantį komentarą ir teisina jį „tik juoku“. Parašyk atsakymą, kuris nustato ribą, bet neeskaluoja konflikto.',
+          'Klasėje pasklinda gandas. Ką gali padaryti žmogus, kuris nėra konflikto dalyvis?',
+          'Palygink kompromisą, nusileidimą ir bendro sprendimo paiešką konkrečioje situacijoje.',
+          'Sukurk keturių žingsnių konflikto sprendimo planą pateiktai situacijai.'
+        ])],
+      'Europos kalbų diena':[
+        ('5–6 m.','PDF','Tas pats žodis skirtingomis kalbomis – paveikslėlių poros','Paveikslėlis + keli trumpi žodžiai + panašumų pastebėjimas',[
+          'Prie obuolio paveikslėlio pateik kelių Europos kalbų žodžius ir rask, kurie skamba ar atrodo panašiai.',
+          'Sujunk pasisveikinimą su šalies vėliavėle pagal pateiktą pavyzdžių lentelę.',
+          'Klausydamasis ar skaitydamas trijų trumpų pasisveikinimų rask du vienodus pagal reikšmę.',
+          'Surūšiuok korteles: lietuviškas žodis / kitos kalbos žodis.',
+          'Rask paveikslėlį, kurio žodis pateiktas trimis skirtingomis kalbomis.',
+          'Pasirink, kuris iš pateiktų žodžių reiškia „ačiū“, remdamasis mažyte žodžių lentele.'
+        ]),
+        ('1–4 kl.','PDF/PPT','Europos kalbų žodžių laboratorija','Žodžių palyginimas + reikšmės paieška + kalbinis smalsumas',[
+          'Palygink žodį „mama“ keliomis Europos kalbomis ir pažymėk panašumus.',
+          'Pagal mini žodynėlį sujunk penkis kasdienius žodžius su jų reikšmėmis.',
+          'Rask žodžių poras, kurios skirtingose kalbose atrodo panašiai ir reiškia tą patį.',
+          'Iš pateiktų pasisveikinimų nustatyk, kurie priklauso skirtingoms kalboms.',
+          'Sukurk mini daugiakalbį žodynėlį tema „mokykla“ iš 5 pateiktų žodžių.',
+          'Pagal žemėlapį ir žodžių lentelę susiek šalį, kalbą ir vieną pasisveikinimą.'
+        ]),
+        ('5–8 kl.','PPT/PDF','Europos kalbos: panašumai, skoliniai ir kalbų šeimos','Kalbinių duomenų palyginimas + žodžių kilmės pastebėjimas + argumentavimas',[
+          'Palygink tą pačią reikšmę turinčius žodžius keliomis kalbomis ir sugrupuok panašiausias formas.',
+          'Pagal pateiktą lentelę nustatyk, kurios kalbos priklauso tai pačiai kalbų šeimai.',
+          'Iš kasdien vartojamų lietuviškų žodžių sąrašo atrink pateiktame šaltinyje nurodytus skolinius ir nurodyk jų kilmę.',
+          'Palygink du klaidinančiai panašius skirtingų kalbų žodžius, kurių reikšmės skiriasi.',
+          'Perskaityk trumpą daugiakalbystės situaciją ir argumentuok, kokių privalumų gali turėti kelių kalbų mokėjimas.',
+          'Pagal Europos kalbų žemėlapį padaryk tris išvadas apie kalbų įvairovę.'
+        ])],
+      'Tarptautinė pagyvenusių žmonių diena':[
+        ('5–8 m.','PDF','Kartų istorijos – klausyk, palygink, papasakok','Šeimos kartos + kasdienybės palyginimas + pasakojimas',[
+          'Sujunk daiktų poras „anksčiau“ ir „dabar“: laidinis telefonas ir išmanusis telefonas, laiškas ir žinutė.',
+          'Pasirink tris klausimus, kuriuos galėtum užduoti seneliui ar vyresniam žmogui apie vaikystę.',
+          'Pagal paveikslėlius palygink, kaip galėjo skirtis žaidimai anksčiau ir dabar.',
+          'Sudėliok šeimos kartas nuo jauniausios iki vyriausios.',
+          'Užbaik sakinį „Iš vyresnio žmogaus galiu išmokti...“.',
+          'Pagal trumpą pasakojimą rask vieną dalyką, kuris pasikeitė, ir vieną, kuris liko panašus.'
+        ]),
+        ('1–4 kl.','PDF/PPT','Interviu su vyresne karta – tyrinėjimo lapai','Klausimų kūrimas + atsakymų fiksavimas + praeities ir dabarties palyginimas',[
+          'Pasirink 5 klausimus interviu apie mokyklą, žaidimus ir kasdienybę vaikystėje.',
+          'Užrašyk vieną išgirstą prisiminimą ir išskirk svarbiausią jo mintį.',
+          'Lentelėje palygink „vaikystė anksčiau / mano vaikystė dabar“.',
+          'Iš interviu atsakymų sudaryk 4 įvykių ar pokyčių seką.',
+          'Rask, kokį gebėjimą ar tradiciją būtų įdomu perimti iš vyresnės kartos.',
+          'Parašyk trumpą padėkos sakinį žmogui, kurio istoriją išklausei.'
+        ])],
+      'Pasaulinė gyvūnų diena':[
+        ('4–6 m.','PDF','Gyvūnų poreikiai – ko kam reikia?','Gyvūnas + buveinė + maistas + atsakingas elgesys',[
+          'Sujunk gyvūną su tinkama buveine: žuvis–vanduo, paukštis–lizdas, lapė–urvas.',
+          'Parink gyvūnui tinkamą maistą iš trijų paveikslėlių.',
+          'Rask paveikslėlį, kuriame su augintiniu elgiamasi atsakingai.',
+          'Surūšiuok gyvūnus į naminius ir laukinius.',
+          'Pasirink, ko reikia šuniui kasdien: vandens, maisto, judėjimo, priežiūros.',
+          'Rask netinkamą veiksmą: erzinti gyvūną, kai jis ilsisi.'
+        ]),
+        ('1–4 kl.','PDF/PPT','Gyvūnų detektyvai – požymiai, buveinės ir mityba','Požymių analizė + klasifikavimas + išvadų darymas',[
+          'Pagal pėdsaką, maistą ir buveinę nustatyk, kuris iš trijų gyvūnų aprašomas.',
+          'Suklasifikuok gyvūnus pagal mitybą: augalėdžiai, plėšrūnai, visaėdžiai.',
+          'Sujunk prisitaikymo požymį su jo nauda: storas kailis, plėvėtos pėdos, snapo forma.',
+          'Pagal trumpą aprašą nustatyk, kokioje buveinėje gyvūnas galėtų gyventi.',
+          'Rask vieną gyvūną, kuris grupei netinka, ir pagrįsk.',
+          'Sukurk trijų požymių mįslę apie pasirinktą gyvūną.'
+        ])],
+      'Tarptautinė mokytojų diena':[
+        ('5–9 m.','PDF','Mokytojo profesija – ką jis daro per dieną?','Profesijos pažinimas + veiklų seka + padėkos kūrimas',[
+          'Iš paveikslėlių atrink veiklas, kurios gali būti mokytojo darbo dalis.',
+          'Sudėliok galimą mokytojo dienos seką: pasiruošia → moko → padeda → tikrina darbus.',
+          'Rask tris gebėjimus, kurie padeda mokytojui dirbti su klase.',
+          'Sujunk klasės situaciją su tuo, kaip mokytojas gali padėti.',
+          'Užbaik sakinį „Mokytojui dėkoju už...“ konkrečiu pavyzdžiu.',
+          'Sukurk trumpą padėkos kortelės tekstą, kuriame įvardytas konkretus mokytojo darbas.'
+        ])],
+      'Pasaulinė psichikos sveikatos diena':[
+        ('1–4 kl.','PDF/PPT','Kas man padeda, kai sunku? – savireguliacijos situacijos','Emocija + kūno signalas + tinkamos pagalbos ar nusiraminimo strategijos pasirinkimas',[
+          'Prieš kontrolinį labai jaudiniesi. Iš keturių veiksmų pasirink du, kurie gali padėti nusiraminti.',
+          'Sujunk kūno signalą su galima emocija: greitai plaka širdis, įsitempę pečiai, norisi verkti.',
+          'Draugas kelias dienas atrodo liūdnas ir atsitraukęs. Pasirink, kaip galima parodyti rūpestį.',
+          'Surūšiuok veiksmus į „galiu pabandyti pats“ ir „verta kreiptis pagalbos į suaugusįjį“.',
+          'Užbaik savo pagalbos planą: kai jaučiuosi..., galiu..., o jei nepadeda – kreipiuosi į... .',
+          'Rask netinkamą patarimą žmogui, kuris stipriai nerimauja, ir paaiškink, kuo jį pakeistum.'
+        ]),
+        ('5–8 kl.','PPT/PDF','Kasdienio streso ir pagalbos situacijos','Situacijos analizė + apsauginiai įpročiai + pagalbos ieškojimo sprendimai',[
+          'Mokinys kelias savaites miega per mažai dėl mokslų ir veiklų. Išskirk, ką jis gali keisti pats ir kur verta prašyti pagalbos.',
+          'Palygink trumpalaikį streso mažinimą ir ilgalaikį problemos sprendimą pateiktoje situacijoje.',
+          'Draugas parašo, kad „nieko nebenori“. Pasirink saugiausią reagavimo kryptį: išklausyti, nepalikti vieno su problema ir kreiptis į patikimą suaugusįjį.',
+          'Iš dienos režimo pavyzdžio rask tris veiksnius, galinčius stiprinti savijautą.',
+          'Atpažink mitą ir faktą apie emocinę savijautą pagal pateiktą informacinį tekstą.',
+          'Sukurk asmeninį „kur kreipiuosi pagalbos“ žemėlapį iš patikimų žmonių ir institucijų kategorijų.'
+        ])],
+      'Pasaulinė maisto diena':[
+        ('5–7 m.','PDF','Maisto kelias – nuo ūkio iki stalo','Paveikslėlių seka + maisto kilmė + atsakingas vartojimas',[
+          'Sudėliok duonos kelią: grūdai → miltai → tešla → duona.',
+          'Sujunk produktą su jo kilme: pienas–karvė, obuolys–obelis, kiaušinis–višta.',
+          'Rask, kuriame paveikslėlyje maistas laikomas taip, kad mažiau sugestų.',
+          'Surūšiuok: maisto likučius galima panaudoti / reikia išmesti, remiantis pateiktomis saugiomis situacijomis.',
+          'Pasirink porciją iš kelių paveikslėlių, kuri padėtų neįsidėti daugiau, nei suvalgysi.',
+          'Sudėliok paprastą seką „užauginama → atvežama → parduodama → valgoma“.'
+        ]),
+        ('1–4 kl.','PDF/PPT','Maistas be švaistymo – situacijos ir skaičiavimai','Kasdieniai pasirinkimai + produktų kelias + paprasti duomenys',[
+          'Šeima nusipirko 8 obuolius, 3 liko nesuvalgyti. Kiek suvalgė? Ką galima padaryti su likusiais?',
+          'Pagal pirkinių sąrašą pažymėk, kurių produktų jau yra namuose ir kurių nereikia pirkti dar kartą.',
+          'Sudėliok produkto kelią nuo ūkio iki parduotuvės ir įvardyk, kuriuose etapuose naudojami ištekliai.',
+          'Palygink dvi pietų situacijas ir rask, kur susidaro daugiau maisto atliekų.',
+          'Pagal mažą lentelę apskaičiuok, kiek maisto klasė išmetė per tris dienas.',
+          'Pasiūlyk du konkrečius būdus, kaip mokyklos valgykloje sumažinti maisto švaistymą.'
+        ]),
+        ('5–8 kl.','PPT/PDF','Maisto sistema ir švaistymas – duomenų užduotys','Duomenų interpretavimas + tiekimo grandinė + argumentuotas sprendimas',[
+          'Pagal pateiktą diagramą nustatyk, kuriame maisto grandinės etape susidaro daugiausia atliekų.',
+          'Palygink dviejų produktų kelią nuo gamintojo iki vartotojo ir įvardyk galimus išteklių naudojimo skirtumus.',
+          'Apskaičiuok, kiek kilogramų maisto būtų sutaupyta per mėnesį, jei klasė kasdien išmestų 0,4 kg mažiau.',
+          'Įvertink situaciją „pirkti daugiau, nes taikoma akcija“ – kada tai taupu, o kada skatina švaistymą?',
+          'Perskaityk trumpą tekstą apie maisto ženklinimą ir atskirk „geriausias iki“ nuo „tinka vartoti iki“ pagal pateiktą šaltinį.',
+          'Parenk trijų veiksmų pasiūlymą mokyklai, kaip mažinti maisto švaistymą, ir pagrįsk prioritetą.'
+        ])]
+    }
+    rows=data.get(occ,[])
+    return [dict(age=a,format=f,product_idea=pi,mechanic=m,examples=ex,sales_potential=pot) for a,f,pi,m,ex in rows]
 
 def occasion_chatgpt_prompt(o,it,ex):
     return (f"Sukurk pilną mokomosios priemonės seriją pagal šią kryptį.\n"
@@ -2325,31 +2482,34 @@ def occasion_chatgpt_prompt(o,it,ex):
             f"Kam: {it['age']}. Formatas: {it['format']}.\n"
             f"Priemonės kryptis: {it['product_idea']}.\n"
             f"Mechanika: {it['mechanic']}.\n"
-            "Išlaikyk pedagogiškai tinkamą sudėtingumą šiam amžiui. Sukurk įvairias, nesidubliuojančias užduotis ta pačia kryptimi.\n"
-            "Pavyzdžiai, rodantys norimą kryptį:\n- " + "\n- ".join(ex))
+            "Išlaikyk pedagogiškai tinkamą sudėtingumą šiam amžiui. Pateik realų turinį, o ne bendrus nurodymus, ką reikėtų sugalvoti. Sukurk įvairias, nesidubliuojančias užduotis ta pačia kryptimi.\n"
+            "Pavyzdžiai, rodantys norimą konkretumo lygį:\n- " + "\n- ".join(ex))
 
 with tabs[6]:
-    st.subheader("📅 Progų idėjos pagal amžių")
-    st.caption("Čia proga nėra vien priminimas – matai konkrečius produktų kampus skirtingoms amžiaus grupėms.")
+    st.subheader("📅 Progų idėjos")
+    st.caption("Rodomos tik tos artimiausios progos, kurioms Radaras turi konkrečią, realiai kuriamą priemonės kryptį. Amžiaus grupės nepritempiamos dirbtinai.")
     future=OCCASIONS[(OCCASIONS["date"]>=today-timedelta(days=2)) & (OCCASIONS["date"]<=today+timedelta(days=45))].sort_values("date")
-    if future.empty:
-        st.info("Artimiausioms 45 dienoms progų bazėje nieko nėra.")
-    else:
-        for _,o in future.iterrows():
-            ideas=OCCASION_IDEAS[OCCASION_IDEAS["occasion"]==o["occasion"]]
-            with st.expander(f"{o['date'].strftime('%Y-%m-%d')} · {o['occasion']}"):
-                display_ideas = generated_occasion_ideas(o) if ideas.empty else [dict(x) for _,x in ideas.iterrows()]
-                for it in display_ideas:
-                    st.markdown(f"### {it['age']} · {it['format']} · {it['product_idea']}")
-                    st.write(f"**Kaip veiktų priemonė:** {it['mechanic']}")
-                    ex=occasion_examples(o['occasion'],it['product_idea'],it['mechanic'],it['age'])
-                    st.markdown("**🧩 Konkretūs kortelių / užduočių pavyzdžiai**")
-                    for x in ex:
-                        st.write("• "+x)
-                    st.caption(f"Pardavimo potencialas: {it['sales_potential']}")
-                    with st.expander("📋 Paruošta kopijuoti į ChatGPT"):
-                        st.code(occasion_chatgpt_prompt(o,it,ex),language=None)
-                    st.divider()
+    shown=0
+    for _,o in future.iterrows():
+        display_ideas=curated_occasion_ideas(o)
+        if not display_ideas:
+            continue
+        shown+=1
+        status=occasion_relevance_label(o['date'],today)
+        with st.expander(f"{o['date'].strftime('%Y-%m-%d')} · {o['occasion']} · {status}"):
+            for it in display_ideas:
+                st.markdown(f"### {it['age']} · {it['format']} · {it['product_idea']}")
+                st.write(f"**Kaip veiktų priemonė:** {it['mechanic']}")
+                ex=it['examples']
+                st.markdown("**🧩 Konkretūs kortelių / užduočių pavyzdžiai**")
+                for x in ex:
+                    st.write("• "+x)
+                st.caption(f"Pardavimo potencialas pagal progos signalą: {it['sales_potential']}")
+                with st.expander("📋 Paruošta kopijuoti į ChatGPT"):
+                    st.code(occasion_chatgpt_prompt(o,it,ex),language=None)
+                st.divider()
+    if shown==0:
+        st.info("Artimiausioms 45 dienoms nėra progų, kurioms šiuo metu turime pakankamai konkrečią produkto idėją. Plikų datų čia nerodome.")
 
 with tabs[7]:
     st.subheader("🌿 Evergreen · ką verta kurti laisvesniu metu")
@@ -2380,4 +2540,4 @@ with tabs[7]:
             for x in examples(r,5):
                 st.write("• "+x)
 
-st.caption("V11.3 • fiksuoti pikai ir popikinė uodega • dienos prioritetas • konkretūs produkto briefai • progų idėjos su pavyzdžiais • katalogo temos padengimas • SEO auditas.")
+st.caption("V11.4 • fiksuoti pikai ir popikinė uodega • dienos prioritetas • konkretūs produkto briefai • tikros progų idėjos be šabloninio užpildo • katalogo temos padengimas • SEO auditas.")
