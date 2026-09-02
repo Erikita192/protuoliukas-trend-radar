@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta
 from urllib.parse import urljoin, urlparse
 from urllib.parse import quote_plus
 
-st.set_page_config(page_title="Protuoliukas Trend Radar V11.2", page_icon="📡", layout="wide")
+st.set_page_config(page_title="Protuoliukas Trend Radar V11.3", page_icon="📡", layout="wide")
 
 # --- V11.2 subtle visual system ---
 st.markdown("""
@@ -1211,10 +1211,22 @@ def fast_detail_card(r,action_label=None,product=None):
         st.write(f"{['🥇','🥈','🥉'][j-1]} **{a}**")
 
     st.markdown("**🧩 Konkretūs užduočių pavyzdžiai**")
-    for x in examples(r,8):
+    _ex=examples(r,8)
+    for x in _ex:
         st.write("• "+x)
 
+    st.markdown("**📈 Kaip tą pačią mechaniką galima auginti**")
+    st.write("1. Pasirinkimas iš kelių atsakymų → 2. atsakymo įrašymas savarankiškai → 3. užduotis su mažiau vaizdinės pagalbos → 4. pritaikymas situacijoje ar probleminėje užduotyje.")
+    st.markdown("**💶 Kodėl ši kryptis gali būti komerciškai verta**")
+    st.write(f"Tema turi {str(r.pardavimo_potencialas).lower()} pardavimo potencialą; užduoties esmę galima aiškiai parodyti produkto viršelyje, o skirtingi gebėjimo lygiai leidžia temą plėtoti ne dubliuojant tą pačią priemonę, bet kuriant nuoseklią seriją.")
+
     render_theme_coverage(r, product if action_label=="ISPLESTI" else None)
+
+    with st.expander("📋 Paruošta kopijuoti į ChatGPT"):
+        _brief=(f"Padėk išplėtoti mokomąją priemonę.\nTema: {r.tema} → {r.mikrotema}.\nKam: {r.amzius}. Sritis: {r.sritis}. Formatas: {r.formatas}.\nPriemonės kryptis: {r.produkto_ideja}.\n"
+                + "Pavyzdžiai, rodantys norimą kryptį:\n- " + "\n- ".join(_ex)
+                + "\nSukurk daugiau įvairių, nesidubliuojančių užduočių ta pačia kryptimi. Jei reikia pedagoginių žinių ar amžiaus pritaikymo, paaiškink ir pritaikyk pats – nepalik to spręsti man.")
+        st.code(_brief,language=None)
 
     st.markdown("**📅 Laikas**")
     _pk,_kind,_use,_detail,_sig,_extra,_conf=pedagogical_peak(r,today)
@@ -1310,8 +1322,8 @@ with st.spinner("Radar skaičiuoja artimiausius paklausos signalus..."):
         df[f"{h}d"]=df.apply(lambda r:horizon_score(r,today,h),axis=1)
 df["prioritetas"]=df[["7d","14d","30d"]].max(axis=1)
 
-st.title("📡 Protuoliukas Trend Radar — V11.2")
-st.caption("V11.2 • sprendimų sistema • katalogo temos padengimas • fiksuoti pikai • produktų šeimos • SEO")
+st.title("📡 Protuoliukas Trend Radar — V11.3")
+st.caption("V11.3 • sprendimų sistema • prioritetai • fiksuoti pikai • konkretūs produktų briefai • SEO")
 
 with st.sidebar:
     st.markdown("### ⚙️ Mano dabartinis kūrimo tempas")
@@ -2009,7 +2021,7 @@ def copy_block(label, value, caption=None):
         st.caption(caption)
     st.code(str(value or ""), language=None)
 
-tabs=st.tabs(["🏠 ŠIANDIEN","📅 SAVAITĖ","🚀 ARTĖJANTYS TOPAI","💡 PRODUKTŲ PLANAI","🔎 SEO OPTIMIZATORIUS","📌 PINTEREST ĮKVĖPIMAS","📅 PROGŲ IDĖJOS","🌿 EVERGREEN","🧠 IDĖJŲ BANKAS"])
+tabs=st.tabs(["🏠 ŠIANDIEN","📅 SAVAITĖ","🚀 ARTĖJANTYS TOPAI","💡 PRODUKTŲ PLANAI","🔎 SEO OPTIMIZATORIUS","📌 PINTEREST ĮKVĖPIMAS","📅 PROGŲ IDĖJOS","🌿 EVERGREEN"])
 
 
 def days_to_peak(r,today):
@@ -2017,8 +2029,12 @@ def days_to_peak(r,today):
     return (p-today).days
 
 def demand_window(r,today):
-    d=days_to_peak(r,today)
-    if d < -3:return "OUT"
+    start,pub,peak,last=timing(r,today)
+    d=(peak-today).days
+    # V11.3: pikas niekada neperkeliamas į šiandieną. Po jo tema lieka ŠIANDIEN
+    # tik iki tikros aktualumo lango pabaigos.
+    if d < 0:
+        return "TODAY" if today <= last else "OUT"
     if d<=7:return "TODAY"
     if d<=14:return "WEEK"
     if d<=30:return "COMING"
@@ -2045,7 +2061,14 @@ TODAY_ROWS,WEEK_ROWS,COMING_ROWS=allocate_v74(df)
 
 with tabs[0]:
     st.subheader("🏠 ŠIANDIEN · ką labiausiai apsimoka daryti dabar")
-    st.caption("Iki 12 stipriausių galimybių. Matai trumpą santrauką; jei idėja sudomina – išskleidi visą aprašymą. Atliktą pažymėk iškart, kad ji daugiau nebekabėtų.")
+    st.caption("Rodomi artėjantys pikai ir dar aktuali trumpa uodega po piko. Piko data lieka tikra – ji niekada nestumiama į šiandieną.")
+    if TODAY_ROWS:
+        pr,pa,pp,psc=TODAY_ROWS[0]
+        st.success(f"🏆 **JEI ŠIANDIEN RINKTUMEISI TIK VIENĄ:** {pr.tema} → {pr.mikrotema} · {int(psc)}/100")
+        st.write(f"**Kryptis:** {pr.produkto_ideja}")
+        st.caption(f"Kodėl prioritetas: {recommended_stage_action(pr,today)} · {effort_level(pr)} kūrybos apimtis · pardavimo potencialas {pr.pardavimo_potencialas}.")
+    else:
+        st.info("Šiandien nėra temos, kurios aktyvus paklausos langas dar galiotų. Radar dirbtinai nepritraukia būsimų ar pasibaigusių pikų vien tam, kad užpildytų ekraną – žiūrėk SAVAITĘ, ARTĖJANČIUS arba EVERGREEN.")
     for i,(r,act,prod,sc) in enumerate(TODAY_ROWS,1):
         start,pub,peak,last=timing(r,today)
         time_text=(
@@ -2105,7 +2128,7 @@ with tabs[3]:
 
 with tabs[4]:
     st.subheader("🔎 SEO optimizatorius")
-    st.caption("V11.2 · produkto SEO auditas. Search Console neprivalomas: įkėlus vieną kartą, Radaras naudoja paskutinį išsaugotą eksportą, kol įkelsi naujesnį.")
+    st.caption("V11.3 · produkto SEO auditas. Search Console neprivalomas: įkėlus vieną kartą, Radaras naudoja paskutinį išsaugotą eksportą, kol įkelsi naujesnį.")
 
     # ---- Search Console: optional + latest saved export ----
     st.markdown("### 📊 Search Console duomenys · neprivaloma")
@@ -2266,6 +2289,45 @@ with tabs[5]:
                     st.link_button(f"Peržiūrėti Pinterest · {q}",pinterest_url(q),use_container_width=True)
                 st.caption("💡 Tikslas: greitai peržiūrėti skirtingus užsienyje naudojamus pateikimo principus ir pritaikyti mechaniką lietuviškam turiniui, nekopijuojant konkretaus dizaino.")
 
+def generated_occasion_ideas(o):
+    """Fallback so every calendar occasion has real product directions, not only a date."""
+    occ=str(o['occasion']); kw=_norm(str(o.get('keywords',''))); age=str(o.get('age','4–14 m.'))
+    rows=[]
+    if any(x in kw for x in ['kalb','žodyn','lietuvi']):
+        rows=[('5–6 m.','PDF','Paveikslėlių ir žodžių kalbos užduotys','Atpažinimas, poravimas, pirmo garso ar žodžio reikšmės užduotys','aukštas'),('1–4 kl.','PDF/PPT','Kalbos ir žodyno užduočių rinkinys','Žodžių reikšmės, poravimas, trumpas skaitymas ir kalbiniai pasirinkimai','aukštas'),('5–8 kl.','PPT/PDF','Kalbos, kultūros ir teksto užduotys','Trumpi tekstai, palyginimas, argumentavimas ir žodyno plėtimas','aukštas')]
+    elif any(x in kw for x in ['emoc','empat','draug','pagar','konflikt','įtraukt','teis']):
+        rows=[('5–6 m.','PDF','Kas vyksta šioje situacijoje?','Paveikslėlio situacija + emocijos / elgesio pasirinkimas','labai aukštas'),('1–4 kl.','PDF/PPT','Ką darytum ir ką pasakytum?','Kasdienės situacijos + keli sprendimai + paaiškinimas','labai aukštas'),('5–8 kl.','PPT/PDF','Situacijos ir socialinės dilemos','Realesnės dilemos + sprendimo pasekmės + argumentavimas','aukštas')]
+    elif any(x in kw for x in ['gyvūn','gamt','žem','aplink','atmosfer','tvar','maist']):
+        rows=[('4–6 m.','PDF','Atpažink, surūšiuok ir pasirink','Paveikslėlių rūšiavimas, poravimas ir paprasta priežastis–pasekmė','aukštas'),('1–4 kl.','PDF/PPT','Temos faktai ir kasdieniai pasirinkimai','Trumpi faktai + pasirinkimai + sekos + priežastys ir pasekmės','aukštas'),('5–8 kl.','PPT/PDF','Duomenys, problemos ir sprendimai','Duomenų interpretavimas + reali problema + argumentuotas sprendimas','aukštas')]
+    else:
+        rows=[('4–6 m.','PDF',f'{occ} – paveikslėlių užduotys','Atpažinimas, poravimas, rūšiavimas ir paprastos situacijos','aukštas'),('1–4 kl.','PDF/PPT',f'{occ} – pažintinės užduotys','Trumpi faktai, situacijos, sekos ir pasirinkimo klausimai','aukštas'),('5–8 kl.','PPT/PDF',f'{occ} – situacijos ir diskusijos','Faktai, situacijų analizė, argumentavimas ir praktinis pritaikymas','vidutinis')]
+    return [dict(age=a,format=f,product_idea=pi,mechanic=m,sales_potential=sp) for a,f,pi,m,sp in rows]
+
+def occasion_examples(occasion, idea, mechanic, age):
+    t=_norm(f"{occasion} {idea} {mechanic}")
+    if "toleranc" in t:
+        if "ką pasak" in t or "pagarb" in t:
+            return ["Naujas vaikas stovi vienas – ką galėtum jam pasakyti?", "Draugas suklydo ir kiti juokiasi – koks atsakymas būtų pagarbus?", "Draugas turi kitokią nuomonę – kaip nesutikti neįžeidžiant?", "Vaikas kalba ar taria žodžius kitaip – kaip tinkamai reaguoti?", "Keli vaikai nepriima lėčiau žaidžiančio draugo – ką galėtum padaryti?", "Du vaikai nori skirtingų žaidimų – kaip pasiūlyti susitarimą?"]
+        return ["Vaikas nepriimamas į žaidimą – pasirink, kaip galėtum jį įtraukti", "Draugas atrodo ar rengiasi kitaip – pagarbus ar nepagarbus elgesys?", "Naujas vaikas nežino grupės taisyklių – kaip jam padėti?", "Draugas nenori to paties žaidimo – ką daryti?", "Kažkas juokiasi iš kito vaiko piešinio – kuris veiksmas padėtų?", "Du vaikai nesutaria – pasirink taikų sprendimą"]
+    if "intern" in t:
+        return ["Nepažįstamas žmogus parašo žinutę – ką daryti?", "Programa prašo slaptažodžio – kam jį galima pasakyti?", "Nori įkelti draugo nuotrauką – ką pirmiausia reikia padaryti?", "Gavai keistą nuorodą – spausti ar kreiptis į suaugusįjį?", "Internete kažkas tyčiojasi – kokio veiksmo imtis?", "Ekrane pasirodo bauginantis turinys – ką daryti toliau?"]
+    if "žem" in t or "atliek" in t or "tvar" in t:
+        return ["Plastikinis buteliukas – į kurį konteinerį?", "Paliktas tekėti vanduo valantis dantis – padeda ar kenkia Žemei?", "Daugkartinis ar vienkartinis maišelis – kuris pasirinkimas tvaresnis?", "Numesta šiukšlė parke – kokia gali būti pasekmė?", "Važiuoti trumpą atstumą automobiliu ar eiti pėsčiomis – palygink pasirinkimus", "Sugalvok vieną veiksmą, kuriuo šiandien gali padėti aplinkai"]
+    if "vand" in t:
+        return ["Kur namuose naudojame vandenį?", "Čiaupas paliktas atsuktas – taupau ar švaistau?", "Sudėliok paprastą vandens kelionės seką", "Palygink, kuri veikla sunaudoja daugiau vandens", "Perskaityk trumpą faktą ir atsakyk į klausimą", "Pasirink, kaip tą pačią veiklą atlikti taupiau"]
+    if "knyg" in t or "tekst" in t:
+        return ["Kas buvo pagrindinis veikėjas?", "Kur vyko istorija?", "Kas nutiko pirmiausia, o kas vėliau?", "Pasirink sakinį, kuris geriausiai nusako pagrindinę mintį", "Atskirk faktą nuo veikėjo nuomonės", "Pagal 3 paveikslėlius sukurk trumpą istorijos tęsinį"]
+    return [f"Pateik konkrečią situaciją tema „{occasion}“ ir leisk vaikui pasirinkti sprendimą", "Sujunk paveikslėlį ar teiginį su tinkama reikšme", "Rask vieną netinkamą variantą ir paaiškink kodėl", "Surūšiuok pavyzdžius į dvi aiškias grupes", "Užbaik situaciją tinkamu veiksmu ar sakiniu", "Pritaikyk temos žinias trumpoje kasdienėje situacijoje"]
+
+def occasion_chatgpt_prompt(o,it,ex):
+    return (f"Sukurk pilną mokomosios priemonės seriją pagal šią kryptį.\n"
+            f"Proga: {o['occasion']} ({o['date'].strftime('%Y-%m-%d')}).\n"
+            f"Kam: {it['age']}. Formatas: {it['format']}.\n"
+            f"Priemonės kryptis: {it['product_idea']}.\n"
+            f"Mechanika: {it['mechanic']}.\n"
+            "Išlaikyk pedagogiškai tinkamą sudėtingumą šiam amžiui. Sukurk įvairias, nesidubliuojančias užduotis ta pačia kryptimi.\n"
+            "Pavyzdžiai, rodantys norimą kryptį:\n- " + "\n- ".join(ex))
+
 with tabs[6]:
     st.subheader("📅 Progų idėjos pagal amžių")
     st.caption("Čia proga nėra vien priminimas – matai konkrečius produktų kampus skirtingoms amžiaus grupėms.")
@@ -2276,14 +2338,18 @@ with tabs[6]:
         for _,o in future.iterrows():
             ideas=OCCASION_IDEAS[OCCASION_IDEAS["occasion"]==o["occasion"]]
             with st.expander(f"{o['date'].strftime('%Y-%m-%d')} · {o['occasion']}"):
-                if ideas.empty:
-                    st.caption("Šiai progai konkrečių produktų kampų bazę dar pildysime.")
-                else:
-                    for _,it in ideas.iterrows():
-                        st.markdown(f"**{it['age']} · {it['format']} · {it['product_idea']}**")
-                        st.write(it["mechanic"])
-                        st.caption(f"Pardavimo potencialas: {it['sales_potential']}")
-                        st.divider()
+                display_ideas = generated_occasion_ideas(o) if ideas.empty else [dict(x) for _,x in ideas.iterrows()]
+                for it in display_ideas:
+                    st.markdown(f"### {it['age']} · {it['format']} · {it['product_idea']}")
+                    st.write(f"**Kaip veiktų priemonė:** {it['mechanic']}")
+                    ex=occasion_examples(o['occasion'],it['product_idea'],it['mechanic'],it['age'])
+                    st.markdown("**🧩 Konkretūs kortelių / užduočių pavyzdžiai**")
+                    for x in ex:
+                        st.write("• "+x)
+                    st.caption(f"Pardavimo potencialas: {it['sales_potential']}")
+                    with st.expander("📋 Paruošta kopijuoti į ChatGPT"):
+                        st.code(occasion_chatgpt_prompt(o,it,ex),language=None)
+                    st.divider()
 
 with tabs[7]:
     st.subheader("🌿 Evergreen · ką verta kurti laisvesniu metu")
@@ -2314,42 +2380,4 @@ with tabs[7]:
             for x in examples(r,5):
                 st.write("• "+x)
 
-with tabs[8]:
-    st.subheader("🧠 Idėjų bankas")
-    st.caption("Čia lieka anksčiau Radaro užfiksuotos idėjos. Rankinio ATLIKTA žymėjimo nebenaudojame.")
-    bank=idea_bank()
-    if bank.empty:
-        st.info("Bankas dar tuščias.")
-    else:
-        # Bankas paliekamas kaip istorinis idėjų sąrašas; rankinio atlikimo darbo srauto nebėra.
-        active_bank=bank[~bank.status.isin(["SUKURTA","PRAPLESTA","PASIDALINTA"])].copy()
-        done_bank=bank[bank.status.isin(["SUKURTA","PRAPLESTA","PASIDALINTA"])].copy()
-
-        st.markdown("### 💡 Aktyvios idėjos")
-        if active_bank.empty:
-            st.success("Šiuo metu aktyviame banke nėra neįgyvendintų idėjų.")
-        else:
-            for (amz,sritis),g in active_bank.groupby(["amzius","sritis"],dropna=False):
-                with st.expander(f"📂 {amz} → {sritis} · {len(g)} id."):
-                    for tema,g2 in g.groupby("tema"):
-                        st.markdown(f"### {tema}")
-                        for _,it in g2.iterrows():
-                            st.markdown(f"**{it.mikrotema}** · {stars(it.evergreen)} · TOP grįžo {int(it.top_count)} k.")
-                            st.write(f"**💡 {it.produkto_ideja}**")
-                            st.markdown("**🧩 Užduočių pavyzdžiai**")
-                            for x in [q.strip() for q in str(it.examples).split(" | ") if q.strip()][:8]:
-                                st.write("• "+x)
-                            st.caption(f"Potencialas: {it.sales} • konkurencija: {it.competition} • pirmą kartą {it.first_seen} • paskutinį {it.last_seen}")
-                            st.divider()
-
-        # Įgyvendintos idėjos nėra aktyvaus banko dalis, bet prireikus galima
-        # pasižiūrėti istoriją. Tai leidžia Radar prisiminti produkto kodą.
-        with st.expander(f"✅ ĮGYVENDINTŲ ISTORIJA · {len(done_bank)}"):
-            if done_bank.empty:
-                st.caption("Dar nėra įgyvendintų Radar idėjų.")
-            else:
-                for _,it in done_bank.sort_values("updated_at",ascending=False,na_position="last").iterrows():
-                    label="SUKURTA" if it.status in ["SUKURTA","PASIDALINTA"] else "PRAPLĖSTA"
-                    st.write(f"**{label}** · {it.product_code or 'be kodo'} · {it.tema} → {it.mikrotema}")
-
-st.caption("V11.2 • fiksuoti pikai • katalogo temos padengimas • produktų šeimų analizė • SEO auditas • Search Console neprivalomas ir naudojamas pakartotinai • PALIKTI / PAPILDYTI / KEISTI / STEBĖTI.")
+st.caption("V11.3 • fiksuoti pikai ir popikinė uodega • dienos prioritetas • konkretūs produkto briefai • progų idėjos su pavyzdžiais • katalogo temos padengimas • SEO auditas.")
