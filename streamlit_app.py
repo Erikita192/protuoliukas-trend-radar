@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta
 from urllib.parse import urljoin, urlparse
 from urllib.parse import quote_plus
 
-st.set_page_config(page_title="Protuoliukas Trend Radar V11.4", page_icon="📡", layout="wide")
+st.set_page_config(page_title="Protuoliukas Trend Radar V11.4.1", page_icon="📡", layout="wide")
 
 # --- V11.2 subtle visual system ---
 st.markdown("""
@@ -1322,8 +1322,8 @@ with st.spinner("Radar skaičiuoja artimiausius paklausos signalus..."):
         df[f"{h}d"]=df.apply(lambda r:horizon_score(r,today,h),axis=1)
 df["prioritetas"]=df[["7d","14d","30d"]].max(axis=1)
 
-st.title("📡 Protuoliukas Trend Radar — V11.4")
-st.caption("V11.4 • sprendimų sistema • prioritetai • fiksuoti pikai • konkretūs produktų briefai • SEO")
+st.title("📡 Protuoliukas Trend Radar — V11.4.1")
+st.caption("V11.4.1 • sprendimų sistema • prioritetai • fiksuoti pikai • konkretūs produktų briefai • SEO")
 
 with st.sidebar:
     st.markdown("### ⚙️ Mano dabartinis kūrimo tempas")
@@ -2071,8 +2071,15 @@ with tabs[0]:
         st.info("Šiandien nėra temos, kurios aktyvus paklausos langas dar galiotų. Radar dirbtinai nepritraukia būsimų ar pasibaigusių pikų vien tam, kad užpildytų ekraną – žiūrėk SAVAITĘ, ARTĖJANČIUS arba EVERGREEN.")
     for i,(r,act,prod,sc) in enumerate(TODAY_ROWS,1):
         start,pub,peak,last=timing(r,today)
+        peak_delta=days_to_peak(r,today)
+        if peak_delta < 0:
+            peak_distance=f"**Pikas buvo prieš:** {abs(peak_delta)} d."
+        elif peak_delta == 0:
+            peak_distance="**Pirkimo pikas:** šiandien"
+        else:
+            peak_distance=f"**Iki prognozuojamo pirkimo piko:** {peak_delta} d."
         time_text=(
-            f"**Iki prognozuojamo pirkimo piko:** {days_to_peak(r,today)} d. "
+            f"{peak_distance} "
             f"• **Kūrybos apimtis:** {effort_level(r)} "
             f"• **Grąža už pastangas:** {roi_label(r,sc)}  \n"
             f"**Pradėti:** {start.strftime('%Y-%m-%d')} "
@@ -2083,7 +2090,7 @@ with tabs[0]:
 
 with tabs[1]:
     st.subheader("📅 SAVAITĖ · kas taps stipru po savaitės")
-    st.caption("8–14 dienų iki piko. Ir čia idėją gali iškart pažymėti atlikta – nereikia laukti, kol ji pereis į ŠIANDIEN.")
+    st.caption("8–14 dienų iki piko. Čia matai, ką verta pradėti ruošti dabar, kad priemonė būtų parengta laiku.")
     for i,(r,act,prod,sc) in enumerate(WEEK_ROWS,1):
         start,pub,peak,last=timing(r,today)
         time_text=(
@@ -2128,7 +2135,7 @@ with tabs[3]:
 
 with tabs[4]:
     st.subheader("🔎 SEO optimizatorius")
-    st.caption("V11.4 · produkto SEO auditas. Search Console neprivalomas: įkėlus vieną kartą, Radaras naudoja paskutinį išsaugotą eksportą, kol įkelsi naujesnį.")
+    st.caption("V11.4.1 · produkto SEO auditas. Search Console neprivalomas: įkėlus vieną kartą, Radaras naudoja paskutinį išsaugotą eksportą, kol įkelsi naujesnį.")
 
     # ---- Search Console: optional + latest saved export ----
     st.markdown("### 📊 Search Console duomenys · neprivaloma")
@@ -2289,8 +2296,25 @@ with tabs[5]:
                     st.link_button(f"Peržiūrėti Pinterest · {q}",pinterest_url(q),use_container_width=True)
                 st.caption("💡 Tikslas: greitai peržiūrėti skirtingus užsienyje naudojamus pateikimo principus ir pritaikyti mechaniką lietuviškam turiniui, nekopijuojant konkretaus dizaino.")
 
+def _as_date(value):
+    """Safely normalize date / datetime / pandas Timestamp values to datetime.date."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    try:
+        return pd.to_datetime(value).date()
+    except Exception:
+        return None
+
 def occasion_relevance_label(d, today):
-    delta=(d.date()-today.date()).days
+    d0=_as_date(d)
+    t0=_as_date(today)
+    if d0 is None or t0 is None:
+        return "data nepatikslinta"
+    delta=(d0-t0).days
     if delta < 0:
         n=abs(delta)
         return f"buvo prieš {n} d. · dar aktualu" if n>1 else "buvo vakar · dar aktualu"
@@ -2540,4 +2564,4 @@ with tabs[7]:
             for x in examples(r,5):
                 st.write("• "+x)
 
-st.caption("V11.4 • fiksuoti pikai ir popikinė uodega • dienos prioritetas • konkretūs produkto briefai • tikros progų idėjos be šabloninio užpildo • katalogo temos padengimas • SEO auditas.")
+st.caption("V11.4.1 • fiksuoti pikai ir popikinė uodega • dienos prioritetas • konkretūs produkto briefai • tikros progų idėjos be šabloninio užpildo • katalogo temos padengimas • SEO auditas.")
