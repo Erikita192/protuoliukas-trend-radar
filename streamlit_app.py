@@ -9,102 +9,47 @@ from datetime import date, datetime, timedelta
 from urllib.parse import urljoin, urlparse
 from urllib.parse import quote_plus
 
-st.set_page_config(page_title="Protuoliukas Trend Radar V11.4.1", page_icon="📡", layout="wide")
+st.set_page_config(page_title="Protuoliukas Trend Radar V11.5", page_icon="📡", layout="wide")
 
-# --- V11.2 subtle visual system ---
+# --- V11.5 universal visual system: same readable palette in light/dark mode ---
 st.markdown("""
 <style>
 :root {
   --radar-accent: #5f766a;
-  --radar-accent-soft: #eef3f0;
-  --radar-border: #dfe7e2;
-  --radar-panel: #fafcfb;
-  --radar-text-soft: #66736d;
+  --radar-accent-strong: #465c52;
+  --radar-accent-soft: #dfe9e4;
+  --radar-border: #c9d7d0;
+  --radar-panel: #edf3f0;
+  --radar-panel-2: #f6f8f7;
+  --radar-ink: #24312b;
+  --radar-muted: #52645b;
 }
-
-/* Comfortable page width and rhythm */
-.block-container {
-  max-width: 1480px;
-  padding-top: 1.35rem;
-  padding-bottom: 2.5rem;
-}
-
-/* Calm page heading */
-h1 {
-  letter-spacing: -0.02em;
-  margin-bottom: 0.15rem !important;
-}
-h2, h3 {
-  letter-spacing: -0.01em;
-}
-
-/* Tabs: quiet, readable, no loud pills */
-.stTabs [data-baseweb="tab-list"] {
-  gap: 0.3rem;
-  border-bottom: 1px solid var(--radar-border);
-}
-.stTabs [data-baseweb="tab"] {
-  height: 2.8rem;
-  padding: 0 0.85rem;
-  border-radius: 0.55rem 0.55rem 0 0;
-}
-.stTabs [aria-selected="true"] {
-  background: var(--radar-accent-soft);
-  font-weight: 650;
-}
-
-/* Cards / expanders */
-div[data-testid="stExpander"] {
-  border: 1px solid var(--radar-border);
-  border-radius: 0.8rem;
-  background: var(--radar-panel);
-  overflow: hidden;
-}
-div[data-testid="stExpander"] summary:hover {
-  background: var(--radar-accent-soft);
-}
-
-/* Inputs and upload areas */
-div[data-baseweb="select"] > div,
-div[data-testid="stTextInput"] input,
-div[data-testid="stNumberInput"] input,
-div[data-testid="stDateInput"] input,
-div[data-testid="stFileUploader"] section {
-  border-radius: 0.65rem !important;
-}
-
-/* Buttons: neutral by default; primary gets muted accent */
-.stButton > button, .stDownloadButton > button, .stLinkButton > a {
-  border-radius: 0.65rem;
-  border-color: var(--radar-border);
-}
-.stButton > button[kind="primary"], .stDownloadButton > button[kind="primary"] {
-  background: var(--radar-accent);
-  border-color: var(--radar-accent);
-}
-
-/* Sidebar */
-section[data-testid="stSidebar"] {
-  border-right: 1px solid var(--radar-border);
-}
-section[data-testid="stSidebar"] > div {
-  background: linear-gradient(180deg, #f7faf8 0%, #ffffff 42%);
-}
-
-/* Metrics and alerts */
-div[data-testid="stMetric"] {
-  border: 1px solid var(--radar-border);
-  border-radius: 0.75rem;
-  padding: 0.7rem 0.85rem;
-  background: var(--radar-panel);
-}
-div[data-testid="stAlert"] {
-  border-radius: 0.75rem;
-}
-
-/* Captions slightly softer */
-.stCaption, small {
-  color: var(--radar-text-soft);
+.block-container {max-width:1480px;padding-top:1.15rem;padding-bottom:2.2rem;}
+h1 {letter-spacing:-.02em;margin-bottom:.15rem!important;} h2,h3{letter-spacing:-.01em;}
+.stTabs [data-baseweb="tab-list"]{gap:.25rem;border-bottom:1px solid var(--radar-border);overflow-x:auto;}
+.stTabs [data-baseweb="tab"]{height:2.75rem;padding:0 .8rem;border-radius:.55rem .55rem 0 0;white-space:nowrap;}
+.stTabs [aria-selected="true"]{background:var(--radar-accent-soft)!important;color:var(--radar-ink)!important;font-weight:650;}
+/* Universal cards: deliberately independent of Streamlit light/dark theme. */
+div[data-testid="stExpander"], div[data-testid="stMetric"]{border:1px solid var(--radar-border)!important;border-radius:.8rem!important;background:var(--radar-panel)!important;color:var(--radar-ink)!important;overflow:hidden;}
+div[data-testid="stExpander"] summary{background:var(--radar-panel)!important;color:var(--radar-ink)!important;}
+div[data-testid="stExpander"] summary:hover{background:var(--radar-accent-soft)!important;}
+div[data-testid="stExpander"] summary *, div[data-testid="stExpander"] [data-testid="stExpanderDetails"] *, div[data-testid="stMetric"] *{color:var(--radar-ink)!important;}
+div[data-testid="stExpander"] [data-testid="stExpanderDetails"]{background:var(--radar-panel-2)!important;padding-top:.75rem;}
+div[data-testid="stExpander"] pre, div[data-testid="stExpander"] code{background:#e3ebe7!important;color:var(--radar-ink)!important;}
+div[data-testid="stMetric"]{padding:.7rem .85rem;}
+.stButton>button,.stDownloadButton>button,.stLinkButton>a{border-radius:.65rem;border-color:var(--radar-border);}
+.stButton>button[kind="primary"],.stDownloadButton>button[kind="primary"]{background:var(--radar-accent);border-color:var(--radar-accent);color:white!important;}
+div[data-baseweb="select"]>div,div[data-testid="stTextInput"] input,div[data-testid="stNumberInput"] input,div[data-testid="stDateInput"] input,div[data-testid="stFileUploader"] section{border-radius:.65rem!important;}
+section[data-testid="stSidebar"]{border-right:1px solid var(--radar-border);}
+section[data-testid="stSidebar"]>div{background:var(--radar-panel-2)!important;color:var(--radar-ink)!important;}
+section[data-testid="stSidebar"] *{color:var(--radar-ink);}
+div[data-testid="stAlert"]{border-radius:.75rem;}
+@media (max-width: 700px){
+  .block-container{padding-left:.75rem;padding-right:.75rem;padding-top:.75rem;}
+  h1{font-size:1.65rem!important;} h2{font-size:1.35rem!important;} h3{font-size:1.08rem!important;}
+  .stTabs [data-baseweb="tab"]{padding:0 .58rem;height:2.55rem;font-size:.88rem;}
+  div[data-testid="stExpander"] [data-testid="stExpanderDetails"]{padding-left:.7rem!important;padding-right:.7rem!important;}
+  hr{margin:.7rem 0!important;}
 }
 </style>
 """, unsafe_allow_html=True)
@@ -576,6 +521,68 @@ def effort_level(r):
 
 def effort_bonus(r):
     return {"🟢 MAŽA":8,"🟡 VIDUTINĖ":3,"🔴 DIDELĖ":-4}[effort_level(r)]
+
+def estimated_creation_days(r):
+    """Realistiškas rezervas pagal vartotojo tempą + konkrečios idėjos apimtį."""
+    base=get_creation_lead()
+    lvl=effort_level(r)
+    if lvl=="🟢 MAŽA": return max(1,base-1)
+    if lvl=="🔴 DIDELĖ": return base+2
+    return base
+
+def execution_fit(r,today):
+    """Kiek ši idėja praktiškai įgyvendinama dabar, o ne vien teoriškai stipri."""
+    start,pub,peak,last=timing(r,today)
+    need=estimated_creation_days(r)
+    until_pub=(pub-today).days
+    until_peak=(peak-today).days
+    if today>last: return -24
+    if until_peak<0: return -14
+    if until_pub>=need: return 14
+    if until_peak>=need: return 7
+    if effort_level(r)=="🟢 MAŽA" and until_peak>=1: return 2
+    return -10
+
+def execution_action(r,today,act,prod=None):
+    """Veiksmas pagal tai, ar realiai dar spėjama, neperrašant tikros piko datos."""
+    start,pub,peak,last=timing(r,today)
+    need=estimated_creation_days(r)
+    until_pub=(pub-today).days
+    until_peak=(peak-today).days
+    if today>last:
+        return "🗓️ RUOŠTI KITAM LANGUI", "Šio paklausos lango aktyvioji dalis jau baigėsi."
+    if until_peak<0:
+        if prod is not None: return "📣 DAR PALAIKYTI MATOMUMĄ", f"Pikas buvo prieš {abs(until_peak)} d.; naujos didelės priemonės šiam pikui nebeskubink."
+        return "🗓️ RUOŠTI KITAM LANGUI", f"Pikas buvo prieš {abs(until_peak)} d.; idėja gera, bet naujai priemonei šis langas jau per vėlus."
+    if act=="PERPUBLIKUOTI" and prod is not None:
+        return "📣 PERPUBLIKUOTI DABAR", "Priemonė jau yra, todėl paklausą galima išnaudoti be naujo kūrimo."
+    if act=="ISPLESTI" and prod is not None and until_peak < need:
+        return "📣 PIRMA RODYTI TURIMĄ", f"Iki piko {until_peak} d., o plėtrai skaičiuojamas ~{need} d. rezervas; naują kampą ruošk kitam langui."
+    if until_pub>=need:
+        return "🔥 PRADĖTI KURTI DABAR", f"Iki publikavimo lango {until_pub} d.; šiai idėjai skaičiuojamas ~{need} d. kūrimo rezervas."
+    if until_peak>=need:
+        return "⚡ KURTI, JEI GALI UŽBAIGTI", f"Optimalus publikavimo startas jau arti, bet iki piko dar {until_peak} d.; kūrimui reikia ~{need} d."
+    if effort_level(r)=="🟢 MAŽA" and until_peak>=1:
+        return "⚡ TIK GREITAS VARIANTAS", f"Iki piko tik {until_peak} d.; verta tik jei tikrai užbaigsi greitai."
+    if prod is not None:
+        return "📣 IŠNAUDOTI TURIMĄ PRIEMONĘ", f"Iki piko {until_peak} d., o naujam kūrimui skaičiuojamas ~{need} d. rezervas."
+    return "🗓️ GERĄ IDĖJĄ RUOŠTI KITAM LANGUI", f"Iki piko {until_peak} d., o kūrimui skaičiuojamas ~{need} d. rezervas – šiam pikui nebeskubėk."
+
+def execution_priority(r,score,today):
+    return float(score)+effort_bonus(r)+execution_fit(r,today)
+
+def idea_signature(r):
+    words=set(re.findall(r"[a-ząčęėįšųūž0-9]+", _norm(f"{r.tema} {r.mikrotema} {r.produkto_ideja}")))
+    stop={"ir","su","bei","pagal","užduotys","užduotis","priemonė","rinkinys","kortelės","pdf","ppt"}
+    return words-stop
+
+def too_similar(r, selected, threshold=.72):
+    a=idea_signature(r)
+    if not a:return False
+    for old in selected:
+        b=idea_signature(old)
+        if b and len(a&b)/max(1,len(a|b))>=threshold:return True
+    return False
 
 def roi_label(r,score):
     x=float(score)+effort_bonus(r)
@@ -1049,7 +1056,9 @@ def full_card(r,action_label=None,product=None,key_prefix="card",show_buttons=Tr
     _pk,_kind,*_=pedagogical_peak(r,today)
     st.write(f"**{peak_kind_label(_kind)}:** {peak.strftime('%Y-%m-%d')} · **{peak_stage(peak,today,last)}**")
     st.write(f"**Pradėti kurti:** {'dabar' if today>=start else start.strftime('%Y-%m-%d')} • **Optimalu publikuoti:** {pub.strftime('%Y-%m-%d')} • **Aktualumo lango pabaiga:** {last.strftime('%Y-%m-%d')}")
-    st.write(f"**Veiksmas šiandien:** {recommended_stage_action(r,today)}")
+    _ea,_ew=execution_action(r,today,action_label,product)
+    st.write(f"**Veiksmas dabar:** {_ea}")
+    st.caption(_ew)
     ps,osig,pds,signals,extra=signal_stack(r,today)
     st.markdown("**🧭 Kodėl ši idėja dabar?**")
     if signals:
@@ -1236,7 +1245,9 @@ def fast_detail_card(r,action_label=None,product=None):
         f"• **Optimalu publikuoti:** {pub.strftime('%Y-%m-%d')} "
         f"• **Aktualumo lango pabaiga:** {last.strftime('%Y-%m-%d')}"
     )
-    st.write(f"**Veiksmas šiandien:** {recommended_stage_action(r,today)}")
+    _ea,_ew=execution_action(r,today,action_label,product)
+    st.write(f"**Veiksmas dabar:** {_ea}")
+    st.caption(_ew)
     st.caption("Piko data yra fiksuota pagal signalą ir neperkeliama į šiandieną. Po piko gali likti tik trumpa aktualumo uodega.")
 
     ps,osig,pds,signals,extra=signal_stack(r,today)
@@ -1290,7 +1301,8 @@ def compact_recommendation(r,act,prod,sc,i,key_prefix,time_text):
         "ISPLESTI":"🔄 IŠPLĖSTI"
     }
     label=label_map.get(act,"💡 IDĖJA")
-    st.markdown(f"### {i}. {label} · {int(sc)}/100")
+    exec_label,exec_why=execution_action(r,today,act,prod)
+    st.markdown(f"### {i}. {exec_label} · {int(sc)}/100")
     st.write(f"**{r.tema} → {r.mikrotema}**")
 
     if act=="PERPUBLIKUOTI" and prod is not None:
@@ -1301,6 +1313,7 @@ def compact_recommendation(r,act,prod,sc,i,key_prefix,time_text):
         st.caption(str(r.produkto_ideja).replace("Pastatyk skaičių","Sudėliok skaičių"))
 
     st.write(time_text)
+    st.caption(exec_why)
 
     # Completion action remains visible for EVERY recommendation.
     # Native expander = same interaction style as Produktų planai.
@@ -1323,7 +1336,7 @@ with st.spinner("Radar skaičiuoja artimiausius paklausos signalus..."):
 df["prioritetas"]=df[["7d","14d","30d"]].max(axis=1)
 
 st.title("📡 Protuoliukas Trend Radar — V11.4.1")
-st.caption("V11.4.1 • sprendimų sistema • prioritetai • fiksuoti pikai • konkretūs produktų briefai • SEO")
+st.caption("V11.5 • sprendimų sistema • realus kūrimo laikas • fiksuoti pikai • konkretūs produktų briefai • SEO")
 
 with st.sidebar:
     st.markdown("### ⚙️ Mano dabartinis kūrimo tempas")
@@ -1457,7 +1470,7 @@ def radar_inspiration_rows():
     """Use only topics Radar has already selected; no manual Pinterest search box."""
     rows=[]
     seen=set()
-    for horizon,data in [("ŠIANDIEN",TODAY_ROWS),("SAVAITĖ",WEEK_ROWS),("ARTĖJANTYS",COMING_ROWS)]:
+    for horizon,data in [("DABAR",TODAY_ROWS),("NETRUKUS",WEEK_ROWS),("ARTĖJA",COMING_ROWS)]:
         for item in data:
             r=item[0]
             key=_norm(f"{r.tema}|{r.mikrotema}")
@@ -2021,7 +2034,7 @@ def copy_block(label, value, caption=None):
         st.caption(caption)
     st.code(str(value or ""), language=None)
 
-tabs=st.tabs(["🏠 ŠIANDIEN","📅 SAVAITĖ","🚀 ARTĖJANTYS TOPAI","💡 PRODUKTŲ PLANAI","🔎 SEO OPTIMIZATORIUS","📌 PINTEREST ĮKVĖPIMAS","📅 PROGŲ IDĖJOS","🌿 EVERGREEN"])
+tabs=st.tabs(["🔥 DABAR","📅 NETRUKUS","🔭 ARTĖJA","💡 PRODUKTŲ PLANAI","🔎 SEO OPTIMIZATORIUS","📌 PINTEREST ĮKVĖPIMAS","📅 PROGŲ IDĖJOS","🌿 EVERGREEN"])
 
 
 def days_to_peak(r,today):
@@ -2049,8 +2062,14 @@ def allocate_v74(frame):
     out=[]
     for win,col,n in [("TODAY","7d",12),("WEEK","14d",12),("COMING","30d",12)]:
         exact=[x for x in eligible if demand_window(x[0],today)==win and fp(x[0]) not in used]
-        exact.sort(key=lambda x:float(x[0][col])+effort_bonus(x[0]),reverse=True)
-        rows=exact[:n]
+        exact.sort(key=lambda x:execution_priority(x[0],float(x[0][col]),today),reverse=True)
+        rows=[]
+        selected_topics=[]
+        for item in exact:
+            if too_similar(item[0],selected_topics):
+                continue
+            rows.append(item); selected_topics.append(item[0])
+            if len(rows)>=n: break
         # V9 deliberately does not fill a time window with unrelated dates.
         # A shorter list is more truthful than a fake "today" recommendation.
         used|={fp(x[0]) for x in rows}
@@ -2060,15 +2079,17 @@ def allocate_v74(frame):
 TODAY_ROWS,WEEK_ROWS,COMING_ROWS=allocate_v74(df)
 
 with tabs[0]:
-    st.subheader("🏠 ŠIANDIEN · ką labiausiai apsimoka daryti dabar")
-    st.caption("Rodomi artėjantys pikai ir dar aktuali trumpa uodega po piko. Piko data lieka tikra – ji niekada nestumiama į šiandieną.")
+    st.subheader("🔥 DABAR · ką verta užbaigti ar pradėti artimiausiomis dienomis")
+    st.caption("0–7 dienų sprendimų langas. DABAR nereiškia vien šios dienos: Radar vertina, ką realiai dar spėsi užbaigti, ir piko datos nestumdo.")
     if TODAY_ROWS:
         pr,pa,pp,psc=TODAY_ROWS[0]
-        st.success(f"🏆 **JEI ŠIANDIEN RINKTUMEISI TIK VIENĄ:** {pr.tema} → {pr.mikrotema} · {int(psc)}/100")
+        st.success(f"🏆 **JEI DABAR UŽBAIGTUM / KURTUM TIK VIENĄ:** {pr.tema} → {pr.mikrotema} · {int(psc)}/100")
         st.write(f"**Kryptis:** {pr.produkto_ideja}")
-        st.caption(f"Kodėl prioritetas: {recommended_stage_action(pr,today)} · {effort_level(pr)} kūrybos apimtis · pardavimo potencialas {pr.pardavimo_potencialas}.")
+        _ea,_why=execution_action(pr,today,pa,pp)
+        st.write(f"**Ką daryti:** {_ea}")
+        st.caption(f"Kodėl prioritetas: {_why} · {effort_level(pr)} kūrybos apimtis · pardavimo potencialas {pr.pardavimo_potencialas}.")
     else:
-        st.info("Šiandien nėra temos, kurios aktyvus paklausos langas dar galiotų. Radar dirbtinai nepritraukia būsimų ar pasibaigusių pikų vien tam, kad užpildytų ekraną – žiūrėk SAVAITĘ, ARTĖJANČIUS arba EVERGREEN.")
+        st.info("DABAR lange nėra temos, kurios aktyvus paklausos langas dar galiotų. Radar dirbtinai nepritraukia būsimų ar pasibaigusių pikų vien tam, kad užpildytų ekraną – žiūrėk NETRUKUS, ARTĖJA arba EVERGREEN.")
     for i,(r,act,prod,sc) in enumerate(TODAY_ROWS,1):
         start,pub,peak,last=timing(r,today)
         peak_delta=days_to_peak(r,today)
@@ -2089,8 +2110,8 @@ with tabs[0]:
         compact_recommendation(r,act,prod,sc,i,f"today{i}",time_text)
 
 with tabs[1]:
-    st.subheader("📅 SAVAITĖ · kas taps stipru po savaitės")
-    st.caption("8–14 dienų iki piko. Čia matai, ką verta pradėti ruošti dabar, kad priemonė būtų parengta laiku.")
+    st.subheader("📅 NETRUKUS · ką verta pasiruošti iš anksto")
+    st.caption("8–14 dienų iki piko. Tai pasiruošimo langas: idėjos rodomos pakankamai anksti, kad nereikėtų vytis paskutinę minutę.")
     for i,(r,act,prod,sc) in enumerate(WEEK_ROWS,1):
         start,pub,peak,last=timing(r,today)
         time_text=(
@@ -2103,7 +2124,7 @@ with tabs[1]:
         compact_recommendation(r,act,prod,sc,i,f"week{i}",time_text)
 
 with tabs[2]:
-    st.subheader("🚀 ARTĖJANTYS TOPAI · 15–30 dienų iki piko")
+    st.subheader("🔭 ARTĖJA · 15–30 dienų iki piko")
     st.caption("Ankstyvas radaras. Trumpa santrauka matoma iškart; pilną produkto planą išskleidi tik tada, kai idėja verta dėmesio.")
     for i,(r,act,prod,sc) in enumerate(COMING_ROWS,1):
         start,pub,peak,last=timing(r,today)
@@ -2126,7 +2147,7 @@ with tabs[3]:
     for i,(_,r) in enumerate(view.head(30).iterrows(),1):
         act,prod=dmap[fp(r)]
         w=demand_window(r,today)
-        wtxt={"TODAY":"0–7 d. / ŠIANDIEN","WEEK":"8–14 d. / SAVAITĖ","COMING":"15–30 d. / ARTĖJA","OUT":"už aktyvaus 30 d. lango"}[w]
+        wtxt={"TODAY":"0–7 d. / DABAR","WEEK":"8–14 d. / NETRUKUS","COMING":"15–30 d. / ARTĖJA","OUT":"už aktyvaus 30 d. lango"}[w]
         with st.expander(f"{r.tema} → {r.mikrotema} · {int(r[f'{horizon}d'])}/100 · {wtxt}"):
             full_card(r,act if act in ["KURTI","ISPLESTI","PERPUBLIKUOTI"] else "IDĖJA",prod,key_prefix=f"plan{i}",show_buttons=False)
 
@@ -2135,7 +2156,7 @@ with tabs[3]:
 
 with tabs[4]:
     st.subheader("🔎 SEO optimizatorius")
-    st.caption("V11.4.1 · produkto SEO auditas. Search Console neprivalomas: įkėlus vieną kartą, Radaras naudoja paskutinį išsaugotą eksportą, kol įkelsi naujesnį.")
+    st.caption("V11.5 · produkto SEO auditas. Search Console neprivalomas: įkėlus vieną kartą, Radaras naudoja paskutinį išsaugotą eksportą, kol įkelsi naujesnį.")
 
     # ---- Search Console: optional + latest saved export ----
     st.markdown("### 📊 Search Console duomenys · neprivaloma")
@@ -2537,7 +2558,7 @@ with tabs[6]:
 
 with tabs[7]:
     st.subheader("🌿 Evergreen · ką verta kurti laisvesniu metu")
-    st.caption("Čia tik temos, kurios gali pardavinėtis visus metus. Jei joms artėja programinis ar progos pikas, jos keliamos į ŠIANDIEN / SAVAITĘ / ARTĖJANČIUS, o ne dubliuojamos čia.")
+    st.caption("Čia tik temos, kurios gali pardavinėtis visus metus. Jei joms artėja programinis ar progos pikas, jos keliamos į DABAR / NETRUKUS / ARTĖJA, o ne dubliuojamos čia.")
     evergreen=[]
     active_fps={fp(x[0]) for x in TODAY_ROWS+WEEK_ROWS+COMING_ROWS}
     for _,r in df.sort_values("prioritetas",ascending=False).iterrows():
@@ -2564,4 +2585,4 @@ with tabs[7]:
             for x in examples(r,5):
                 st.write("• "+x)
 
-st.caption("V11.4.1 • fiksuoti pikai ir popikinė uodega • dienos prioritetas • konkretūs produkto briefai • tikros progų idėjos be šabloninio užpildo • katalogo temos padengimas • SEO auditas.")
+st.caption("V11.5 • DABAR / NETRUKUS / ARTĖJA • realus kūrimo laikas • fiksuoti pikai • konkretūs produkto briefai • katalogo temos padengimas • SEO auditas.")
