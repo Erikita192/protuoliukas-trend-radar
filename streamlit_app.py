@@ -345,7 +345,7 @@ def program_signal(r,today):
 def parent_signal(r):
     t=_norm(f"{r.tema} {r.mikrotema}")
     return any(k in t for k in [
-        "raid","abėc","skaič","raš","skaity","emoc","kūnas","spalv","forma",
+        "raid","abėc","skaič","rašym","rašyt","skaity","emoc","kūnas","spalv","forma",
         "sudėt","atimt","daugyb","dalyb","dėmes","pastab","mokykl"
     ])
 
@@ -1034,7 +1034,7 @@ def full_card(r,action_label=None,product=None,key_prefix="card",show_buttons=Tr
     if action_label=="PERPUBLIKUOTI" and product is not None:
         st.write(f"**📣 Priemonė:** {product.pavadinimas}  •  **Kodas:** {product.kodas or 'nerastas'}")
         st.write(f"**Optimalu perpublikuoti:** {pub.strftime('%Y-%m-%d')}–{min(last,peak).strftime('%Y-%m-%d')}  •  **Paklausos pikas:** apie {peak.strftime('%Y-%m-%d')}")
-        aud="pedagogai + tėvai" if any(x in (str(r.tema)+" "+str(r.mikrotema)).lower() for x in ["raid","abėc","skaič","raš","skaity","sudėt","atimt","laikrod"]) else "pedagogai / pagal temą ir tėvai"
+        aud="pedagogai + tėvai" if any(x in (str(r.tema)+" "+str(r.mikrotema)).lower() for x in ["raid","abėc","skaič","rašym","rašyt","skaity","sudėt","atimt","laikrod","finans","biudž","pinig"]) else "pedagogai / pagal temą ir tėvai"
         st.write(f"**Auditorija:** {aud}")
         st.write(f"**FB kampas:** {fb_angle(r)}")
         if product.nuoroda:st.write(f"**Nuoroda:** {product.nuoroda}")
@@ -1135,7 +1135,24 @@ def separate_product_angles(r):
         add("Laiko palyginimas ir rikiavimas","Vaikas suvokia laiko seką ir geba palyginti kelis laikus.",["pasirinkti ankstesnį laiką","pasirinkti vėlesnį laiką","surikiuoti 3–5 laikrodžius","susieti dienos veiklas su laiku","rasti du tą patį laiką rodančius laikrodžius"],"Tai jau ne vien laikrodžio skaitymas – lavinama laiko seka ir santykiai tarp kelių laikų.")
         add("Praėjusio laiko skaičiavimas","Vaikas nustato, kiek laiko praėjo tarp pradžios ir pabaigos.",["apskaičiuoti trukmę tarp dviejų laikrodžių","rasti veiklos pabaigos laiką","rasti pradžios laiką","palyginti dviejų veiklų trukmę","spręsti trumpas kasdienes situacijas"],"Ši kryptis pereina nuo laiko nuskaitymo prie skaičiavimo ir trukmės suvokimo.")
         add("Kasdienės situacijos ir dienotvarkė","Vaikas taiko laikrodžio žinias realiose dienos situacijose.",["susieti veiklą su tinkamu laiku","sudėlioti dienos įvykius chronologiškai","nuspręsti, ar spės į veiklą","apskaičiuoti laukimo laiką","parinkti tinkamą pradžios ar pabaigos laiką"],"Tema tampa funkcionali ir artima realiam gyvenimui, o ne izoliuota laikrodžio užduotis.")
-    elif any(k in text for k in ["raid","abėc","skaity","raš"]):
+    elif any(k in text for k in ["finans", "biudž", "pinig", "kain", "grąž", "taup"]):
+        add("Biudžeto sudarymas ir sprendimai",
+            "Vaikas mokosi planuoti ribotą pinigų sumą: pasirinkti pirkinius, neviršyti biudžeto ir pagrįsti savo sprendimą.",
+            ["turint 20 € sudaryti 3 prekių krepšelį ir neviršyti biudžeto","iš kelių pirkinių variantų pasirinkti tuos, kuriems pakanka 15 €","apskaičiuoti, kiek pinigų liks po pasirinkto pirkinio","rasti krepšelį, kuris viršija biudžetą, ir jį pataisyti","palyginti du krepšelius ir nuspręsti, kuris geriau atitinka nurodytą biudžetą"],
+            "Čia svarbiausia ne vien atlikti veiksmą su eurais, o priimti sprendimą esant ribotam biudžetui.")
+        add("Poreikiai ir norai",
+            "Vaikas skiria būtinus poreikius nuo norų ir mokosi argumentuoti, kam pinigus verta skirti pirmiausia.",
+            ["suskirstyti pirkinius į poreikius ir norus","turint ribotą sumą pasirinkti, ką pirkti pirmiausia","paaiškinti, kodėl vienas pirkinys svarbesnis už kitą","rasti situaciją, kurioje verta dalį pinigų pasilikti","palyginti du sprendimus ir pasirinkti atsakingesnį"],
+            "Šis kampas ugdo finansinių prioritetų suvokimą, o ne tik skaičiavimo įgūdį.")
+        add("Kainų palyginimas, nuolaidos ir geresnis pasirinkimas",
+            "Vaikas lygina kainas ir pasiūlymus bei sprendžia, kuris variantas finansiškai naudingesnis.",
+            ["palyginti tos pačios prekės kainą dviejose parduotuvėse","apskaičiuoti, kiek sutaupoma pasirinkus pigesnį variantą","pasirinkti naudingesnį iš dviejų pasiūlymų","rasti, ar už turimą sumą galima nupirkti pasirinktą prekę","vyresniems – palyginti paprastą nuolaidą su pradine kaina"],
+            "Tema pereina nuo kainos perskaitymo prie realaus pasirinkimo ir finansinio pagrindimo.")
+        add("Pinigų skaičiavimas ir grąža kasdienėse situacijose",
+            "Vaikas praktiškai taiko eurų ir centų skaičiavimą pirkimo situacijose.",
+            ["sudėti kelių prekių kainas","apskaičiuoti grąžą sumokėjus 10 € ar 20 €","parinkti tinkamus monetų ir banknotų derinius nurodytai sumai","rasti klaidingai apskaičiuotą grąžą","sukurti kelis skirtingus būdus sumokėti tą pačią sumą"],
+            "Tai praktinis pinigų naudojimas: ne abstraktūs skaičiai, o pirkimo, mokėjimo ir grąžos situacijos.")
+    elif any(k in text for k in ["raid", "abėc", "skaity", "rašym", "rašyt", "skiemen", "žodžių"]):
         add("Raidės ar garso atpažinimas skirtinguose žodžiuose","Vaikas ieško konkrečios raidės ar garso ne pavieniui, o įvairiuose žodžiuose ir paveikslėlių pavadinimuose.",["rasti žodžius, prasidedančius nurodyta raide","atrinkti paveikslėlius pagal pirmą garsą","rasti raidę žodžio viduryje ar gale","išbraukti netinkamą paveikslėlį","sugrupuoti žodžius pagal garsą"],"Plečiama nuo paprasto raidės pažinimo į jos girdėjimą ir atpažinimą žodžiuose.")
         add("Raidės, skiemens, žodžio ir vaizdo siejimas","Vaikas jungia kelias kalbos reprezentacijas ir turi nustatyti, kas kam priklauso.",["sujungti žodį su paveikslėliu","pridėti trūkstamą pirmą raidę","parinkti skiemenį žodžiui užbaigti","sudaryti poras iš didžiosios ir mažosios raidės","rasti paveikslėlį pagal perskaitytą žodį"],"Čia svarbus ne vien simbolio atpažinimas, o ryšys tarp raidės, garso, skiemens, žodžio ir reikšmės.")
         add("Žodžių sudarymas ir konstravimas","Vaikas pats kuria žodį iš pateiktų raidžių ar skiemenų.",["sudėti žodį iš raidžių","sudėti žodį iš skiemenų","įrašyti trūkstamą raidę","sukeisti raides į teisingą tvarką","pagal paveikslėlį sudaryti jo pavadinimą"],"Vaikas nebe tik pasirenka atsakymą – pats konstruoja kalbos vienetą.")
@@ -1198,7 +1215,7 @@ def fast_detail_card(r,action_label=None,product=None):
     if action_label=="PERPUBLIKUOTI" and product is not None:
         st.write(f"**📣 Priemonė:** {product.pavadinimas} • **Kodas:** {product.kodas or 'nerastas'}")
         st.write(f"**Optimalu perpublikuoti:** {pub.strftime('%Y-%m-%d')}–{min(last,peak).strftime('%Y-%m-%d')} • **Paklausos pikas:** apie {peak.strftime('%Y-%m-%d')}")
-        aud="pedagogai + tėvai" if any(x in (str(r.tema)+" "+str(r.mikrotema)).lower() for x in ["raid","abėc","skaič","raš","skaity","sudėt","atimt","laikrod"]) else "pedagogai / pagal temą ir tėvai"
+        aud="pedagogai + tėvai" if any(x in (str(r.tema)+" "+str(r.mikrotema)).lower() for x in ["raid","abėc","skaič","rašym","rašyt","skaity","sudėt","atimt","laikrod","finans","biudž","pinig"]) else "pedagogai / pagal temą ir tėvai"
         st.write(f"**Auditorija:** {aud}")
         st.write(f"**FB kampas:** {fb_angle(r)}")
         if product.nuoroda:
@@ -1336,7 +1353,7 @@ with st.spinner("Radar skaičiuoja artimiausius paklausos signalus..."):
 df["prioritetas"]=df[["7d","14d","30d"]].max(axis=1)
 
 st.title("📡 Protuoliukas Trend Radar — V11.4.1")
-st.caption("V11.5 • sprendimų sistema • realus kūrimo laikas • fiksuoti pikai • konkretūs produktų briefai • SEO")
+st.caption("V11.5.1 • sprendimų sistema • realus kūrimo laikas • fiksuoti pikai • konkretūs produktų briefai • SEO")
 
 with st.sidebar:
     st.markdown("### ⚙️ Mano dabartinis kūrimo tempas")
@@ -2585,4 +2602,4 @@ with tabs[7]:
             for x in examples(r,5):
                 st.write("• "+x)
 
-st.caption("V11.5 • DABAR / NETRUKUS / ARTĖJA • realus kūrimo laikas • fiksuoti pikai • konkretūs produkto briefai • katalogo temos padengimas • SEO auditas.")
+st.caption("V11.5.1 • DABAR / NETRUKUS / ARTĖJA • realus kūrimo laikas • fiksuoti pikai • konkretūs produkto briefai • katalogo temos padengimas • SEO auditas.")
