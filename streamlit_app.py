@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta
 from urllib.parse import urljoin, urlparse
 from urllib.parse import quote_plus
 
-st.set_page_config(page_title="Protuoliukas Trend Radar V11.5", page_icon="📡", layout="wide")
+st.set_page_config(page_title="Protuoliukas Trend Radar V11.6", page_icon="📡", layout="wide")
 
 # --- V11.5 universal visual system: same readable palette in light/dark mode ---
 st.markdown("""
@@ -2051,7 +2051,7 @@ def copy_block(label, value, caption=None):
         st.caption(caption)
     st.code(str(value or ""), language=None)
 
-tabs=st.tabs(["🔥 DABAR","📅 NETRUKUS","🔭 ARTĖJA","💡 PRODUKTŲ PLANAI","🔎 SEO OPTIMIZATORIUS","📌 PINTEREST ĮKVĖPIMAS","📅 PROGŲ IDĖJOS","🌿 EVERGREEN"])
+tabs=st.tabs(["🔥 DABAR","📅 NETRUKUS","🔭 ARTĖJA","💡 PRODUKTŲ PLANAI","🔎 SEO OPTIMIZATORIUS","📌 PINTEREST ĮKVĖPIMAS","📅 PROGŲ IDĖJOS","🌿 EVERGREEN","💶 KAINOS SKAIČIUOKLĖ"])
 
 
 def days_to_peak(r,today):
@@ -2602,4 +2602,149 @@ with tabs[7]:
             for x in examples(r,5):
                 st.write("• "+x)
 
-st.caption("V11.5.1 • DABAR / NETRUKUS / ARTĖJA • realus kūrimo laikas • fiksuoti pikai • konkretūs produkto briefai • katalogo temos padengimas • SEO auditas.")
+
+
+def _eur(x):
+    return f"{x:.2f} €".replace(".", ",")
+
+def _psych_price(x):
+    # Kainą keliame į artimiausią .90 kainos tašką, niekada nemažiname apskaičiuotos ribos.
+    whole=math.floor(x)
+    candidate=whole+0.90
+    if candidate + 1e-9 < x:
+        candidate=whole+1.90
+    return round(candidate,2)
+
+def _cut_minutes_per_a4(cards):
+    # V11.6: pirmas REALUS kalibravimo taškas – 2 detalės/A4 = 2 min. rankomis žirklėmis.
+    # Kiti taškai kol kas yra konservatyvi kreivė ir vėliau gali būti keičiami pagal naujus matavimus.
+    pts=[(1,1.5),(2,2.0),(4,3.0),(6,4.0),(8,5.0),(12,6.5),(16,8.0),(20,9.5),(24,11.0),(30,13.0),(40,16.0)]
+    cards=max(1,int(cards))
+    if cards<=pts[0][0]: return pts[0][1]
+    for (x1,y1),(x2,y2) in zip(pts,pts[1:]):
+        if cards<=x2:
+            return y1+(cards-x1)*(y2-y1)/(x2-x1)
+    x1,y1=pts[-2]; x2,y2=pts[-1]
+    return y2+(cards-x2)*(y2-y1)/(x2-x1)
+
+def _pdf_price_score(pages, tasks, ptype, diversity, levels, extras):
+    # Preliminari Protuoliuko LT auditorijos formulė. Ji sąmoningai konservatyvi:
+    # lapų kiekis svarbus, bet kainą labiau kelia turinio įvairovė, lygiai ir papildoma vertė.
+    score=2.0
+    score += min(0.85, max(0,pages-4)*0.045)
+    if tasks:
+        score += min(0.55, max(0,tasks-10)*0.012)
+    type_add={"Kortelės":0.15,"Užduočių lapai":0.15,"Žaidimas / veiklų rinkinys":0.35,"Plakatai / dekoras":0.0,"Teminis rinkinys / bundle":0.70,"Kita":0.10}
+    score += type_add.get(ptype,0.10)
+    score += {"Viena pagrindinė mechanika":0.0,"Kelios skirtingos mechanikos":0.35,"Platesnė sistema / daug veiklų":0.65}.get(diversity,0)
+    score += {"Vienas lygis":0.0,"2–3 lygiai":0.30,"4+ lygiai":0.55}.get(levels,0)
+    score += min(0.60, len(extras)*0.12)
+    # Pavienei PDF priemonei >4 € nėra draudžiama, bet tam turi būti aiški papildoma vertė.
+    premium = ptype=="Teminis rinkinys / bundle" or diversity=="Platesnė sistema / daug veiklų" or levels=="4+ lygiai" or len(extras)>=3
+    if not premium:
+        score=min(score,4.0)
+    # Patogūs 0,50 € žingsniai; 4,00 € lieka natūralus aukštesnės pavienės priemonės taškas.
+    return round(score*2)/2
+
+with tabs[8]:
+    st.subheader("💶 Kainos skaičiuoklė")
+    st.caption("Kiek kainuoti ir ar verta gaminti? Fizinėms priemonėms saugome medžiagų ir rankų darbo vertę; PDF vertiname pagal turinio apimtį ir pirkėjui kuriamą vertę.")
+    price_mode=st.radio("Priemonės formatas",["✂️ Fizinė priemonė","📄 PDF priemonė"],horizontal=True,key="price_mode")
+
+    if price_mode=="✂️ Fizinė priemonė":
+        left,right=st.columns([1,1.25],gap="large")
+        with left:
+            st.markdown("### Įvesk tik tai, ką žinai")
+            sheets=st.number_input("Kiek A4 lapų?",min_value=1,value=21,step=1,key="pc_sheets")
+            cards=st.number_input("Kiek detalių / kortelių viename A4 lape?",min_value=1,value=2,step=1,key="pc_cards")
+            print_type=st.radio("Spausdinimas",["Spalvotas","Nespalvotas"],horizontal=True,key="pc_print")
+            st.caption("Laminavimas įskaičiuojamas automatiškai: 1 A4 lapas = 1 laminavimo vokas. Pakuotė neįtraukiama, nes ją dengia pristatymo mokestis.")
+            with st.expander("⚙️ Kainų ir darbo nustatymai"):
+                paper=st.number_input("A4 popierius, €/lapą",min_value=0.0,value=0.05,step=0.01,format="%.2f",key="pc_paper")
+                color_print=st.number_input("Spalvotas spausdinimas, €/A4",min_value=0.0,value=0.10,step=0.01,format="%.2f",key="pc_color")
+                bw_print=st.number_input("Nespalvotas spausdinimas, €/A4",min_value=0.0,value=0.05,step=0.01,format="%.2f",key="pc_bw")
+                pouch=st.number_input("Laminavimo vokas, €/A4",min_value=0.0,value=0.18,step=0.01,format="%.2f",key="pc_pouch")
+                labor_rate=st.number_input("Tavo aktyvaus darbo vertė, €/val.",min_value=0.0,value=15.0,step=1.0,format="%.2f",key="pc_labor")
+                electricity=st.number_input("Elektra, €/kWh",min_value=0.0,value=0.22,step=0.01,format="%.2f",key="pc_elec")
+                laminator_kw=st.number_input("Laminatoriaus galia, kW",min_value=0.0,value=0.35,step=0.05,format="%.2f",key="pc_kw")
+                overhead_pct=st.number_input("Bendrųjų sąnaudų rezervas, %",min_value=0.0,max_value=50.0,value=5.0,step=1.0,key="pc_overhead")
+                margin_pct=st.number_input("Tikslinė verslo marža, %",min_value=0.0,max_value=70.0,value=25.0,step=1.0,key="pc_margin")
+
+        print_cost=color_print if print_type=="Spalvotas" else bw_print
+        materials=sheets*(paper+print_cost+pouch)
+        prep_min=sheets*15/60
+        cut_per_sheet=_cut_minutes_per_a4(cards)
+        cut_min=sheets*cut_per_sheet
+        active_min=prep_min+cut_min
+        labor=active_min/60*labor_rate
+        # Elektra: ~0,99 min/A4 + 25 % realaus proceso rezervas. Įšilimas neapkraunamas kaip darbo laikas.
+        lam_elapsed_min=sheets*(29.7/30)*1.25
+        elec=laminator_kw*(lam_elapsed_min/60)*electricity
+        absolute=materials+elec+labor
+        cost_with_overhead=absolute*(1+overhead_pct/100)
+        recommended_raw=cost_with_overhead/max(0.01,1-margin_pct/100)
+        recommended=_psych_price(recommended_raw)
+        rational_low=_psych_price(max(absolute*1.20,absolute+2.0))
+        rational_high=_psych_price(max(recommended_raw,absolute*1.45))
+
+        with right:
+            st.markdown("### Rezultatas")
+            a,b,c=st.columns(3)
+            a.metric("Medžiagos",_eur(materials))
+            b.metric("Aktyvus darbas",f"{active_min:.0f} min")
+            c.metric("Darbo vertė",_eur(labor))
+            st.markdown(f"**Popierius:** {_eur(sheets*paper)}  •  **Spausdinimas:** {_eur(sheets*print_cost)}  •  **Laminavimo vokai:** {_eur(sheets*pouch)}  •  **Elektra:** {_eur(elec)}")
+            st.info(f"✂️ Karpymas: apie **{cut_per_sheet:.1f} min./A4**, iš viso **{cut_min:.0f} min.**  •  Įdėjimas į laminavimo vokus: **{prep_min:.1f} min.**")
+            st.markdown(f"### 🔻 Absoliutus minimumas: **{_eur(absolute)}**")
+            st.caption("Medžiagos + elektra + tavo aktyvus darbas. Žemiau šios kainos jau nebeišlaikoma nustatyta tavo darbo vertė.")
+            st.markdown(f"### 🟢 Racionalus kainos intervalas: **{_eur(rational_low)}–{_eur(rational_high)}**")
+            st.markdown(f"### ⭐ Siūloma startinė kaina: **{_eur(recommended)}**")
+            st.caption(f"Skaičiuojama su {overhead_pct:.0f} % bendrųjų sąnaudų rezervu ir {margin_pct:.0f} % tiksline marža. Šiuos dydžius gali keisti nustatymuose.")
+            profit_after_direct=recommended-absolute
+            st.success(f"Pardavus už {_eur(recommended)}, po tiesioginių gamybos sąnaudų ir tavo darbo atlygio liktų **{_eur(profit_after_direct)}** bendrosioms sąnaudoms ir verslo pelnui.")
+            if cards==2:
+                st.caption("✓ 2 detalės/A4 karpymo norma paremta realiu matavimu: 2 min./A4. Kitų kiekių karpymo normos kol kas prognozuojamos ir bus tikslinamos naujais matavimais.")
+            else:
+                st.caption("Karpymo laikas prognozuojamas pagal kalibravimo kreivę. Realus 2 detalių/A4 etalonas = 2 min./A4; kitus taškus vėliau tikslinsime realiais matavimais.")
+
+    else:
+        left,right=st.columns([1,1.25],gap="large")
+        with left:
+            st.markdown("### Apie PDF priemonę")
+            pages=st.number_input("Kiek A4 lapų?",min_value=1,value=21,step=1,key="pdf_pages")
+            has_tasks=st.checkbox("Priemonėje yra atskiros užduotys / kortelės",value=True,key="pdf_has_tasks")
+            tasks=st.number_input("Kiek užduočių / kortelių?",min_value=1,value=42,step=1,key="pdf_tasks",disabled=not has_tasks) if has_tasks else 0
+            ptype=st.selectbox("Priemonės tipas",["Kortelės","Užduočių lapai","Žaidimas / veiklų rinkinys","Plakatai / dekoras","Teminis rinkinys / bundle","Kita"],key="pdf_type")
+            diversity=st.selectbox("Turinio įvairovė",["Viena pagrindinė mechanika","Kelios skirtingos mechanikos","Platesnė sistema / daug veiklų"],key="pdf_div")
+            levels=st.selectbox("Sudėtingumo lygiai",["Vienas lygis","2–3 lygiai","4+ lygiai"],key="pdf_levels")
+            extras=st.multiselect("Papildoma vertė",["Atsakymai","Naudojimo instrukcija","Papildomi šablonai","Keli panaudojimo variantai","Redaguojami elementai"],key="pdf_extras")
+            st.caption("Produkto pavadinimo ir išankstinės kainos nereikia – skaičiuoklė turi veikti ir visiškai naujai priemonei.")
+
+        pdf_rec=_pdf_price_score(int(pages),int(tasks or 0),ptype,diversity,levels,extras)
+        low=max(1.5,pdf_rec-0.5)
+        high=pdf_rec+0.5
+        floor=max(1.5,pdf_rec-1.0)
+        premium_reason=ptype=="Teminis rinkinys / bundle" or diversity=="Platesnė sistema / daug veiklų" or levels=="4+ lygiai" or len(extras)>=3
+        with right:
+            st.markdown("### PDF kainos rekomendacija")
+            st.markdown(f"### ⭐ Rekomenduojama: **{_eur(pdf_rec)}**")
+            st.markdown(f"**🟢 Racionalus intervalas:** {_eur(low)}–{_eur(high)}")
+            st.markdown(f"**🔻 Žemiau nerekomenduojama:** {_eur(floor)}")
+            st.markdown("#### Kodėl tokia rekomendacija?")
+            reasons=[]
+            if pages>=20: reasons.append(f"didelė apimtis – {pages} A4 lapai")
+            elif pages>=10: reasons.append(f"vidutinė–didesnė apimtis – {pages} A4 lapų")
+            else: reasons.append(f"kompaktiška apimtis – {pages} A4 lapų")
+            if tasks: reasons.append(f"{tasks} atskiros užduotys / kortelės")
+            reasons.append(diversity.lower())
+            if levels!="Vienas lygis": reasons.append(levels.lower())
+            if extras: reasons.append("papildoma vertė: "+", ".join(x.lower() for x in extras))
+            for r in reasons: st.write("• "+r)
+            if pdf_rec>=4 and not premium_reason:
+                st.info("4 € čia laikoma aukštesne pavienės PDF priemonės kainų zona. Vien lapų kiekis kainos virš 4 € automatiškai nekelia.")
+            elif pdf_rec>4:
+                st.info("Kaina virš 4 € siūloma todėl, kad tai ne vien didelė apimtis – yra aiški papildoma vertė / platesnis rinkinys.")
+            st.warning("PDF formulė yra **preliminari V11.6 versija**. Ji sąmoningai konservatyvi ir bus kalibruojama pagal realius parduotuvės produktus bei pardavimus. Lapų skaičius nėra pagrindinis kainos kriterijus.")
+            st.caption("Orientyras iš realaus pavyzdžio: 21 A4 / 42 kortelės / viena pagrindinė mechanika – 4 € PDF kaina jau realiai perkama. Tai naudojame kaip vieną kalibravimo tašką, o ne universalią taisyklę.")
+
+st.caption("V11.6 • DABAR / NETRUKUS / ARTĖJA • KAINOS SKAIČIUOKLĖ • fizinės priemonės savikaina ir darbo vertė • preliminari PDF kainos rekomendacija • fiksuoti pikai • konkretūs produkto briefai • SEO auditas.")
