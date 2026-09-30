@@ -1,18 +1,22 @@
-# Protuoliukas Trend Radar V5
+# Protuoliuko paklausos radaras V11
 
-V5 yra naudojimui ir talpinimui paruošta V4 versija.
+Ši versija sukurta kaip savarankiškas, nemokamas Streamlit projektas be mokamų API.
 
-### Funkcijos
-- 7 / 30 / 90 d. temų radaras
-- KURTI / PLANUOTI / RUOŠTIS / REKLAMUOTI
-- konkrečios priemonių idėjos, formatas, apimtis ir publikavimo langas
-- Search Console / Google Trends failų importas
-- naujų nišų aptikimas
-- Windows vieno paspaudimo paleidimo failas
-- Streamlit Community Cloud paruošta struktūra
+## Kas pakeista
+- sutvarkytas šviesaus režimo kontrastas telefone: tekstas priverstinai tamsus ant balto fono;
+- mobiliesiems pritaikytos kortelės, KPI ir slenkama 30 dienų juosta;
+- DABAR / NETRUKUS / ARTĖJA / PLANAI;
+- temos formuluojamos konkrečiai, ne abstrakčiomis pedagoginėmis kryptimis;
+- prie kiekvienos temos pateikiami bent 4 konkretūs kuriamų priemonių pavyzdžiai;
+- fiksuotos piko datos – jos neslenka kartu su šiandienos data;
+- paieška ir filtravimas pagal sritį;
+- greitas TOP 5 kūrimo planas;
+- nereikia OPENAI_API_KEY ar kitos mokamos paslaugos.
 
-### Windows
-Dukart spustelėk `run_windows.bat` (Python turi būti įdiegtas).
+## Paleidimas
+```bash
+pip install -r requirements.txt
+streamlit run streamlit_app.py
+```
 
-### Internetinė versija
-Žr. `DEPLOY.md`.
+GitHub / Streamlit Cloud atveju pakanka repo turėti `streamlit_app.py` ir `requirements.txt`.
