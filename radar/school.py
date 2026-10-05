@@ -100,3 +100,29 @@ def summary(today: date) -> dict:
     out["verified"] = y.get("verified") if y else None
     out["sources"] = y.get("sources", []) if y else []
     return out
+
+
+def timeline(today: date) -> list:
+    """Artimiausi mokyklinio ritmo taškai, naudingi planuojant produktų kūrimą ir reklamą."""
+    yk, y = year_for(today)
+    if not y:
+        return []
+    items = []
+    start = _d(y.get("start"))
+    if start:
+        items.append({"date": start, "name": "Mokslo metų pradžia", "detail": f"{yk} m. m. · planavimo sezono pradžia"})
+    for b in y.get("breaks", []):
+        s, e = _d(b["start"]), _d(b["end"])
+        last = classroom_date(s - timedelta(days=1))
+        items.append({"date": last, "name": f"Paskutinė mokymosi diena prieš: {b['name']}", "detail": f"Atostogos {s.strftime('%m-%d')}–{e.strftime('%m-%d')}"})
+        items.append({"date": s, "name": b["name"], "detail": f"{s.strftime('%m-%d')}–{e.strftime('%m-%d')} · mokinių pertrauka"})
+    sem = _d(y.get("semester1_end_approx"))
+    if sem:
+        items.append({"date": sem, "name": "I pusmečio pabaiga (apytikslė)", "detail": "Refleksijos, įsivertinimo ir kartojimo priemonėms aktualus laikotarpis; tikslią datą nustato mokykla."})
+    e14 = _d(y.get("year_end_grades_1_4_approx"))
+    if e14:
+        items.append({"date": e14, "name": "Mokslo metų pabaiga 1–4 kl. (apytikslė)", "detail": "Metų refleksijai, atsisveikinimo ir vasaros priemonėms."})
+    e58 = _d(y.get("year_end_grades_5_8_approx"))
+    if e58:
+        items.append({"date": e58, "name": "Mokslo metų pabaiga 5–8 kl. (apytikslė)", "detail": "Kartojimo, įsivertinimo ir vasaros planavimo laikotarpis."})
+    return [x for x in sorted(items, key=lambda z: z["date"]) if x["date"] >= today - timedelta(days=30)]

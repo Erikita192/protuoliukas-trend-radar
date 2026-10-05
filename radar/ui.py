@@ -40,7 +40,7 @@ div[role="radiogroup"] label:has(input:checked){background:#E3F1EA;border-color:
 [data-testid="stMetricValue"],[data-testid="stMetricLabel"]{color:var(--ink)!important}
 .pf .hero{display:flex;align-items:center;gap:16px;border:1px solid var(--line);border-radius:22px;padding:18px 22px;background:linear-gradient(135deg,#FFFFFF,#F4EFE6);margin-bottom:14px}
 .pf .mark{width:54px;height:54px;border-radius:16px;background:var(--brand);color:#F7F1E3!important;display:flex;align-items:center;justify-content:center;font:700 30px 'Fraunces',Georgia,serif}
-.pf .logoimg{height:54px;max-width:220px;object-fit:contain}
+.pf .logoimg{height:72px;max-width:330px;object-fit:contain}
 .pf .brand{font:700 1.45rem 'Fraunces',Georgia,serif;letter-spacing:.14em;color:var(--brand)!important;line-height:1}
 .pf .tag{color:var(--muted)!important;font-size:.88rem;margin-top:5px}
 .pf .card{border:1px solid var(--line);border-radius:18px;padding:16px 18px;margin:10px 0;background:var(--card);box-shadow:0 1px 2px rgba(31,77,69,.04)}

@@ -16,6 +16,7 @@ def _fn(name):
             n = a[0] if isinstance(a[0], int) else len(a[0]); return [_Ctx() for _ in range(n)]
         if name == "tabs": return [_Ctx() for _ in a[0]]
         if name in ("expander", "empty", "container", "spinner"): return _Ctx()
+        if name == "fragment": return lambda fn: fn
         if name == "radio": 
             o = a[1]; i = k.get("index", 0); return o[i]
         if name == "selectbox": return a[1][0]
