@@ -156,7 +156,7 @@ def left_text(t) -> str:
 def topic_card(r, today: date, open_ideas: bool = False) -> str:
     tp, t = r.topic, r.timing
     ph = PHASE_TEXT.get(t.phase, "")
-    kind_lbl = "Proga" if t.kind == "event" else ("Aktualumo langas" if t.kind == "window" else "Aktualumas")
+    kind_lbl = "Proga" if t.kind == "event" else ("Tikėtinas pagrindinis pikas" if t.kind == "window" else "Aktualumas")
     pills = [f'<span class="pill {PHASE_CLASS.get(t.phase,"")}">{esc(ph)}</span>']
     fc, ft = FEAS_PILL[r.feas]
     pills.append(f'<span class="pill {fc}">{ft}</span>')
@@ -174,7 +174,7 @@ def topic_card(r, today: date, open_ideas: bool = False) -> str:
         fc2, ft2 = FEAS_PILL[e.code]
         ideas += (f'<div class="idea"><b>{esc(e.idea.title)}</b><br>{esc(e.idea.desc)}'
                   f'<span class="sk"><i>Lavina:</i> {esc(e.idea.skill)}</span>'
-                  f'<span class="sk"><i>Gamyba:</i> {esc(effort_label(e.idea.effort))} · {esc(e.msg)}</span></div>')
+                  f'<span class="sk"><i>Gamyba:</i> {esc(effort_label(e.idea.effort))} · {"spėsi iki piko" if e.code != "LATE" else "iki šio piko nebespėsi"}</span></div>')
     # Pirmas konkretus pavyzdys visada matomas: tema negali likti vien abstraktus pavadinimas.
     first = r.ideas[0] if r.ideas else None
     preview = (f'<div class="why"><b>💡 KONKRETUS PAVYZDYS: {esc(first.idea.title)}</b><br>{esc(first.idea.desc)}'

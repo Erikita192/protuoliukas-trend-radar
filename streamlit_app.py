@@ -21,7 +21,7 @@ inject_css(st)
 catalog = cat.load_catalog()
 sig = sg.load_signals()
 
-with st.expander("🗓️ Planavimo data (neprivaloma)"):
+with st.sidebar.expander("🗓️ Planavimo data", expanded=False):
     use_sim = st.checkbox("Peržiūrėti radarą kitai datai", value=False)
     sim = st.date_input("Data", value=today_vilnius(), disabled=not use_sim)
 TODAY = sim if use_sim else today_vilnius()
@@ -39,7 +39,7 @@ SC = school.summary(TODAY)
 meta = catalog["meta"]
 last_checked = meta.get("last_checked")
 n_active = len(cat.active_products(catalog))
-render(st, header("Paklausos radaras · V18 · ką kurti, ką reklamuoti ir ką publikuoti"))
+render(st, header("Paklausos radaras · V19 · ką kurti, ką reklamuoti ir ką publikuoti"))
 
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Naujų idėjų temų", len(TOPICS))
@@ -53,7 +53,7 @@ if SC.get("next_break"):
 if not SC.get("calendar"):
     st.warning("Šiems mokslo metams oficialaus kalendoriaus faile nėra – progų datos koreguojamos tik pagal savaitgalius. Papildyk data/school_calendar.json.")
 
-tabs = st.tabs(["📋 ŠIĄ SAVAITĘ", "🆕 NAUJOS IDĖJOS", "📆 PROGOS", "🛍️ ESAMI PRODUKTAI", "📣 14 D. FB PLANAS", "⚙️ DUOMENYS"])
+tabs = st.tabs(["📋 ŠIĄ SAVAITĘ", "🆕 NAUJOS IDĖJOS", "📆 PROGOS", "🛍️ ESAMI PRODUKTAI", "📣 14 D. FB PLANAS"])
 
 
 # ------------------------------------------------------------------ helpers
@@ -206,6 +206,7 @@ with tabs[2]:
     hz = st.radio("Horizontas", [7, 14, 30, 60, 120], index=3, horizontal=True, format_func=lambda x: f"per {x} d.")
     ups = [u for u in upcoming_events(TODAY, 400) if u["days"] <= hz]
     st.markdown(f"### Artėjančios progos · {len(ups)}")
+    st.caption(f"Kalendoriuje iš viso: {len(EVENTS)} progų. Žemiau rodomos tik tos, kurios patenka į pasirinktą {hz} d. horizontą.")
     st.caption("Atskirta PROGOS DATA, NAUDOJIMO KLASĖJE DATA (pagal mokyklų atostogas) ir REKOMENDUOJAMAS PUBLIKAVIMAS.")
     for u in ups:
         t, ev = u["t"], u["ev"]
@@ -314,68 +315,3 @@ with tabs[4]:
                        f"Nuorodą į produktą dėk komentare.")
                 st.text_area("FB juodraščio karkasas", draft, height=145, key="fb_"+str(d)+str(p_.get('key','')))
                 st.caption("Prieš publikuojant tekstą verta suasmeninti pagal konkretaus produkto turinį.")
-
-# ------------------------------------------------------------------ DUOMENYS
-with tabs[5]:
-    st.markdown("### Duomenų būklė ir aprėptis")
-    d = meta.get("last_diag") or {}
-    if d:
-        k = st.columns(4)
-        k[0].metric("Perskaityta puslapių", d.get("pages_fetched", 0))
-        k[1].metric("Nepavykę", d.get("pages_failed", 0))
-        k[2].metric("Sitemap nuorodų", d.get("sitemap_urls", 0))
-        k[3].metric("Kategorijų / sąrašų", d.get("listings", 0))
-        st.caption(f"Pilnas nuskaitymas: {'taip' if d.get('complete') else 'ne (' + str(d.get('stop_reason')) + ')'} · sitemap nuorodų nepasiektų: {d.get('sitemap_unfetched', 0)}")
-        if d.get("category_mismatch"):
-            st.warning("Kategorijos, kuriose svetainė deklaruoja daugiau produktų, nei surinkta:")
-            st.dataframe(d["category_mismatch"], use_container_width=True)
-        if d.get("uncertain"):
-            with st.expander(f"Abejotini puslapiai ({len(d['uncertain'])}) – gali būti produktai, kurių parseris nepatvirtino"):
-                st.dataframe(d["uncertain"], use_container_width=True)
-        if d.get("errors"):
-            with st.expander(f"Klaidos ({len(d['errors'])})"):
-                st.dataframe(d["errors"], use_container_width=True)
-    else:
-        st.info("Diagnostikos dar nėra – paleisk nuskaitymą.")
-
-    st.markdown("#### 🔎 Testuoti vieną produkto nuorodą")
-    st.caption("Įklijuok produkto URL – pamatysi, ką parseris iš jo išskaito. Jei kažko trūksta, tai parodo, ką reikia pataisyti.")
-    u = st.text_input("Produkto URL", placeholder="https://mokymopriemones.eu/...")
-    if u and st.button("Tikrinti nuorodą"):
-        try:
-            r = make_session(CrawlConfig()).get(u, timeout=(8, 20))
-            pr_ = parse_page(r.url, r.text, {"mokymopriemones.eu"}, datetime.now().isoformat(timespec="seconds"))
-            st.write(f"Puslapis klasifikuotas kaip: **{pr_.kind}**" + (" (abejotina)" if pr_.uncertain else ""))
-            st.json(pr_.product or {"pastaba": "produktu nepripažintas"})
-        except Exception as e:
-            st.error(f"Nepavyko: {type(e).__name__}: {e}")
-
-    st.markdown("#### 📥 Ateities duomenys (GA4 / GSC / pardavimai / Facebook istorija)")
-    st.caption("Šiuo metu: " + (f"įkelta signalų {len(sig)} produktams." if sig else "NĖRA prijungtų duomenų – radaras jų neapsimeta turįs."))
-    up = st.file_uploader("CSV (code arba url, organic_clicks_7d, organic_clicks_prev_7d, views_7d, views_prev_7d, sales_30d, last_promoted)", type=["csv"])
-    if up is not None and st.button("Išsaugoti signalus"):
-        n = sg.save_signals_text(up.getvalue().decode("utf8-sig"))
-        st.cache_resource.clear(); st.success(f"Išsaugota {n} eilučių."); st.rerun()
-    st.download_button("Atsisiųsti signalų CSV šabloną", "code,organic_clicks_7d,organic_clicks_prev_7d,views_7d,views_prev_7d,sales_30d,last_promoted\nP171,42,30,120,100,3,2026-09-20\n", "signals_example.csv")
-
-    st.markdown("#### 💾 Katalogo kopija")
-    st.download_button("Atsisiųsti catalog.json", json.dumps(catalog, ensure_ascii=False), "catalog.json")
-    up2 = st.file_uploader("Įkelti catalog.json", type=["json"], key="catup")
-    if up2 is not None and st.button("Atkurti katalogą iš failo"):
-        try:
-            c_ = json.loads(up2.getvalue().decode("utf8"))
-            assert "products" in c_
-            cat.save_catalog(c_); st.cache_resource.clear(); st.success("Katalogas atkurtas."); st.rerun()
-        except Exception as e:
-            st.error(f"Netinkamas failas: {e}")
-
-    with st.expander("📐 Kaip skaičiuojami balai ir datos"):
-        st.markdown("""
-**Datų pagrindas.** Švenčių datos skaičiuojamos kiekvienais metais (Velykos, Užgavėnės, Advento pradžia, Motinos / Tėvo diena). **Naudojimo klasėje data** nustatoma pagal ŠMSM mokinių atostogas: jei proga patenka į atostogas ar savaitgalį, medžiaga klasėje naudojama iki paskutinės mokymosi dienos (pvz., Vėlinės 11-02 → iki 10-30).
-
-**Ugdymo programos.** Bendrosios programos (2022 m.) nenurodo mėnesių, jos skirstomos pagal 2 metų koncentrus. Mėnesius lemia vadovėliai ir mokytojų ilgalaikiai planai, kurie skiriasi. Todėl kiekvienas aktualumo langas pažymėtas **pagrindu** (ŠMSM kalendorius / vadovėlių seka / gamtos sezonas / prielaida) ir **patikimumu**. Savo leidyklos seką gali įrašyti į `data/ideas.json` (laukas `timing.windows`).
-
-**Idėjų galimybių balas** = 0,6 × potencialas + 0,4 × laiko faktorius, sumažintas, jei idėjos nespėsi pagaminti. **Reklamos balas** = stipriausias laiko varomasis (proga / langas / tęstinė tema) + naujumas + neseniai atnaujintas puslapis + savaitės rotacija (tik tęstiniams) ± signalai (GA4 / GSC / pardavimai / paskutinė reklama), jei jie įkelti. Abu balai yra planavimo heuristikos, ne išmatuota Google paklausa.
-
-**Temos atpažinimas.** Produktas siejamas su tema pagal pavadinimą ar kategoriją (stipru) arba bent 2 skirtingus raktažodžius aprašyme (silpna). Pavienis žodis aprašyme nieko nelemia.
-""")

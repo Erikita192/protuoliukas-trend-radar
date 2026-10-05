@@ -327,14 +327,15 @@ def _build_product(soup, url, canonical, ld, ld_prod, h1t, now) -> dict:
     if price and not currency:
         currency = "EUR"
     attrs = extract_attributes(soup)
+    # Protuoliuko produkto numeris pavadinime (pvz. P213) yra patikimesnis už
+    # bendrus puslapio atributus, kuriuose gali pasitaikyti kiekiai ar vidiniai ID.
+    m_title = re.search(r"\b(P\s*[-–]?\s*\d{1,5})\b", title or "", re.I)
+    if m_title:
+        code = m_title.group(1)
     if not code:
         code = pick_attr(attrs, "code")
     if not code:
-        m = re.search(r"(?:produkto|prekės|prekes)?\s*(?:kodas|nr\.?)\s*[:\-]?\s*([A-Za-z]{0,3}[\s\-]?\d{1,6})\b", _txt(soup.find("main") or soup)[:6000], re.I)
-        if m:
-            code = m.group(1)
-    if not code:
-        m = re.search(r"\b(P\s?-?\d{1,5})\b", title)
+        m = re.search(r"(?:produkto|prekės|prekes)?\s*(?:kodas|nr\.?)\s*[:\-]?\s*(P?[\s\-]?\d{1,6})\b", _txt(soup.find("main") or soup)[:6000], re.I)
         if m:
             code = m.group(1)
     code = re.sub(r"[\s\-]", "", code).upper()[:20]

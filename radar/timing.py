@@ -205,6 +205,10 @@ EVENTS = {e.key: e for e in [
     EventDef("draugo_diena", "Draugo diena", _d(11,29), 14, 5, approx=True, note="Populiari teminė diena – skirtinguose kalendoriuose gali skirtis"),
     EventDef("arbatos_diena", "Tarptautinė arbatos diena", _d(12,15), 12, 4, approx=True, note="Senuose kalendoriuose dažnai 12-15; JT Tarptautinė arbatos diena minima 05-21"),
     EventDef("ziemos_saulegriza", "Žiemos saulėgrįža", _d(12,21), 14, 5, approx=True, note="Astronominė data gali svyruoti apie gruodžio 21–22 d."),
+    EventDef("kompozitoriaus_diena", "Kompozitoriaus diena", _d(1,15), 12, 4, approx=True, note="Teminė edukacinė diena iš pateikto kalendoriaus – prieš kampaniją verta pasitikrinti konkrečių metų minėjimą"),
+    EventDef("svietimo_diena", "Tarptautinė švietimo diena", _d(1,24), 16, 5),
+    EventDef("tigru_diena", "Tarptautinė tigrų diena", _d(7,29), 12, 4),
+    EventDef("gandru_isskridimo_diena", "Gandrų išskridimo diena", _d(8,24), 14, 5, approx=True, note="Tradicinė / gamtos kalendoriaus data"),
     EventDef("mokslo_metu_pabaiga", "Mokslo metų pabaiga (1–4 kl.)", _d(6, 3), 28, 10, approx=True,
              note="Apytikslė data (2026–27 m. m. – apie 06-03, 5–8 kl. apie 06-10); tikslią nustato mokykla"),
 ]}
@@ -333,7 +337,7 @@ def compute_timing(spec: dict, today: date, for_new: bool = False) -> Timing:
             ph = "LAST" if (e - today).days <= 10 else "ACTIVE"
         else:
             ph = _phase_before(today, pub_s)
-        return Timing("window", "Aktualumo langas", s, e, pub_s, pub_e, ph, False, spec.get("note", ""), today,
+        return Timing("window", "Tikėtinas pagrindinis pikas", s, e, pub_s, pub_e, ph, False, spec.get("note", ""), today,
                       basis=spec.get("basis", "assumption"), confidence=spec.get("confidence", "low"))
     return Timing("evergreen", "Tęstinė tema", phase="EVERGREEN", today=today)
 
@@ -379,15 +383,15 @@ def feasibility(t: Timing, effort: str):
     # window
     avail = (t.end - t.today).days if t.today >= t.start else (t.end - t.today).days
     if t.phase == "FAR" and t.today > t.end:
-        return "LATE", "Langas praėjo."
+        return "LATE", "Pagrindinis pikas praėjo."
     if t.phase in ("PUBLISH_NOW", "PREP", "UPCOMING", "FAR"):
         ideal = (t.pub_end - t.today).days
         if ideal >= need:
             return "OK", f"Dar realu pagaminti: ideali publikavimo pradžia – {fmt(t.pub_start, t.today)}, langas iki {fmt(t.end, t.today)}."
-        return ("TIGHT", f"Langas dar trunka {avail} d. – publikuok kuo greičiau.") if avail >= need else ("LATE", "Langas beveik baigėsi.")
+        return ("TIGHT", f"Pagrindinis pikas dar trunka {avail} d. – publikuok kuo greičiau.") if avail >= need else ("LATE", "Langas beveik baigėsi.")
     if avail >= need + 2:
-        return "TIGHT", f"Langas dar trunka {avail} d. – pavėluota, bet dar tinka."
-    return "LATE", f"Lango pabaigai liko {avail} d. – per vėlu naujai priemonei."
+        return "TIGHT", f"Pagrindinis pikas dar trunka {avail} d. – pavėluota, bet dar tinka."
+    return "LATE", f"Piko pabaigai liko {avail} d. – per vėlu naujai priemonei."
 
 
 def timing_score(t: Timing) -> int:

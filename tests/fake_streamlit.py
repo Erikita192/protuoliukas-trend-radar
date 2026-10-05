@@ -33,6 +33,7 @@ def _fn(name):
 class FakeSt(types.ModuleType):
     session_state = {}
     def __getattr__(self, n):
+        if n == "sidebar": return _Ctx()
         if n == "cache_resource":
             def deco(*a, **k):
                 if a and callable(a[0]): return a[0]
