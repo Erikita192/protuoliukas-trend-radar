@@ -1,6 +1,7 @@
 """PROTUOLIUKO PAKLAUSOS RADARAS · V17"""
 from datetime import date, datetime, timedelta
 import json
+import threading
 
 import streamlit as st
 
@@ -38,7 +39,7 @@ SC = school.summary(TODAY)
 meta = catalog["meta"]
 last_checked = meta.get("last_checked")
 n_active = len(cat.active_products(catalog))
-render(st, header("Paklausos radaras · V17 · ką kurti, ką reklamuoti ir ką publikuoti"))
+render(st, header("Paklausos radaras · V18 · ką kurti, ką reklamuoti ir ką publikuoti"))
 
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Naujų idėjų temų", len(TOPICS))
@@ -52,7 +53,7 @@ if SC.get("next_break"):
 if not SC.get("calendar"):
     st.warning("Šiems mokslo metams oficialaus kalendoriaus faile nėra – progų datos koreguojamos tik pagal savaitgalius. Papildyk data/school_calendar.json.")
 
-tabs = st.tabs(["📋 ŠIĄ SAVAITĘ", "🆕 NAUJOS IDĖJOS", "📆 PROGOS", "🛍️ ESAMI PRODUKTAI", "🗂️ DARBO EILĖ", "📣 14 D. FB PLANAS", "⚙️ DUOMENYS"])
+tabs = st.tabs(["📋 ŠIĄ SAVAITĘ", "🆕 NAUJOS IDĖJOS", "📆 PROGOS", "🛍️ ESAMI PRODUKTAI", "📣 14 D. FB PLANAS", "⚙️ DUOMENYS"])
 
 
 # ------------------------------------------------------------------ helpers
@@ -71,6 +72,25 @@ def run_update(resume=False):
     st.rerun()
 
 
+def _background_catalog_update():
+    # Kiekviena nauja vartotojo sesija inicijuoja realaus katalogo patikrą.
+    # Sena gera kopija lieka rodoma, kol atnaujinimas vyksta fone.
+    try:
+        cat.update_catalog()
+    except Exception:
+        pass
+
+
+def ensure_background_refresh():
+    if not st.session_state.get("_catalog_refresh_started"):
+        st.session_state["_catalog_refresh_started"] = True
+        st.session_state["_catalog_refresh_started_at"] = now_vilnius().isoformat(timespec="minutes")
+        threading.Thread(target=_background_catalog_update, daemon=True, name="protuoliukas-catalog-refresh").start()
+
+
+ensure_background_refresh()
+
+
 def product_mini(z):
     p, pr = z
     code = f"{p['code']} · " if p.get("code") else ""
@@ -80,38 +100,44 @@ def product_mini(z):
 # ------------------------------------------------------------------ ŠIĄ SAVAITĘ
 with tabs[0]:
     W = weekly(TODAY, TOPICS, ANALYSED)
+    ev7 = upcoming_events(TODAY, 7)
+    create_rows = sorted(W["create"], key=lambda r: (not r.quick_ok, -r.score))[:15]
+    product_actions = len({(z[0].get("key") or z[0].get("url")) for z in (W["facebook"] + W["home"] + W["stories"] + W["last"])})
+    total_actions = len(create_rows) + len(ev7) + product_actions
     st.markdown("### Šią savaitę")
-    st.caption(f"Suvestinė datai {TODAY.isoformat()}. Spausk eilutes, kad išskleistum konkrečius produktus ir temas.")
+    st.caption("Bendras veiksmų centras: ką kurti + kokios progos artėja + ką iš esamų produktų reklamuoti. Esamų produktų katalogas kiekvienoje naujoje sesijoje atsinaujina fone.")
+    c1,c2,c3,c4=st.columns(4)
+    c1.metric("🆕 Kurti / ruošti", len(create_rows))
+    c2.metric("📆 Progos per 7 d.", len(ev7))
+    c3.metric("🛍️ Esamų produktų veiksmai", product_actions if ANALYSED else "atnaujinama…")
+    c4.metric("🎯 Veiksmų iš viso", total_actions if ANALYSED else len(create_rows)+len(ev7))
+
+    with st.expander(f"🆕 Naujos priemonės, kurias verta kurti · {len(create_rows)}", expanded=True):
+        st.caption("Temos, kurias pagal laiką dar realu spėti. Pirmiausia rodomos greitos ir aukšto prioriteto idėjos.")
+        render(st, "".join(mini_row(r.score, r.topic.name, f"{r.ideas[0].idea.title if r.ideas else ''} · publikuoti {fmt_range(r.timing.pub_start, r.timing.pub_end, TODAY)} · {r.feas_msg}") for r in create_rows) or "Nėra.")
+
+    with st.expander(f"📆 Artėjančios progos per 7 d. · {len(ev7)}", expanded=bool(ev7)):
+        if ev7:
+            render(st, "".join(mini_row(max(1,100-min(70,x['days']*5)), x['ev'].name, f"{fmt_range(x['t'].start,x['t'].end,TODAY)} · po {x['days']} d. · publikuoti {fmt_range(x['t'].pub_start,x['t'].pub_end,TODAY)}") for x in ev7))
+        else: st.write("Per artimiausias 7 dienas kalendoriuje nėra įtrauktų progų.")
+
     if not ANALYSED:
-        st.info("Esamų produktų dar nėra – atidaryk skirtuką „ESAMI PRODUKTAI“ ir paleisk pirmą nuskaitymą. Naujų idėjų dalis veikia jau dabar.")
-    blocks = [
-        ("📘 Facebook", W["facebook"], "produktai", "Produktai, kuriuos verta rodyti Facebook šią savaitę (ne daugiau 2 iš tos pačios temos)."),
-        ("🏠 Pagrindinis puslapis", W["home"], "produktai", "Verta iškelti į pagrindinį puslapį."),
-        ("📱 Stories", W["stories"], "produktai", "Produktai su aiškiu Stories turiniu."),
-        ("⚡ Paskutinė proga", W["last"], "produktai", "Proga čia pat – reklamuoti šiandien."),
-        ("⏳ Pikas baigiasi (≤10 d.)", W["ending"], "produktai", "Čia verta nustatyti nustojimo reklamuoti datą."),
-    ]
-    cols = st.columns(len(blocks))
-    for col, (lbl, items, _, _) in zip(cols, blocks):
-        col.metric(lbl, len(items))
-    for lbl, items, _, hint in blocks:
-        with st.expander(f"{lbl} · {len(items)}"):
-            st.caption(hint)
-            if items:
-                render(st, "".join(product_mini(z) for z in items))
-            else:
-                st.write("Šiuo metu nėra.")
-    with st.expander(f"🆕 Naujos priemonės, kurias verta kurti · {len(W['create'])} (iš jų greitų: {len(W['quick'])})", expanded=True):
-        st.caption("Tik temos, kurias dar realu spėti. Greitos (🟢) pirma – jas galima pagaminti šiandien.")
-        rows = sorted(W["create"], key=lambda r: (not r.quick_ok, -r.score))[:15]
-        render(st, "".join(mini_row(r.score, r.topic.name, f"{r.timing.label if r.timing.kind=='event' else 'Aktualumo langas'} · publikuoti {fmt_range(r.timing.pub_start, r.timing.pub_end, TODAY)} · {r.feas_msg}") for r in rows) or "Nėra.")
+        st.info("🛍️ Esamų produktų katalogas šiuo metu atnaujinamas fone. Naujų idėjų ir progų rekomendacijos nuo jo nepriklauso.")
+    else:
+        blocks = [
+            ("📘 Facebook", W["facebook"], "Esami produktai, kuriuos verta rodyti Facebook šią savaitę."),
+            ("🏠 Pagrindinis puslapis", W["home"], "Esami produktai, kuriuos verta iškelti pagrindiniame puslapyje."),
+            ("📱 Stories", W["stories"], "Esami produktai su aiškiu Stories kampu."),
+            ("⚡ Paskutinė proga", W["last"], "Produktai, kurių reklamos langas baigiasi."),
+        ]
+        for lbl,items,hint in blocks:
+            with st.expander(f"{lbl} · {len(items)}"):
+                st.caption(hint)
+                render(st, "".join(product_mini(z) for z in items) or "Šiuo metu nėra.")
+
     with st.expander(f"🚫 Ko dabar geriau NEDARYTI · {len(W['avoid_new']) + len(W['stop_now'])}"):
-        st.caption("Naujai kurti per vėlu arba produkto klasės laikas jau baigėsi.")
         render(st, "".join(mini_row(r.score, "Nekurti naujos: " + r.topic.name, r.feas_msg) for r in W["avoid_new"]) +
                "".join(mini_row(z[1]["score"], "Nebereklamuoti: " + z[0]["title"], z[1]["why"], z[0]["url"]) for z in W["stop_now"]) or "Nieko.")
-    if W["too_far"]:
-        with st.expander("🔭 Dar per anksti (>90 d. iki publikavimo)"):
-            render(st, "".join(mini_row(r.score, r.topic.name, f"kitas pikas {fmt(r.timing.start, TODAY)}") for r in W["too_far"]))
 
 # ------------------------------------------------------------------ NAUJOS IDĖJOS
 with tabs[1]:
@@ -200,9 +226,10 @@ with tabs[2]:
 with tabs[3]:
     st.markdown("### Esami produktai")
     st.caption("Tik realiai parduotuvėje rasti produktai. Čia nekuriamos naujos idėjos – tik sprendimas, ką reklamuoti.")
-    if not catalog["products"] and not st.session_state.get("_scanned"):
-        st.info("Katalogo dar nėra. Pirmas nuskaitymas gali užtrukti kelias minutes.")
-        run_update()
+    if not catalog["products"]:
+        st.info("Katalogo dar nėra. Automatinis pirmas nuskaitymas jau paleistas fone; po kelių minučių perkrauk puslapį. Rankinį mygtuką gali naudoti, jei nori palaukti atnaujinimo šiame lange.")
+    else:
+        st.caption(f"🔄 Automatinis asortimento patikrinimas fone paleistas šios sesijos pradžioje: {st.session_state.get('_catalog_refresh_started_at','—')}. Kol jis vyksta, rodomas paskutinis geras katalogas.")
     a, b, c = st.columns([1.2, 1.2, 2])
     if a.button("🔄 ATNAUJINTI ASORTIMENTĄ", use_container_width=True):
         run_update()
@@ -255,29 +282,8 @@ with tabs[3]:
             st.session_state["lim"] = lim + 30
             st.rerun()
 
-# ------------------------------------------------------------------ DARBO EILĖ
-with tabs[4]:
-    st.markdown("### Gamybos eilė")
-    st.caption("Pasirink, ką realiai gaminsi. Būsena saugoma šioje naršyklės sesijoje; tai darbo lenta, o ne naujas paklausos balas.")
-    if "queue" not in st.session_state: st.session_state["queue"] = {}
-    candidates = [r for r in TOPICS if r.bucket in ("NOW","SOON","UPCOMING") and r.feas != "LATE"][:40]
-    options = {f"{r.score} · {r.topic.name}": r for r in candidates}
-    pick = st.multiselect("Įtraukti temas į gamybos eilę", list(options), default=[k for k in st.session_state["queue"] if k in options])
-    for k in pick:
-        st.session_state["queue"].setdefault(k, "💡 Idėja")
-    for k in list(st.session_state["queue"]):
-        if k not in pick: st.session_state["queue"].pop(k, None)
-    if not pick: st.info("Eilė tuščia. Pasirink temas iš sąrašo aukščiau.")
-    for k in pick:
-        r=options[k]
-        c1,c2=st.columns([2.2,1])
-        with c1:
-            st.markdown(f"**{r.topic.name}** · {r.score}/100  \n{r.ideas[0].idea.title if r.ideas else ''}  \n{r.feas_msg}")
-        with c2:
-            st.session_state["queue"][k]=st.selectbox("Būsena", ["💡 Idėja","✏️ Kuriama","🎨 Dizainas","🔎 Tikrinama","✅ Paruošta","🚀 Publikuota"], index=max(0,["💡 Idėja","✏️ Kuriama","🎨 Dizainas","🔎 Tikrinama","✅ Paruošta","🚀 Publikuota"].index(st.session_state["queue"][k])), key="q_"+r.topic.id, label_visibility="collapsed")
-
 # ------------------------------------------------------------------ 14 D. FB PLANAS
-with tabs[5]:
+with tabs[4]:
     st.markdown("### 14 dienų Facebook planas")
     st.caption("Automatinis planas iš REALIŲ parduotuvės produktų. Tekstai – juodraščiai/redakciniai kampai, ne automatinis publikavimas.")
     if not ANALYSED:
@@ -310,7 +316,7 @@ with tabs[5]:
                 st.caption("Prieš publikuojant tekstą verta suasmeninti pagal konkretaus produkto turinį.")
 
 # ------------------------------------------------------------------ DUOMENYS
-with tabs[6]:
+with tabs[5]:
     st.markdown("### Duomenų būklė ir aprėptis")
     d = meta.get("last_diag") or {}
     if d:
