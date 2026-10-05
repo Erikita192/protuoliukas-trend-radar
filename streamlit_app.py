@@ -1,54 +1,321 @@
+"""PROTUOLIUKO PAKLAUSOS RADARAS · V16"""
+from datetime import date, datetime, timedelta
+import json
+
 import streamlit as st
-from datetime import date,timedelta
-st.set_page_config(page_title="Protuoliuko paklausos radaras",page_icon="📡",layout="wide")
-st.markdown("""<style>
-.stApp{background:#fff!important;color:#29443d!important} .block-container{max-width:1500px;padding-top:1.3rem}
-[data-testid="stMarkdownContainer"],[data-testid="stMarkdownContainer"] p,[data-testid="stMarkdownContainer"] span,[data-testid="stMarkdownContainer"] li{color:#29443d!important}
-.hero{border:1px solid #dce8e3;border-radius:24px;padding:20px 24px;background:linear-gradient(135deg,#f3faf7,#faf8fc);margin-bottom:14px}
-.brand{display:flex;align-items:center;gap:14px} .logo{width:58px;height:58px;border-radius:18px;background:#e2f2eb;display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:800}
-.brandname{font-size:1.55rem;font-weight:850;line-height:1} .sub{color:#70817c!important;margin-top:5px}
-.card{border:1px solid #dce8e3;border-radius:18px;padding:15px 17px;margin:9px 0;background:#fff}
-.head{font-size:1.04rem;font-weight:800} .meta{font-size:.87rem;color:#6c7e79!important;margin:3px 0 8px}
-.idea{background:#f6f9f8;border-radius:13px;padding:10px 12px;margin:7px 0} .idea b{color:#2e5e52!important}
-.score{color:#356c5e!important;font-weight:800} details summary{cursor:pointer;font-weight:800;color:#356c5e!important;padding:4px 0}
-button[data-baseweb="tab"]{color:#29443d!important;background:#f5f8f7!important} button[data-baseweb="tab"][aria-selected="true"]{background:#deeee8!important}
-@media(max-width:700px){.block-container{padding-left:12px;padding-right:12px}.hero{padding:16px}.brandname{font-size:1.25rem}}
-</style>""",unsafe_allow_html=True)
 
-DATA=[('Asmeninės ribos', 'Socialinis emocinis', '5–10 m.', 97, [('Galiu pasakyti NE – situacijų kortelės', '24 kasdienės situacijos: draugas ima daiktą neatsiklausęs, kažkas nori apkabinti, stovi per arti, prašo parodyti asmeninę žinutę. Vaikas sprendžia, ar riba pažeidžiama, ir pasirenka tinkamą frazę: „NE“, „SUSTOK“, „PAKLAUSK MANĘS“, „MAN TAI NEPATINKA“.'), ('Ką galėčiau pasakyti?', 'Situacija + 3 konkretūs atsakymai. Vaikas renkasi pagarbų ir saugų būdą apginti savo ribą ir aptaria, kodėl kiti atsakymai netinka.'), ('Mano asmeninė erdvė', 'Kortelės rūšiuojamos į „MAN TINKA“, „PIRMIAUSIA PAKLAUSK“, „MAN NETINKA“. Tinka individualiam darbui ir pokalbiui grupėje.')]), ('Rūšiavimas pagal požymį', 'Universalios pažinimo veiklos', '3–6 m.', 97, [('Surask bendrą požymį', '4 objektai, iš kurių 3 sieja vienas konkretus požymis: spalva, forma, paskirtis ar medžiaga. Vaikas pasako taisyklę ir randa netinkantį.'), ('Rūšiuok dviem būdais', 'Tie patys 8–10 objektų pirmiausia rūšiuojami pagal spalvą, paskui pagal paskirtį. Vaikas pamato, kad tą pačią informaciją galima grupuoti skirtingai.'), ('Kas pasikeitė?', 'Dvi beveik vienodos objektų grupės. Vienas objektas pakeičia kategoriją ar požymį; vaikas turi pastebėti ir paaiškinti pokytį.')]), ('Kalbos dalys', 'Lietuvių kalba', '2–5 kl.', 96, [('Žodis kontekste – kokia tai kalbos dalis?', 'Trumpame sakinyje paryškintas žodis. Vaikas nustato, ar tai daiktavardis, būdvardis, veiksmažodis ar kita mokoma kalbos dalis; žodis pateikiamas kontekste, ne izoliuotai.'), ('Sukurk sakinį iš trijų kalbos dalių', 'Duotas daiktavardis, veiksmažodis ir būdvardis. Vaikas keičia formas ir sukuria taisyklingą sakinį.'), ('Kalbos dalių detektyvas', 'Trumpame 3–4 sakinių tekste reikia rasti nurodytą skaičių daiktavardžių, veiksmažodžių ir būdvardžių.')]), ('Nosinės ir ilgosios balsės', 'Lietuvių kalba', '3–6 kl.', 96, [('Įrašyk trūkstamą raidę kontekste', 'Sakinys su vienu probleminiu žodžiu; vaikas įrašo ą/ę/į/ų/ū ar kitą reikiamą balsę ir perskaito visą sakinį.'), ('Rašybos poros', 'Dvi panašiai skambančios žodžių formos ar žodžiai. Vaikas pasirenka tinkamą pagal sakinio prasmę.'), ('Surask ir pataisyk', 'Trumpame tekste sąmoningai paliktos 3–5 nosinių ir ilgųjų balsių klaidos. Vaikas tampa redaktoriumi.')]), ('Muzikos instrumentai', 'Muzika', 'Ikimokyklinis–4 kl.', 96, [('Kas groja šiuo instrumentu?', 'Instrumento iliustracija siejama su atlikėju ir grojimo būdu: pučia, muša, braukia stryku, skambina.'), ('Instrumentų šeimos', 'Vaikas grupuoja realius instrumentus į styginius, pučiamuosius ir mušamuosius; jaunesniems – pagal grojimo veiksmą.'), ('Kuris instrumentas dingo?', 'Rodomi 4–6 instrumentai, kitame vaizde vieno nėra. Lavinamas muzikinis žodynas ir pastabumas.')]), ('Medžių lapai', 'Gamtamokslinis', '4–9 m.', 95, [('Kuris lapas nuo kurio medžio?', 'Aiškūs klevo, ąžuolo, beržo, liepos, kaštono ir kitų pažįstamų medžių lapai poruojami su medžiu ar jo vaisiumi.'), ('Lapų detektyvas', 'Rodomas lapas ir 3 požymių užuominos: krašto forma, gyslotumas, spalva / vaisius. Vaikas nustato medį.'), ('Rudens lapų Bee-Bot', 'Tinklelyje medžiai, lapai ir vaisiai. Užduotis: nuo ąžuolo nuvažiuoti iki gilės, nuo klevo – iki klevo lapo.')]), ('Miško grybai', 'Gamtamokslinis', '5–10 m.', 94, [('Valgomas ar nevalgomas?', 'Gerai atpažįstamų grybų kortelės rūšiuojamos į mokomąsias kategorijas; akcentuojama, kad tikras grybas gamtoje nevertinamas vien pagal kortelę.'), ('Grybo sandara', 'Kepurėlė, kotas, lakšteliai / vamzdeliai ir grybiena siejami su vieta schemoje.'), ('Kas auga miške?', 'Grybai maišomi su uogomis, samanomis, kankorėžiais ir kitais radiniais; vaikas grupuoja ir įvardija.')]), ('Skaičių tiesė', 'Matematika', '1–3 kl.', 95, [('Kur gyvena skaičius?', 'Tuščioje skaičių tiesėje pažymėtas taškas; vaikas įrašo, koks skaičius ten yra. Kituose lapuose duotas skaičius, kurį reikia pažymėti.'), ('Kuris skaičius arčiau?', 'Tiesėje pažymėtas vienas skaičius, apačioje du pasirinkimai. Vaikas nustato, kuris arčiau, ir gali parodyti atstumą šuoliais.'), ('Koks veiksmas pavaizduotas?', 'Pradžios taškas ir judėjimas tiesėje; vaikas pats užrašo sudėties ar atimties veiksmą ir rezultatą.'), ('Pasiek tikslą', 'Duotas startas ir tikslas, o vaikas turi sugalvoti vieną ar kelis veiksmus, kuriais tikslą pasiektų.')]), ('Daugyba', 'Matematika', '2–3 kl.', 94, [('Vienodos grupės → daugybos veiksmas', 'Pvz., 4 lėkštutės po 3 braškes. Vaikas pirmiausia mato grupes, tada užrašo 4 × 3.'), ('Daugyba skaičių tiesėje', 'Vienodo ilgio šuoliai leidžia pamatyti, ką reiškia 5 × 3, o ne tik prisiminti rezultatą.'), ('Sukurk paveikslą veiksmui', 'Duotas 3 × 4. Vaikas pats nupiešia arba sudėlioja 3 vienodas grupes po 4 objektus.')]), ('Dalyba', 'Matematika', '2–3 kl.', 94, [('Padalink po lygiai', '12 objektų reikia paskirstyti 3 vaikams / dėžutėms. Vaikas fiziškai ar pieštuku paskirsto ir tik tada užrašo 12 : 3.'), ('Kiek grupių gausime?', 'Duota 15 objektų ir sąlyga dėti po 5. Vaikas formuoja grupes ir nustato jų skaičių.'), ('Dalyba skaičių tiesėje', 'Nuo skaičiaus grįžtama vienodais šuoliais iki nulio; suskaičiuojama, kiek šuolių reikėjo.')]), ('Laikrodis ir minutės', 'Matematika', '2–4 kl.', 93, [('Kiek laiko praėjo?', 'Du laikrodžiai – pradžia ir pabaiga. Pradedama nuo pilnų valandų, vėliau įtraukiamos 5, 10, 15 ir 30 min.'), ('Nupiešk rodykles', 'Duotas konkretus laikas, pvz. 14:35; vaikas tuščiame ciferblate pažymi abi rodykles.'), ('Dienos planas', '3–5 kasdienės veiklos su pradžios laiku. Vaikas sudėlioja chronologiškai ir apskaičiuoja tarpus.')]), ('Paprastosios trupmenos', 'Matematika', '3–5 kl.', 94, [('Picos trupmenos', 'Vienodo dydžio picos padalytos į lygias dalis. Vaikas susieja nuspalvintą dalį su trupmena ir pats nuspalvina nurodytą trupmeną.'), ('Kuri trupmena didesnė?', 'Dvi vienodo dydžio figūros su skirtingais padalijimais leidžia pirmiausia palyginti vizualiai, tada įrašyti >, < arba =.'), ('Trupmena skaičių tiesėje', '0–1 atkarpa padalyta į lygias dalis; vaikas pažymi 1/4, 3/5, 7/8 ir pan.'), ('Sudėtis vienodais vardikliais', 'Vizualus modelis rodo dvi tos pačios visumos dalis; vaikas sujungia jas ir užrašo rezultatą.')]), ('Trupmenų palyginimas skirtingais vardikliais', 'Matematika', '5–6 kl.', 93, [('Kuris gabalėlis didesnis?', 'Dvi vienodo dydžio picos, pvz. 2/3 ir 3/5. Vaikas palygina modelius ir įrašo ženklą.'), ('Bendro vardiklio laboratorija', 'Duotos dvi trupmenos ir tušti vienodo dydžio modeliai. Vaikas perskaido abi į vienodas dalis ir atranda bendrą vardiklį.'), ('Trupmenų dvikova', 'Trupmenos pateiktos be paruošto modelio. Vaikas pasirenka palyginimo strategiją ir, jei reikia, pats naudoja tuščią juostą ar skaičių tiesę.')]), ('Procentai ir nuolaidos', 'Matematika', '5–7 kl.', 92, [('Tikra parduotuvės nuolaida', 'Realistiška prekė, pradinė kaina ir −10 %, −20 %, −25 % ar −50 %. Vaikas randa nuolaidos sumą ir naują kainą.'), ('Kuri akcija geresnė?', 'Dvi to paties tipo prekės su skirtinga kaina ir nuolaida. Reikia apskaičiuoti galutinę kainą, ne spėti pagal didesnį procentą.'), ('Atvirkštinis procentas', 'Žinoma kaina po nuolaidos ir procentas; vyresni mokiniai ieško pradinės kainos.')]), ('Neigiami skaičiai', 'Matematika', '5–7 kl.', 91, [('Skola', 'Situacijos „turiu 3 Eur“, „skolingas 5 Eur“, „gavau 4 Eur“. Vaikas seka balansą ir sieja skolą su neigiamu skaičiumi.'), ('Temperatūros pokytis', 'Termometras rodo, pvz., −4 °C; temperatūra pakyla 7 °C. Vaikas juda skaičių tiesėje ir nustato rezultatą.'), ('Liftas po žeme', 'Aukštai virš ir po nuliniu aukštu naudojami kaip konkretus neigiamų skaičių modelis.')]), ('Žmogaus kūno dalys', 'Gamtamokslinis', 'Ikimokyklinis–2 kl.', 94, [('Kur yra...?', 'Vaikas gauna kūno dalies pavadinimą ar paveikslėlį ir parodo ją žmogaus figūroje.'), ('Kūno dalis → ką ji padeda daryti?', 'Akys → matyti, ausys → girdėti, kojos → eiti. Poruojamos kūno dalys su aiškia funkcija.'), ('Sudėk žmogų', 'Atskiros pagrindinės kūno dalys sudedamos į visumą; vėliau pridedami pavadinimai.')]), ('Žmogaus organai', 'Gamtamokslinis', '3–6 kl.', 92, [('Organas → funkcija', 'Širdis, plaučiai, skrandis, smegenys, žarnynas siejami su paprastai aprašyta pagrindine funkcija.'), ('Kur yra organas?', 'Žmogaus siluete vaikas padeda organo kortelę apytikslėje anatominėje vietoje.'), ('Kelionė per virškinimo sistemą', 'Maisto kelias sudėliojamas nuosekliai nuo burnos iki žarnyno.')]), ('Vandens apytakos ratas', 'Gamtamokslinis', '2–5 kl.', 91, [('Sudėliok vandens kelionę', 'Garavimas → kondensacija → krituliai → kaupimasis. Vaikas dėlioja etapus ir rodykles.'), ('Kur dingo balutė?', 'Kasdienė situacija naudojama paaiškinti garavimą; vaikas pasirenka teisingą paaiškinimą iš kelių.'), ('Vandens lašelio kelionė', 'Nuoseklios iliustracijos, iš kurių vaikas kuria pasakojimą vartodamas gamtamokslines sąvokas.')]), ('Mitybos grandinės', 'Gamtamokslinis', '3–6 kl.', 90, [('Kas kuo minta?', 'Augalas → žolėdis → plėšrūnas. Vaikas iš atskirų kortelių sudaro logišką grandinę.'), ('Kas nutiktų, jeigu...?', 'Pašalinama viena grandis ir vaikas svarsto, kaip tai paveiktų likusias.'), ('Taisyk grandinę', 'Pateikiama tyčia klaidinga mitybos grandinė; reikia rasti ir pakeisti netinkamą grandį.')]), ('Emocijų atpažinimas', 'Socialinis emocinis', '3–8 m.', 94, [('Ką jaučia vaikas?', 'Ne vien veido išraiška, bet konkreti situacija: sugriuvo bokštas, atėjo draugas, pasimetė žaislas. Vaikas įvardija galimą emociją.'), ('Ta pati situacija – skirtingi jausmai', 'Du vaikai į tą patį įvykį reaguoja skirtingai. Aptariama, kad nėra vieno privalomo jausmo.'), ('Kūnas man pasako', 'Emocija siejama su kūno signalais: įsitempę pečiai, greita širdis, šypsena, noras pasitraukti.')]), ('Konfliktų sprendimas', 'Socialinis emocinis', '5–11 m.', 92, [('Du nori to paties žaislo', 'Situacija + keli realūs sprendimai: tartis, keistis, žaisti kartu, atimti. Vaikas vertina pasekmes.'), ('Ką pasakyti vietoje šaukimo?', 'Konfliktinė frazė keičiama į aiškią „aš“ žinutę.'), ('Sustok – pagalvok – pasirink', '3 žingsnių vizualus algoritmas taikomas konkrečioms mokyklos ir darželio situacijoms.')]), ('Savireguliacija', 'Švietimo pagalba', '4–12 m.', 91, [('Kai supykstu, galiu...', 'Konkrečių strategijų kortelės: atsitraukti, giliai kvėpuoti, paprašyti pertraukos, suskaičiuoti, pasakyti suaugusiajam.'), ('Kuri strategija tinka situacijai?', 'Triukšmas, laukimas, pralaimėjimas, sunkus darbas – vaikas renkasi realistišką nusiraminimo būdą.'), ('Mano asmeninis nusiraminimo meniu', 'Iš bendro strategijų banko vaikas išsirenka 4–6 jam tinkamas ir susikuria individualią kortelę.')]), ('Socialinės istorijos', 'Švietimo pagalba', '3–10 m.', 90, [('Kai pasikeičia planas', 'Trumpa vizuali istorija: kas gali pasikeisti, ką tada galiu padaryti ir kas lieka saugu / aišku.'), ('Laukiu savo eilės', 'Nuoseklūs žingsniai su konkrečiais elgesio pavyzdžiais laukimo metu.'), ('Einame pas gydytoją', 'Kas vyks prieš vizitą, kabinete ir po jo; pažįstami veiksmai mažina nežinomybę.')]), ('Pamokos įsivertinimas', 'Įsivertinimas', '1–8 kl.', 90, [('Moku – dar mokausi – reikia pagalbos', 'Mokinys ne tik pasirenka lygį, bet prie jo pažymi konkretų tos pamokos gebėjimą.'), ('Išėjimo bilietas 3–2–1', '3 dalykai, kuriuos supratau; 2, kuriuos galiu paaiškinti; 1 klausimas, kuris liko.'), ('Mano kitas žingsnis', 'Po užduoties mokinys pasirenka konkretų veiksmą: pasitreniruoti, pasitikrinti taisyklę, paprašyti paaiškinimo, imtis sunkesnės užduoties.')]), ('Ritmo sekos', 'Muzika', 'Priešmokyklinis–4 kl.', 90, [('Pakartok ritmą', 'Simboliais pateikta trumpa 4–8 dalių ritmo seka, kurią vaikas ploja ar groja.'), ('Užbaik ritmą', 'Dėsninga ritmo seka su viena ar dviem tuščiomis vietomis; reikia parinkti trūkstamą dalį.'), ('Sukurk savo taktą', 'Duotas takto dydis ir natų / pauzių pasirinkimai; vaikas sudeda tinkamos bendros trukmės taktą.')]), ('Vizualus dienos tvarkaraštis', 'Ugdymo aplinka', 'Darželis–4 kl.', 89, [('DABAR → PO TO', 'Dvi aiškios kortelių vietos padeda parodyti dabartinę ir sekančią veiklą; tinka ir individualiam naudojimui.'), ('Pasikeitė planas', 'Speciali pokyčio kortelė uždengiama ant ankstesnės veiklos, šalia parodoma nauja veikla.'), ('Mano diena', 'Vaikas iš veiklų kortelių susidėlioja 4–8 žingsnių dieną ir nuima / perkelia jau atliktas veiklas.')]), ('Rudens požymiai', 'Universalios pažinimo veiklos', '3–7 m.', 95, [('Ruduo ar ne ruduo?', 'Konkrečios gamtos ir kasdienybės iliustracijos rūšiuojamos pagal tai, ar jos būdingos rudeniui.'), ('Kas pasikeitė nuo vasaros?', 'Dvi tos pačios vietos iliustracijos vasarą ir rudenį; vaikas ieško konkrečių gamtos pokyčių.'), ('Rudens požymių detektyvas', 'Pagal 3 užuominas – vėsesnis oras, spalvoti lapai, trumpesnė diena – vaikas nustato metų laiką.')]), ('Vaisiai ir daržovės', 'Universalios pažinimo veiklos', '2–6 m.', 91, [('Kas auga sode, o kas darže?', 'Pažįstami vaisiai ir daržovės dedami prie medžio / krūmo / lysvės modelio.'), ('Perpjauk mintyse', 'Rodomas visas vaisius ir keli pjūvio vaizdai; vaikas randa, kaip jis atrodo perpjautas.'), ('Spalva nėra kategorija', 'Žali obuoliai ir agurkai ar raudoni pomidorai ir obuoliai padeda atskirti spalvą nuo sąvokos „vaisius / daržovė“.')]), ('Mokytojų diena', 'Šventės ir progos', 'Darželis–8 kl.', 93, [('Ačiū už...', 'Vaikas užbaigia konkrečius sakinius apie tai, ko mokytojas padėjo išmokti ar kuo padėjo klasėje.'), ('Klasės komplimentų puokštė', 'Kiekvienas mokinys užrašo vieną konkretų padėkos sakinį; lapeliai sujungiami į bendrą klasės darbą.'), ('Mokytojo darbo detektyvas', 'Jaunesni vaikai iš situacijų atrenka, kokius skirtingus darbus per dieną atlieka mokytojas.')]), ('Vėlinės', 'Šventės ir progos', 'Priešmokyklinis–6 kl.', 92, [('Vėlinių simboliai ir tradicijos', 'Žvakė, kapinės, gėlės, prisiminimas siejami su trumpais, vaikui suprantamais paaiškinimais.'), ('Ką žmonės daro per Vėlines?', 'Kasdienių ir šventei būdingų veiksmų kortelės; vaikas atrenka susijusias su Vėlinėmis.'), ('Trumpas tekstas apie Vėlines', 'Amžiui pritaikytas informacinis tekstas + faktų, sekos ir žodyno klausimai.')]), ('Helovinas', 'Šventės ir progos', 'Darželis–6 kl.', 89, [('Moliūgų matematika', 'Amžiui parenkamos sudėties, daugybos ar trupmenų užduotys, kur atsakymas atrakina konkretų moliūgą.'), ('Helovino sakinių detektyvas', 'Trumpi teminiai sakiniai naudojami skaitymui, kalbos dalims ar rašybai – ne vien dekoratyvinei veiklai.'), ('Loginis saldainių rūšiavimas', 'Užuominos nurodo, kurioje dėžutėje yra konkretus saldainis; vaikas sprendžia eliminavimo būdu.')]), ('Tolerancijos diena', 'Šventės ir progos', 'Darželis–8 kl.', 88, [('Panašūs ir skirtingi', 'Personažų poros turi matomų panašumų ir skirtumų; vaikas ieško abiejų, nevertindamas skirtumo kaip blogo.'), ('Kaip įtraukti kitą?', 'Situacijos iš žaidimo, grupinio darbo ir pertraukos; vaikas siūlo konkretų įtraukiantį veiksmą.'), ('Tas pats poreikis – skirtingas būdas', 'Parodoma, kad vaikai gali ilsėtis, bendrauti ar mokytis skirtingais būdais, nors poreikis tas pats.')]), ('Adventas', 'Šventės ir progos', 'Darželis–8 kl.', 86, [('24 prasmingų veiklų kalendorius', 'Kiekvienai dienai ne dekoracija, o trumpa įgyvendinama veikla: padėkoti, pastebėti gerą darbą, perskaityti, sukurti, padėti.'), ('Advento skaitymo langeliai', '24 trumpi tekstai ar sakiniai pagal amžių; kasdien atveriamas vienas ir atliekama viena suvokimo užduotis.'), ('Gerų darbų grandinė', 'Klasė / grupė už kiekvieną konkretų atliktą gerą darbą prideda vieną grandinės dalį.')]), ('Matavimo vienetai', 'Matematika', '2–4 kl.', 89, [('Kuris vienetas tinka?', 'Daiktui parenkamas realistiškas mm, cm, m, g, kg, ml ar l vienetas.'), ('Išmatuok ir palygink', 'Du realūs objektai; vaikas įvertina, tada matuoja ir palygina.'), ('Vienetų keitimo kelias', 'Vizuali laiptelių schema naudojama konkretiems keitimams, pvz. 2 m 35 cm → cm.')]), ('Kampų rūšys', 'Matematika', '4–6 kl.', 87, [('Kampai aplink mus', 'Durų, laikrodžio, stogo ir kitų objektų kampai siejami su smailiuoju, stačiuoju ir bukuoju.'), ('Atpažink be matlankio', 'Vaikas lygina kampą su aiškiu 90° etalonu.'), ('Nubrėžk pagal sąlygą', 'Duotas kampo tipas ar dydis; vaikas pats konstruoja.')]), ('Koordinačių plokštuma', 'Matematika', '5–8 kl.', 86, [('Pažymėk tašką', 'Duotos koordinatės visuose keturiuose ketvirčiuose.'), ('Kas slepiasi?', 'Pažymėti ir sujungti taškai sukuria figūrą.'), ('Perskaityk klaidą', 'Pateiktas neteisingai pažymėtas taškas; mokinys paaiškina, kuri koordinatė supainiota.')]), ('Žodžio sandara', 'Lietuvių kalba', '3–6 kl.', 90, [('Išardyk žodį', 'Spalvinėmis dalimis pažymima šaknis, priešdėlis, priesaga ir galūnė.'), ('Žodžių šeima', 'Iš kelių žodžių atrenkami giminiški ir randama bendra šaknis.'), ('Sukurk naują žodį', 'Prie tos pačios šaknies pridedami skirtingi priešdėliai / priesagos ir aptariama prasmė.')]), ('Teksto suvokimas', 'Lietuvių kalba', '2–8 kl.', 91, [('Faktas ar išvada?', 'Po trumpo teksto teiginiai skirstomi į tiesiogiai parašytus ir iš teksto išvedamus.'), ('Rask įrodymą', 'Atsakymą į klausimą reikia pagrįsti konkrečia teksto vieta.'), ('Kas svarbiausia?', 'Iš 3 santraukų pasirenkama tiksliausia ir paaiškinama kodėl.')]), ('Saulės sistema', 'Gamtamokslinis', '3–6 kl.', 87, [('Planetų seka', 'Planetos dėliojamos nuo Saulės; vėliau siejamos su 1–2 išskirtiniais požymiais.'), ('Kuri planeta?', '3 faktinės užuominos veda prie konkrečios planetos.'), ('Kosmoso Bee-Bot', 'Maršrutas planuojamas nuo Saulės iki nurodytos planetos vengiant kliūčių.')]), ('Medžiagų būsenos', 'Gamtamokslinis', '3–6 kl.', 88, [('Kieta, skysta ar dujinė?', 'Kasdienės medžiagos rūšiuojamos pagal būseną konkrečioje temperatūroje.'), ('Kas pasikeitė?', 'Ledas → vanduo → garai; vaikas įvardija tirpimą, garavimą ir kondensaciją.'), ('Būsena ar medžiaga?', 'Ta pati medžiaga – vanduo – rodoma trimis būsenomis, kad sąvokos nebūtų painiojamos.')]), ('Draugystė', 'Socialinis emocinis', '4–10 m.', 89, [('Draugiška ar ne?', 'Konkrečios situacijos vertinamos pagal elgesį, ne pagal personažo „gerumą“.'), ('Kaip pakviesti žaisti?', 'Vaikas iš kelių frazių renkasi tinkamą arba sukuria savo.'), ('Kai draugas sako NE', 'Situacijos moko priimti kito ribą ir pasirinkti kitą veiksmą.')]), ('Dienos rutina', 'Švietimo pagalba', '3–8 m.', 88, [('Ryto seka', 'Apsirengti, nusiprausti, papusryčiauti, susidėti daiktus – vaikas dėlioja jam aktualią seką.'), ('Kas bus po to?', 'Iš 3 kortelių pasirenkamas logiškas kitas rutinos žingsnis.'), ('Rutinos pokytis', 'Į įprastą seką įterpiama nauja veikla ir vizualiai parodoma, kas lieka taip pat.')]), ('Savaitės refleksija', 'Įsivertinimas', '1–8 kl.', 86, [('Šią savaitę išmokau...', 'Mokinys įvardija konkretų gebėjimą, ne bendrą „sekėsi gerai“.'), ('Didžiausias iššūkis', 'Pasirenkama viena konkreti užduotis ir trumpai aprašoma, kas padėjo.'), ('Kitą savaitę pabandysiu...', 'Vienas mažas, pamatuojamas mokymosi veiksmas kitai savaitei.')]), ('Natų vertės', 'Muzika', '2–6 kl.', 85, [('Užpildyk taktą', 'Trūkstama natų vertė parenkama taip, kad taktas būtų pilnas.'), ('Kiek ketvirtinių telpa?', 'Natų vertės lyginamos kaip trukmės, naudojant vizualias juostas.'), ('Ritmo matematika', 'Natų vertės sudedamos ir atimamos, siejant muziką su trupmeniniu mąstymu.')]), ('Grupės / klasės taisyklės', 'Ugdymo aplinka', 'Darželis–4 kl.', 87, [('Taisyklė → konkretus elgesys', '„Klausomės“ rodoma per 2–3 realias situacijas, kaip tai atrodo praktiškai.'), ('Ką daryti vietoje to?', 'Netinkamas veiksmas poruojamas su konkrečia tinkama alternatyva.'), ('Mūsų klasės susitarimai', 'Vaikai iš situacijų išveda 5–7 prasmingus susitarimus, o ne gauna vien draudimų sąrašą.')])]
-st.markdown("""<div class="hero"><div class="brand"><div class="logo">🧠</div><div><div class="brandname">PROTUOLIUKAS</div>
-<div class="sub">Paklausos radaras · V13 · konkrečių priemonių idėjos</div></div></div></div>""",unsafe_allow_html=True)
+from radar import catalog as cat
+from radar import school, signals as sg
+from radar.crawler import CrawlConfig, parse_page, make_session
+from radar.products import analyse_all
+from radar.timing import fmt, fmt_range, now_vilnius, today_vilnius, EVENTS
+from radar.topics import AGE_GROUPS, evaluate_all, load_topics
+from radar.ui import (esc, header, inject_css, mini_row, product_card, render, topic_card, left_text, PHASE_CLASS)
+from radar.weekly import upcoming_events, weekly
 
-cats=["Visos"]+sorted(set(x[1] for x in DATA))
-c1,c2=st.columns([1,1])
-with c1: cat=st.selectbox("Kategorija",cats)
-with c2: q=st.text_input("Ieškoti temos ar idėjos","")
-F=[x for x in DATA if (cat=="Visos" or x[1]==cat) and (not q or q.lower() in str(x).lower())]
-F=sorted(F,key=lambda x:x[3],reverse=True)
+st.set_page_config(page_title="Protuoliuko paklausos radaras", page_icon="📡", layout="wide")
+inject_css(st)
 
-def card(x,openideas=False):
-    n,c,a,s,ideas=x
-    html=f"""<div class="card"><div class="head">{n} <span class="score">· {s}/100</span></div><div class="meta">{c} · {a}</div>
-    <details {'open' if openideas else ''}><summary>💡 {len(ideas)} konkrečios priemonės – rodyti</summary>"""
-    for title,desc in ideas:
-        html+=f"""<div class="idea"><b>{title}</b><br>{desc}</div>"""
-    html+="</details></div>"
-    st.markdown(html,unsafe_allow_html=True)
+# ------------------------------------------------------------------ data
+catalog = cat.load_catalog()
+sig = sg.load_signals()
 
-tabs=st.tabs(["🔥 DABAR","📅 NETRUKUS","🔭 ARTĖJA","🗓️ 30 DIENŲ","💡 VISAS BANKAS"])
+with st.expander("🗓️ Planavimo data (neprivaloma)"):
+    use_sim = st.checkbox("Peržiūrėti radarą kitai datai", value=False)
+    sim = st.date_input("Data", value=today_vilnius(), disabled=not use_sim)
+TODAY = sim if use_sim else today_vilnius()
+
+
+@st.cache_resource(show_spinner=False)
+def _analysed(stamp: str, today_iso: str, sig_stamp: str):
+    return analyse_all(cat.active_products(cat.load_catalog()), date.fromisoformat(today_iso), sg.load_signals())
+
+
+TOPICS = evaluate_all(TODAY)
+ANALYSED = _analysed(cat.catalog_stamp(catalog), TODAY.isoformat(), sg.signal_stamp(sig))
+SC = school.summary(TODAY)
+
+meta = catalog["meta"]
+last_checked = meta.get("last_checked")
+n_active = len(cat.active_products(catalog))
+render(st, header("Paklausos radaras · V16 · naujos idėjos ir esamų produktų reklama"))
+
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("Naujų idėjų temų", len(TOPICS))
+c2.metric("Aktyvių produktų", n_active if n_active else "—")
+c3.metric("Reklamuoti dabar", sum(1 for _, p in ANALYSED if p["hint"] in ("NOW", "LAST")))
+c4.metric("Artimiausia pertrauka", (f"po {SC['days_to_break']} d." if SC.get("next_break") else "—"))
+if SC.get("next_break"):
+    nb = SC["next_break"]
+    st.caption(f"{nb[0]}: {fmt_range(nb[1], nb[2], TODAY)} · paskutinė mokymosi diena prieš ją: {fmt(SC.get('last_school_day'), TODAY)} "
+               f"(ŠMSM kalendorius, patikrinta {SC.get('verified')}). Šventinė medžiaga klasėje realiai naudojama iki šios dienos.")
+if not SC.get("calendar"):
+    st.warning("Šiems mokslo metams oficialaus kalendoriaus faile nėra – progų datos koreguojamos tik pagal savaitgalius. Papildyk data/school_calendar.json.")
+
+tabs = st.tabs(["📋 ŠIĄ SAVAITĘ", "🆕 NAUJOS IDĖJOS", "📆 PROGOS", "🛍️ ESAMI PRODUKTAI", "⚙️ DUOMENYS"])
+
+
+# ------------------------------------------------------------------ helpers
+def run_update(resume=False):
+    bar = st.progress(0.0, text="Pradedama…")
+    box = st.empty()
+
+    def cb(s):
+        total = max(1, s["fetched"] + s["queued"])
+        bar.progress(min(0.99, s["fetched"] / total), text=f"Perskaityta {s['fetched']} puslapių · rasta produktų {s['products']} · eilėje {s['queued']}")
+    new, msg, lvl = cat.update_catalog(progress=cb, resume=resume)
+    bar.empty()
+    st.session_state["update_msg"] = (msg, lvl)
+    st.session_state["_scanned"] = True
+    st.cache_resource.clear()
+    st.rerun()
+
+
+def product_mini(z):
+    p, pr = z
+    code = f"{p['code']} · " if p.get("code") else ""
+    return mini_row(pr["score"], code + p["title"], f"{pr['status']} · {pr['why'][:110]}", p["url"])
+
+
+# ------------------------------------------------------------------ ŠIĄ SAVAITĘ
 with tabs[0]:
-    st.markdown("### Ką verta kurti dabar")
-    for x in F[:12]: card(x,True)
+    W = weekly(TODAY, TOPICS, ANALYSED)
+    st.markdown("### Šią savaitę")
+    st.caption(f"Suvestinė datai {TODAY.isoformat()}. Spausk eilutes, kad išskleistum konkrečius produktus ir temas.")
+    if not ANALYSED:
+        st.info("Esamų produktų dar nėra – atidaryk skirtuką „ESAMI PRODUKTAI“ ir paleisk pirmą nuskaitymą. Naujų idėjų dalis veikia jau dabar.")
+    blocks = [
+        ("📘 Facebook", W["facebook"], "produktai", "Produktai, kuriuos verta rodyti Facebook šią savaitę (ne daugiau 2 iš tos pačios temos)."),
+        ("🏠 Pagrindinis puslapis", W["home"], "produktai", "Verta iškelti į pagrindinį puslapį."),
+        ("📱 Stories", W["stories"], "produktai", "Produktai su aiškiu Stories turiniu."),
+        ("⚡ Paskutinė proga", W["last"], "produktai", "Proga čia pat – reklamuoti šiandien."),
+        ("⏳ Pikas baigiasi (≤10 d.)", W["ending"], "produktai", "Čia verta nustatyti nustojimo reklamuoti datą."),
+    ]
+    cols = st.columns(len(blocks))
+    for col, (lbl, items, _, _) in zip(cols, blocks):
+        col.metric(lbl, len(items))
+    for lbl, items, _, hint in blocks:
+        with st.expander(f"{lbl} · {len(items)}"):
+            st.caption(hint)
+            if items:
+                render(st, "".join(product_mini(z) for z in items))
+            else:
+                st.write("Šiuo metu nėra.")
+    with st.expander(f"🆕 Naujos priemonės, kurias verta kurti · {len(W['create'])} (iš jų greitų: {len(W['quick'])})", expanded=True):
+        st.caption("Tik temos, kurias dar realu spėti. Greitos (🟢) pirma – jas galima pagaminti šiandien.")
+        rows = sorted(W["create"], key=lambda r: (not r.quick_ok, -r.score))[:15]
+        render(st, "".join(mini_row(r.score, r.topic.name, f"{r.timing.label if r.timing.kind=='event' else 'Aktualumo langas'} · publikuoti {fmt_range(r.timing.pub_start, r.timing.pub_end, TODAY)} · {r.feas_msg}") for r in rows) or "Nėra.")
+    with st.expander(f"🚫 Ko dabar geriau NEDARYTI · {len(W['avoid_new']) + len(W['stop_now'])}"):
+        st.caption("Naujai kurti per vėlu arba produkto klasės laikas jau baigėsi.")
+        render(st, "".join(mini_row(r.score, "Nekurti naujos: " + r.topic.name, r.feas_msg) for r in W["avoid_new"]) +
+               "".join(mini_row(z[1]["score"], "Nebereklamuoti: " + z[0]["title"], z[1]["why"], z[0]["url"]) for z in W["stop_now"]) or "Nieko.")
+    if W["too_far"]:
+        with st.expander("🔭 Dar per anksti (>90 d. iki publikavimo)"):
+            render(st, "".join(mini_row(r.score, r.topic.name, f"kitas pikas {fmt(r.timing.start, TODAY)}") for r in W["too_far"]))
+
+# ------------------------------------------------------------------ NAUJOS IDĖJOS
 with tabs[1]:
-    for x in F[12:24]: card(x)
+    topics_all = load_topics()
+    with st.expander("Filtrai"):
+        a, b = st.columns(2)
+        areas = a.multiselect("Kategorija", sorted({t.area for t in topics_all}))
+        ages = b.multiselect("Amžiaus grupė", AGE_GROUPS)
+        a, b = st.columns(2)
+        fmts = a.multiselect("Formatas", sorted({f for t in topics_all for f in t.formats}))
+        seas = b.multiselect("Sezoniškumas", ["Šventė / proga", "Sezono / ugdymo langas", "Tęstinė"])
+        a, b, c = st.columns(3)
+        only_ok = a.checkbox("Tik realu spėti", value=False)
+        mins = b.slider("Min. galimybių balas", 0, 100, 0)
+        q = c.text_input("Paieška (tema, idėja)")
+    st.caption("Galimybių balas = planavimo heuristika (potencialas × laikas × ar spėsi). Tai NĖRA išmatuota Google paklausa.")
+    view = st.radio("Laikotarpis", ["🔥 DABAR", "📅 NETRUKUS", "🔭 ARTĖJA", "🗓️ 30 DIENŲ", "💡 VISAS BANKAS"], horizontal=True, label_visibility="collapsed")
+
+    def pass_f(r):
+        t = r.topic
+        if areas and t.area not in areas: return False
+        if ages and not set(ages) & set(t.age_groups): return False
+        if fmts and not set(fmts) & set(t.formats): return False
+        if seas and t.seasonality not in seas: return False
+        if only_ok and r.feas == "LATE": return False
+        if r.score < mins: return False
+        if q:
+            blob = (t.name + " " + " ".join(i.title + " " + i.desc for i in t.ideas)).lower()
+            if q.lower() not in blob: return False
+        return True
+
+    F = [r for r in TOPICS if pass_f(r)]
+    by = lambda bk: [r for r in F if r.bucket == bk]
+    if view.startswith("🔥"):
+        now_ = by("NOW")
+        st.markdown(f"### Kurti ir publikuoti dabar · {len(now_)}")
+        for r in now_: render(st, topic_card(r, TODAY, True))
+        eg = by("EVERGREEN")[:12]
+        st.markdown(f"### 📚 Tęstinės temos (be konkretaus piko) · rodoma {len(eg)} iš {len(by('EVERGREEN'))}")
+        st.caption("Jų aktualumą lemia klasė ir ugdymo eiga, todėl konkrečios datos nerodomos.")
+        for r in eg: render(st, topic_card(r, TODAY))
+    elif view.startswith("📅"):
+        rows = sorted(by("SOON"), key=lambda r: r.timing.pub_start)
+        st.markdown(f"### Publikavimo langas prasideda per ≤14 d. · {len(rows)}")
+        for r in rows: render(st, topic_card(r, TODAY))
+    elif view.startswith("🔭"):
+        rows = sorted(by("UPCOMING"), key=lambda r: r.timing.pub_start)
+        st.markdown(f"### Publikavimo langas prasideda po 15–60 d. · {len(rows)}")
+        for r in rows: render(st, topic_card(r, TODAY))
+    elif view.startswith("🗓️"):
+        st.markdown("### Kas publikuotina per artimiausias 4 savaites")
+        st.caption("Pagal realius idealaus publikavimo langus, ne pagal reitingo eilę.")
+        dated = [r for r in F if r.timing.pub_start]
+        for w in range(5):
+            a0 = TODAY + timedelta(days=7 * w); a1 = a0 + timedelta(days=6)
+            rows = [r for r in dated if r.timing.pub_start <= a1 and (r.timing.pub_end or r.timing.end) >= a0 and r.feas != "LATE"]
+            rows.sort(key=lambda r: -r.score)
+            render(st, f'<div class="week">{a0.strftime("%m-%d")} – {a1.strftime("%m-%d")} · {len(rows)} temų</div>' +
+                   ("".join(mini_row(r.score, r.topic.name, f"publikuoti {fmt_range(r.timing.pub_start, r.timing.pub_end, TODAY)} · {r.feas_msg}") for r in rows[:14]) or "<div class='meta'>Nėra datomis pagrįstų temų.</div>"))
+    else:
+        st.markdown(f"### Visas bankas · {len(F)} temų · {sum(len(r.ideas) for r in F)} konkrečių priemonių")
+        for r in F: render(st, topic_card(r, TODAY))
+
+# ------------------------------------------------------------------ PROGOS
 with tabs[2]:
-    for x in F[24:36]: card(x)
+    hz = st.radio("Horizontas", [7, 14, 30, 60, 120], index=3, horizontal=True, format_func=lambda x: f"per {x} d.")
+    ups = [u for u in upcoming_events(TODAY, 400) if u["days"] <= hz]
+    st.markdown(f"### Artėjančios progos · {len(ups)}")
+    st.caption("Atskirta PROGOS DATA, NAUDOJIMO KLASĖJE DATA (pagal mokyklų atostogas) ir REKOMENDUOJAMAS PUBLIKAVIMAS.")
+    for u in ups:
+        t, ev = u["t"], u["ev"]
+        pill = f'<span class="pill {PHASE_CLASS.get(t.phase,"")}">{esc(t.phase.replace("_"," "))}</span>'
+        facts = [("🗓️ Proga", fmt_range(t.start, t.end, TODAY) + (" (apytiksliai)" if ev.approx else "")), ("⏳ Liko", f"{u['days']} d."),
+                 ("🏫 Naudojama klasėje iki", fmt(t.use_by, TODAY)), ("🚀 Publikuoti", fmt_range(t.pub_start, t.pub_end, TODAY))]
+        render(st, f'<div class="card"><div class="title">{esc(ev.name)}</div><div class="pills">{pill}</div>'
+                   f'<div class="facts">{"".join(f"<div><em>{esc(k)}</em>{esc(v)}</div>" for k, v in facts)}</div>'
+                   f'<div class="note">{esc(t.note)}</div></div>')
+    st.markdown("### Mokyklos kalendorius")
+    for name, s, e, yk in school.breaks():
+        if e >= TODAY - timedelta(days=30):
+            render(st, f'<div class="mini"><span class="n">{s.strftime("%m-%d")}</span><div>{esc(name)} · {fmt_range(s, e, TODAY)}<div class="meta">{esc(yk)} m. m. · ŠMSM</div></div></div>')
+    for s_ in SC.get("sources", []):
+        st.markdown(f"[{s_['name']}]({s_['url']})")
+
+# ------------------------------------------------------------------ ESAMI PRODUKTAI
 with tabs[3]:
-    pool=F[:48]
-    for w in range(4):
-        d=date.today()+timedelta(days=7*w)
-        st.markdown(f"### {d.strftime('%m-%d')} – {(d+timedelta(days=6)).strftime('%m-%d')}")
-        for x in pool[w*12:(w+1)*12]: card(x)
+    st.markdown("### Esami produktai")
+    st.caption("Tik realiai parduotuvėje rasti produktai. Čia nekuriamos naujos idėjos – tik sprendimas, ką reklamuoti.")
+    if not catalog["products"] and not st.session_state.get("_scanned"):
+        st.info("Katalogo dar nėra. Pirmas nuskaitymas gali užtrukti kelias minutes.")
+        run_update()
+    a, b, c = st.columns([1.2, 1.2, 2])
+    if a.button("🔄 ATNAUJINTI ASORTIMENTĄ", use_container_width=True):
+        run_update()
+    if catalog.get("frontier") and b.button("▶ Tęsti nuskaitymą", use_container_width=True):
+        run_update(resume=True)
+    m = st.session_state.pop("update_msg", None)
+    if m:
+        {"ok": st.success, "warn": st.warning, "error": st.error}[m[1]](m[0])
+    if last_checked:
+        lc = datetime.fromisoformat(last_checked).strftime("%Y-%m-%d %H:%M")
+        c.markdown(f"**Paskutinį kartą asortimentas patikrintas:** {lc}  \n**Rasta aktyvių produktų:** {n_active}")
+        if cat.is_stale(catalog):
+            st.warning(f"Asortimentas senesnis nei {int(cat.STALE_HOURS)} val. – verta atnaujinti.")
+        if not meta.get("complete", True):
+            st.warning("Paskutinis nuskaitymas buvo nepilnas – sąrašas gali būti neišsamus.")
+    if ANALYSED:
+        with st.expander("Filtrai", expanded=True):
+            all_cats = sorted({c_ for p, _ in ANALYSED for c_ in (p.get("all_categories") or [])})
+            r1 = st.columns(3)
+            f_cat = r1[0].multiselect("Kategorija", all_cats)
+            f_age = r1[1].multiselect("Amžius", AGE_GROUPS)
+            f_topic = r1[2].multiselect("Tema", sorted({n for p, _ in ANALYSED for n in p["topic_names"]}))
+            r2 = st.columns(3)
+            f_fmt = r2[0].multiselect("Formatas", sorted({f for p, _ in ANALYSED for f in p["formats"]}))
+            f_seas = r2[1].multiselect("Sezoniškumas", ["Šventė / proga", "Sezono / ugdymo langas", "Tęstinė"])
+            f_stat = r2[2].multiselect("Reklamos būsena", ["⚡ PASKUTINĖ PROGA", "🔥 REKLAMUOTI DABAR", "↑ KYLA", "📅 RUOŠTI REKLAMĄ", "💤 DABAR NEAKTUALU"],
+                                       default=["⚡ PASKUTINĖ PROGA", "🔥 REKLAMUOTI DABAR", "↑ KYLA", "📅 RUOŠTI REKLAMĄ"])
+            r3 = st.columns(3)
+            f_min = r3[0].slider("Min. reklamos balas", 0, 100, 0)
+            f_q = r3[1].text_input("Paieška (pavadinimas / numeris)")
+            f_end = r3[2].checkbox("Pikas baigiasi ≤10 d.")
+        shown = []
+        for p, pr in ANALYSED:
+            if f_cat and not set(f_cat) & set(p.get("all_categories") or []): continue
+            if f_age and not set(f_age) & set(p["age_groups"]): continue
+            if f_topic and not set(f_topic) & set(p["topic_names"]): continue
+            if f_fmt and not set(f_fmt) & set(p["formats"]): continue
+            if f_seas and pr["seasonality"] not in f_seas: continue
+            if f_stat and pr["status"] not in f_stat: continue
+            if pr["score"] < f_min: continue
+            if f_q and f_q.lower() not in (p["title"] + " " + p.get("code", "")).lower(): continue
+            if f_end and not (pr["stop"] and pr["days_left"] is not None and 0 <= pr["days_left"] <= 10): continue
+            shown.append((p, pr))
+        st.markdown(f"#### Rodoma: {len(shown)} iš {len(ANALYSED)}")
+        st.caption("Reklamos prioriteto balas – planavimo heuristika (data, tema, naujumas, signalai); jis nėra išmatuota paklausa ir nesimaišo su naujų idėjų balu.")
+        lim = st.session_state.get("lim", 20)
+        for p, pr in shown[:lim]:
+            render(st, product_card(p, pr, TODAY))
+        if len(shown) > lim and st.button(f"Rodyti daugiau ({len(shown) - lim})"):
+            st.session_state["lim"] = lim + 30
+            st.rerun()
+
+# ------------------------------------------------------------------ DUOMENYS
 with tabs[4]:
-    st.markdown(f"### Temų: {len(F)} · konkrečių produktų idėjų: {sum(len(x[4]) for x in F)}")
-    for x in F: card(x)
+    st.markdown("### Duomenų būklė ir aprėptis")
+    d = meta.get("last_diag") or {}
+    if d:
+        k = st.columns(4)
+        k[0].metric("Perskaityta puslapių", d.get("pages_fetched", 0))
+        k[1].metric("Nepavykę", d.get("pages_failed", 0))
+        k[2].metric("Sitemap nuorodų", d.get("sitemap_urls", 0))
+        k[3].metric("Kategorijų / sąrašų", d.get("listings", 0))
+        st.caption(f"Pilnas nuskaitymas: {'taip' if d.get('complete') else 'ne (' + str(d.get('stop_reason')) + ')'} · sitemap nuorodų nepasiektų: {d.get('sitemap_unfetched', 0)}")
+        if d.get("category_mismatch"):
+            st.warning("Kategorijos, kuriose svetainė deklaruoja daugiau produktų, nei surinkta:")
+            st.dataframe(d["category_mismatch"], use_container_width=True)
+        if d.get("uncertain"):
+            with st.expander(f"Abejotini puslapiai ({len(d['uncertain'])}) – gali būti produktai, kurių parseris nepatvirtino"):
+                st.dataframe(d["uncertain"], use_container_width=True)
+        if d.get("errors"):
+            with st.expander(f"Klaidos ({len(d['errors'])})"):
+                st.dataframe(d["errors"], use_container_width=True)
+    else:
+        st.info("Diagnostikos dar nėra – paleisk nuskaitymą.")
+
+    st.markdown("#### 🔎 Testuoti vieną produkto nuorodą")
+    st.caption("Įklijuok produkto URL – pamatysi, ką parseris iš jo išskaito. Jei kažko trūksta, tai parodo, ką reikia pataisyti.")
+    u = st.text_input("Produkto URL", placeholder="https://mokymopriemones.eu/...")
+    if u and st.button("Tikrinti nuorodą"):
+        try:
+            r = make_session(CrawlConfig()).get(u, timeout=(8, 20))
+            pr_ = parse_page(r.url, r.text, {"mokymopriemones.eu"}, datetime.now().isoformat(timespec="seconds"))
+            st.write(f"Puslapis klasifikuotas kaip: **{pr_.kind}**" + (" (abejotina)" if pr_.uncertain else ""))
+            st.json(pr_.product or {"pastaba": "produktu nepripažintas"})
+        except Exception as e:
+            st.error(f"Nepavyko: {type(e).__name__}: {e}")
+
+    st.markdown("#### 📥 Ateities duomenys (GA4 / GSC / pardavimai / Facebook istorija)")
+    st.caption("Šiuo metu: " + (f"įkelta signalų {len(sig)} produktams." if sig else "NĖRA prijungtų duomenų – radaras jų neapsimeta turįs."))
+    up = st.file_uploader("CSV (code arba url, organic_clicks_7d, organic_clicks_prev_7d, views_7d, views_prev_7d, sales_30d, last_promoted)", type=["csv"])
+    if up is not None and st.button("Išsaugoti signalus"):
+        n = sg.save_signals_text(up.getvalue().decode("utf8-sig"))
+        st.cache_resource.clear(); st.success(f"Išsaugota {n} eilučių."); st.rerun()
+    st.download_button("Atsisiųsti signalų CSV šabloną", "code,organic_clicks_7d,organic_clicks_prev_7d,views_7d,views_prev_7d,sales_30d,last_promoted\nP171,42,30,120,100,3,2026-09-20\n", "signals_example.csv")
+
+    st.markdown("#### 💾 Katalogo kopija")
+    st.download_button("Atsisiųsti catalog.json", json.dumps(catalog, ensure_ascii=False), "catalog.json")
+    up2 = st.file_uploader("Įkelti catalog.json", type=["json"], key="catup")
+    if up2 is not None and st.button("Atkurti katalogą iš failo"):
+        try:
+            c_ = json.loads(up2.getvalue().decode("utf8"))
+            assert "products" in c_
+            cat.save_catalog(c_); st.cache_resource.clear(); st.success("Katalogas atkurtas."); st.rerun()
+        except Exception as e:
+            st.error(f"Netinkamas failas: {e}")
+
+    with st.expander("📐 Kaip skaičiuojami balai ir datos"):
+        st.markdown("""
+**Datų pagrindas.** Švenčių datos skaičiuojamos kiekvienais metais (Velykos, Užgavėnės, Advento pradžia, Motinos / Tėvo diena). **Naudojimo klasėje data** nustatoma pagal ŠMSM mokinių atostogas: jei proga patenka į atostogas ar savaitgalį, medžiaga klasėje naudojama iki paskutinės mokymosi dienos (pvz., Vėlinės 11-02 → iki 10-30).
+
+**Ugdymo programos.** Bendrosios programos (2022 m.) nenurodo mėnesių, jos skirstomos pagal 2 metų koncentrus. Mėnesius lemia vadovėliai ir mokytojų ilgalaikiai planai, kurie skiriasi. Todėl kiekvienas aktualumo langas pažymėtas **pagrindu** (ŠMSM kalendorius / vadovėlių seka / gamtos sezonas / prielaida) ir **patikimumu**. Savo leidyklos seką gali įrašyti į `data/ideas.json` (laukas `timing.windows`).
+
+**Idėjų galimybių balas** = 0,6 × potencialas + 0,4 × laiko faktorius, sumažintas, jei idėjos nespėsi pagaminti. **Reklamos balas** = stipriausias laiko varomasis (proga / langas / tęstinė tema) + naujumas + neseniai atnaujintas puslapis + savaitės rotacija (tik tęstiniams) ± signalai (GA4 / GSC / pardavimai / paskutinė reklama), jei jie įkelti. Abu balai yra planavimo heuristikos, ne išmatuota Google paklausa.
+
+**Temos atpažinimas.** Produktas siejamas su tema pagal pavadinimą ar kategoriją (stipru) arba bent 2 skirtingus raktažodžius aprašyme (silpna). Pavienis žodis aprašyme nieko nelemia.
+""")

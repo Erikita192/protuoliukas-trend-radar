@@ -1,0 +1,2640 @@
+{
+ "version": 16,
+ "topics": [
+  {
+   "id": "asmenines-ribos",
+   "name": "Asmeninės ribos",
+   "area": "Socialinis emocinis",
+   "ages": "5–10 m.",
+   "potential": 97,
+   "kw": [
+    "asmenin rib",
+    "asmenin erdv",
+    "kuno rib",
+    "saugus prisilietim",
+    "pasakyti ne"
+   ],
+   "timing": {
+    "type": "evergreen"
+   },
+   "formats": [
+    "Kortelės",
+    "PDF",
+    "PowerPoint"
+   ],
+   "pain": "Pedagogai ieško konkrečių situacijų, o ne bendrų kalbų apie ribas – vaikui reikia pasitreniruoti, ką pasakyti.",
+   "ideas": [
+    {
+     "title": "Galiu pasakyti NE – situacijų kortelės",
+     "desc": "24 kasdienės situacijos: draugas ima daiktą neatsiklausęs, kažkas nori apkabinti, stovi per arti, prašo parodyti asmeninę žinutę. Vaikas sprendžia, ar riba pažeidžiama, ir pasirenka tinkamą frazę: „NE“, „SUSTOK“, „PAKLAUSK MANĘS“, „MAN TAI NEPATINKA“.",
+     "skill": "ribos pažeidimo atpažinimas ir ryžtingas atsakymas",
+     "effort": "V"
+    },
+    {
+     "title": "Ką galėčiau pasakyti?",
+     "desc": "Situacija + 3 konkretūs atsakymai. Vaikas renkasi pagarbų ir saugų būdą apginti savo ribą ir aptaria, kodėl kiti atsakymai netinka.",
+     "skill": "pagarbaus ir saugaus atsakymo pasirinkimas, argumentavimas",
+     "effort": "V"
+    },
+    {
+     "title": "Mano asmeninė erdvė",
+     "desc": "Kortelės rūšiuojamos į „MAN TINKA“, „PIRMIAUSIA PAKLAUSK“, „MAN NETINKA“. Tinka individualiam darbui ir pokalbiui grupėje.",
+     "skill": "savarankiškas vertinimas, kas tinka / netinka",
+     "effort": "G"
+    },
+    {
+     "title": "Ką galėčiau pasakyti – saugumo šviesoforas",
+     "desc": "Po kiekvienos situacijos vaikas žymi ŽALIA / GELTONA / RAUDONA: kada galiu pats išspręsti, kada paprašyti suaugusiojo, kada skubiai kviesti pagalbą.",
+     "skill": "saugumo vertinimas, pagalbos prašymas",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "rusiavimas-pagal-pozymi",
+   "name": "Rūšiavimas pagal požymį",
+   "area": "Universalios pažinimo veiklos",
+   "ages": "3–6 m.",
+   "potential": 97,
+   "kw": [
+    "rusiav",
+    "grupavim",
+    "bendr pozym",
+    "skirstym"
+   ],
+   "timing": {
+    "type": "evergreen"
+   },
+   "formats": [
+    "Kortelės",
+    "PDF",
+    "Žaidimas"
+   ],
+   "pain": "Logikos pagrindas visoms sritims; pedagogams trūksta užduočių, kur reikia pasakyti taisyklę, o ne tik sudėti.",
+   "ideas": [
+    {
+     "title": "Surask bendrą požymį",
+     "desc": "4 objektai, iš kurių 3 sieja vienas konkretus požymis: spalva, forma, paskirtis ar medžiaga. Vaikas pasako taisyklę ir randa netinkantį.",
+     "skill": "požymio nustatymas, taisyklės formulavimas",
+     "effort": "G"
+    },
+    {
+     "title": "Rūšiuok dviem būdais",
+     "desc": "Tie patys 8–10 objektų pirmiausia rūšiuojami pagal spalvą, paskui pagal paskirtį. Vaikas pamato, kad tą pačią informaciją galima grupuoti skirtingai.",
+     "skill": "klasifikavimas keliais būdais, lankstus mąstymas",
+     "effort": "V"
+    },
+    {
+     "title": "Kas pasikeitė?",
+     "desc": "Dvi beveik vienodos objektų grupės. Vienas objektas pakeičia kategoriją ar požymį; vaikas turi pastebėti ir paaiškinti pokytį.",
+     "skill": "pastabumas, lyginimas, paaiškinimas",
+     "effort": "G"
+    }
+   ]
+  },
+  {
+   "id": "kalbos-dalys",
+   "name": "Kalbos dalys",
+   "area": "Lietuvių kalba",
+   "ages": "2–5 kl.",
+   "potential": 96,
+   "kw": [
+    "kalbos dal",
+    "daiktavard",
+    "budvard",
+    "veiksmazod",
+    "skaitvard"
+   ],
+   "timing": {
+    "type": "evergreen"
+   },
+   "formats": [
+    "Darbo lapai",
+    "PowerPoint",
+    "Kortelės"
+   ],
+   "pain": "Vaikai dažnai atpažįsta kalbos dalį tik izoliuotame žodyje, bet ne sakinyje.",
+   "ideas": [
+    {
+     "title": "Žodis kontekste – kokia tai kalbos dalis?",
+     "desc": "Trumpame sakinyje paryškintas žodis. Vaikas nustato, ar tai daiktavardis, būdvardis, veiksmažodis ar kita mokoma kalbos dalis; žodis pateikiamas kontekste, ne izoliuotai.",
+     "skill": "kalbos dalies atpažinimas kontekste",
+     "effort": "V"
+    },
+    {
+     "title": "Sukurk sakinį iš trijų kalbos dalių",
+     "desc": "Duotas daiktavardis, veiksmažodis ir būdvardis. Vaikas keičia formas ir sukuria taisyklingą sakinį.",
+     "skill": "žodžių formų kaitymas, sakinio kūrimas",
+     "effort": "V"
+    },
+    {
+     "title": "Kalbos dalių detektyvas",
+     "desc": "Trumpame 3–4 sakinių tekste reikia rasti nurodytą skaičių daiktavardžių, veiksmažodžių ir būdvardžių.",
+     "skill": "kalbos dalių paieška tekste",
+     "effort": "G"
+    }
+   ]
+  },
+  {
+   "id": "nosines-ilgosios",
+   "name": "Nosinės ir ilgosios balsės",
+   "area": "Lietuvių kalba",
+   "ages": "3–6 kl.",
+   "potential": 96,
+   "kw": [
+    "nosin",
+    "ilgosios balsi",
+    "ilguju balsi"
+   ],
+   "timing": {
+    "type": "evergreen"
+   },
+   "formats": [
+    "Darbo lapai",
+    "PowerPoint",
+    "Kortelės"
+   ],
+   "pain": "Viena dažniausių rašybos klaidų grupių, kuriai reikia daug skirtingų treniruočių.",
+   "ideas": [
+    {
+     "title": "Įrašyk trūkstamą raidę kontekste",
+     "desc": "Sakinys su vienu probleminiu žodžiu; vaikas įrašo ą/ę/į/ų/ū ar kitą reikiamą balsę ir perskaito visą sakinį.",
+     "skill": "rašyba kontekste",
+     "effort": "G"
+    },
+    {
+     "title": "Rašybos poros",
+     "desc": "Dvi panašiai skambančios žodžių formos ar žodžiai. Vaikas pasirenka tinkamą pagal sakinio prasmę.",
+     "skill": "rašybos pasirinkimas pagal prasmę",
+     "effort": "G"
+    },
+    {
+     "title": "Surask ir pataisyk",
+     "desc": "Trumpame tekste sąmoningai paliktos 3–5 nosinių ir ilgųjų balsių klaidos. Vaikas tampa redaktoriumi.",
+     "skill": "teksto redagavimas, klaidų paieška",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "muzikos-instrumentai",
+   "name": "Muzikos instrumentai",
+   "area": "Muzika",
+   "ages": "Ikimokyklinis–4 kl.",
+   "potential": 96,
+   "kw": [
+    "muzikos instrument",
+    "instrument",
+    "muzikin"
+   ],
+   "timing": {
+    "type": "evergreen"
+   },
+   "formats": [
+    "Kortelės",
+    "PowerPoint"
+   ],
+   "pain": "Muzikos pamokoms trūksta vaizdinių priemonių, siejančių instrumentą su garsu ir grojimo veiksmu.",
+   "ideas": [
+    {
+     "title": "Kas groja šiuo instrumentu?",
+     "desc": "Instrumento iliustracija siejama su atlikėju ir grojimo būdu: pučia, muša, braukia stryku, skambina.",
+     "skill": "instrumento atpažinimas, grojimo būdų žodynas",
+     "effort": "G"
+    },
+    {
+     "title": "Instrumentų šeimos",
+     "desc": "Vaikas grupuoja realius instrumentus į styginius, pučiamuosius ir mušamuosius; jaunesniems – pagal grojimo veiksmą.",
+     "skill": "klasifikavimas pagal grojimo būdą",
+     "effort": "V"
+    },
+    {
+     "title": "Kuris instrumentas dingo?",
+     "desc": "Rodomi 4–6 instrumentai, kitame vaizde vieno nėra. Lavinamas muzikinis žodynas ir pastabumas.",
+     "skill": "pastabumas, muzikinis žodynas",
+     "effort": "G"
+    }
+   ]
+  },
+  {
+   "id": "medziu-lapai",
+   "name": "Medžių lapai",
+   "area": "Gamtamokslinis",
+   "ages": "4–9 m.",
+   "potential": 95,
+   "kw": [
+    "medziu",
+    "medzio",
+    "lapuoc",
+    "spygliuoc",
+    "klevo",
+    "ozio",
+    "berzo",
+    "liepos lap"
+   ],
+   "timing": {
+    "type": "windows",
+    "windows": [
+     [
+      "09-15",
+      "10-31"
+     ]
+    ],
+    "basis": "nature",
+    "confidence": "medium",
+    "note": "Gamtos reiškinys (lapų kritimas), ne programos data."
+   },
+   "formats": [
+    "Kortelės",
+    "Bee-Bot",
+    "PDF"
+   ],
+   "pain": "Rudenį pedagogai eina į lauką ir ieško užduočių, kurias galima susieti su tikru lapu rankoje.",
+   "ideas": [
+    {
+     "title": "Kuris lapas nuo kurio medžio?",
+     "desc": "Aiškūs klevo, ąžuolo, beržo, liepos, kaštono ir kitų pažįstamų medžių lapai poruojami su medžiu ar jo vaisiumi.",
+     "skill": "gamtos objektų atpažinimas",
+     "effort": "G"
+    },
+    {
+     "title": "Lapų detektyvas",
+     "desc": "Rodomas lapas ir 3 požymių užuominos: krašto forma, gyslotumas, spalva / vaisius. Vaikas nustato medį.",
+     "skill": "požymių analizė, išvados",
+     "effort": "V"
+    },
+    {
+     "title": "Rudens lapų Bee-Bot",
+     "desc": "Tinklelyje medžiai, lapai ir vaisiai. Užduotis: nuo ąžuolo nuvažiuoti iki gilės, nuo klevo – iki klevo lapo.",
+     "skill": "orientavimasis tinklelyje, programavimo pradmenys",
+     "effort": "D"
+    }
+   ]
+  },
+  {
+   "id": "misko-grybai",
+   "name": "Miško grybai",
+   "area": "Gamtamokslinis",
+   "ages": "5–10 m.",
+   "potential": 94,
+   "kw": [
+    "gryb",
+    "grybau"
+   ],
+   "timing": {
+    "type": "windows",
+    "windows": [
+     [
+      "09-01",
+      "10-20"
+     ]
+    ],
+    "basis": "nature",
+    "confidence": "medium",
+    "note": "Gamtos reiškinys (grybavimo sezonas), ne programos data."
+   },
+   "formats": [
+    "Kortelės",
+    "PowerPoint"
+   ],
+   "pain": "Tema populiari rudenį, bet pedagogams svarbus saugus pateikimas: kortelė nepakeičia suaugusiojo.",
+   "ideas": [
+    {
+     "title": "Valgomas ar nevalgomas?",
+     "desc": "Gerai atpažįstamų grybų kortelės rūšiuojamos į mokomąsias kategorijas; akcentuojama, kad tikras grybas gamtoje nevertinamas vien pagal kortelę.",
+     "skill": "kategorizavimas, saugumo suvokimas",
+     "effort": "V"
+    },
+    {
+     "title": "Grybo sandara",
+     "desc": "Kepurėlė, kotas, lakšteliai / vamzdeliai ir grybiena siejami su vieta schemoje.",
+     "skill": "sandaros žodynas",
+     "effort": "G"
+    },
+    {
+     "title": "Kas auga miške?",
+     "desc": "Grybai maišomi su uogomis, samanomis, kankorėžiais ir kitais radiniais; vaikas grupuoja ir įvardija.",
+     "skill": "grupavimas pagal kilmę",
+     "effort": "G"
+    }
+   ]
+  },
+  {
+   "id": "skaiciu-tiese",
+   "name": "Skaičių tiesė",
+   "area": "Matematika",
+   "ages": "1–3 kl.",
+   "potential": 95,
+   "kw": [
+    "skaiciu ties",
+    "skaiciu atkarp"
+   ],
+   "timing": {
+    "type": "windows",
+    "windows": [
+     [
+      "09-01",
+      "11-15"
+     ]
+    ],
+    "basis": "textbook",
+    "confidence": "low",
+    "note": "1–3 kl.: skaičių tiesė naudojama visus metus; rugsėjis–lapkritis – tipinė pradžia. Mažas patikimumas."
+   },
+   "formats": [
+    "Darbo lapai",
+    "PDF",
+    "PowerPoint"
+   ],
+   "pain": "Skaičių tiesė – dažna vaikų painiava; mokytojams reikia įvairių užduočių, ne vieno šablono.",
+   "ideas": [
+    {
+     "title": "Kur gyvena skaičius?",
+     "desc": "Tuščioje skaičių tiesėje pažymėtas taškas; vaikas įrašo, koks skaičius ten yra. Kituose lapuose duotas skaičius, kurį reikia pažymėti.",
+     "skill": "skaičių vieta ir pažymėjimas tiesėje",
+     "effort": "V"
+    },
+    {
+     "title": "Kuris skaičius arčiau?",
+     "desc": "Tiesėje pažymėtas vienas skaičius, apačioje du pasirinkimai. Vaikas nustato, kuris arčiau, ir gali parodyti atstumą šuoliais.",
+     "skill": "skaičių palyginimas, atstumo suvokimas",
+     "effort": "G"
+    },
+    {
+     "title": "Koks veiksmas pavaizduotas?",
+     "desc": "Pradžios taškas ir judėjimas tiesėje; vaikas pats užrašo sudėties ar atimties veiksmą ir rezultatą.",
+     "skill": "veiksmo vaizdavimas ir užrašymas",
+     "effort": "V"
+    },
+    {
+     "title": "Pasiek tikslą",
+     "desc": "Duotas startas ir tikslas, o vaikas turi sugalvoti vieną ar kelis veiksmus, kuriais tikslą pasiektų.",
+     "skill": "kelių sprendimų ieškojimas",
+     "effort": "G"
+    }
+   ]
+  },
+  {
+   "id": "daugyba",
+   "name": "Daugyba",
+   "area": "Matematika",
+   "ages": "2–3 kl.",
+   "potential": 94,
+   "kw": [
+    "daugyb",
+    "dauginim"
+   ],
+   "timing": {
+    "type": "windows",
+    "windows": [
+     [
+      "09-15",
+      "12-15"
+     ]
+    ],
+    "basis": "textbook",
+    "confidence": "medium",
+    "note": "3–4 kl.: leidyklų planuose daugyba iš 6–9 – spalį–lapkritį, kitur gruodį. Rugsėjį – kartojimas. Tikslią vietą nustato naudojamas vadovėlis."
+   },
+   "formats": [
+    "Darbo lapai",
+    "Kortelės",
+    "Žaidimas"
+   ],
+   "pain": "Vaikai išmoksta lentelę mintinai, bet nesupranta, ką daugyba reiškia.",
+   "ideas": [
+    {
+     "title": "Vienodos grupės → daugybos veiksmas",
+     "desc": "Pvz., 4 lėkštutės po 3 braškes. Vaikas pirmiausia mato grupes, tada užrašo 4 × 3.",
+     "skill": "daugybos supratimas per grupes",
+     "effort": "V"
+    },
+    {
+     "title": "Daugyba skaičių tiesėje",
+     "desc": "Vienodo ilgio šuoliai leidžia pamatyti, ką reiškia 5 × 3, o ne tik prisiminti rezultatą.",
+     "skill": "daugyba kaip vienodi šuoliai",
+     "effort": "V"
+    },
+    {
+     "title": "Sukurk paveikslą veiksmui",
+     "desc": "Duotas 3 × 4. Vaikas pats nupiešia arba sudėlioja 3 vienodas grupes po 4 objektus.",
+     "skill": "veiksmo vaizdavimas",
+     "effort": "G"
+    }
+   ]
+  },
+  {
+   "id": "dalyba",
+   "name": "Dalyba",
+   "area": "Matematika",
+   "ages": "2–3 kl.",
+   "potential": 94,
+   "kw": [
+    "dalyb",
+    "dalijim"
+   ],
+   "timing": {
+    "type": "windows",
+    "windows": [
+     [
+      "10-01",
+      "12-20"
+     ]
+    ],
+    "basis": "textbook",
+    "confidence": "medium",
+    "note": "3–4 kl.: dalyba einama kartu su daugyba spalį–gruodį (leidyklų ilgalaikiai planai skiriasi)."
+   },
+   "formats": [
+    "Darbo lapai",
+    "Kortelės"
+   ],
+   "pain": "Dalybos prasmė (dalinti po lygiai ir grupuoti) dažnai painiojama.",
+   "ideas": [
+    {
+     "title": "Padalink po lygiai",
+     "desc": "12 objektų reikia paskirstyti 3 vaikams / dėžutėms. Vaikas fiziškai ar pieštuku paskirsto ir tik tada užrašo 12 : 3.",
+     "skill": "lygus dalijimas, užrašymas",
+     "effort": "V"
+    },
+    {
+     "title": "Kiek grupių gausime?",
+     "desc": "Duota 15 objektų ir sąlyga dėti po 5. Vaikas formuoja grupes ir nustato jų skaičių.",
+     "skill": "dalyba kaip grupavimas",
+     "effort": "G"
+    },
+    {
+     "title": "Dalyba skaičių tiesėje",
+     "desc": "Nuo skaičiaus grįžtama vienodais šuoliais iki nulio; suskaičiuojama, kiek šuolių reikėjo.",
+     "skill": "dalyba kaip atimtis šuoliais",
+     "effort": "G"
+    }
+   ]
+  },
+  {
+   "id": "laikrodis-ir-minutes",
+   "name": "Laikrodis ir minutės",
+   "area": "Matematika",
+   "ages": "2–4 kl.",
+   "potential": 93,
+   "kw": [
+    "laikrod",
+    "valandos ir minut",
+    "kiek laiko"
+   ],
+   "timing": {
+    "type": "windows",
+    "windows": [
+     [
+      "09-01",
+      "10-31"
+     ]
+    ],
+    "basis": "textbook",
+    "confidence": "low",
+    "note": "Laikrodis – 2–3 kl.; rugsėjį kartojimas, tikslią vietą nustato vadovėlis. Mažas patikimumas."
+   },
+   "formats": [
+    "Darbo lapai",
+    "PowerPoint",
+    "Kortelės"
+   ],
+   "pain": "Laikrodžio skaitymas – pasikartojantis iššūkis 2–4 kl.; trūksta praktinių užduočių.",
+   "ideas": [
+    {
+     "title": "Kiek laiko praėjo?",
+     "desc": "Du laikrodžiai – pradžia ir pabaiga. Pradedama nuo pilnų valandų, vėliau įtraukiamos 5, 10, 15 ir 30 min.",
+     "skill": "laiko tarpų skaičiavimas",
+     "effort": "V"
+    },
+    {
+     "title": "Nupiešk rodykles",
+     "desc": "Duotas konkretus laikas, pvz. 14:35; vaikas tuščiame ciferblate pažymi abi rodykles.",
+     "skill": "laiko nustatymas ciferblate",
+     "effort": "G"
+    },
+    {
+     "title": "Dienos planas",
+     "desc": "3–5 kasdienės veiklos su pradžios laiku. Vaikas sudėlioja chronologiškai ir apskaičiuoja tarpus.",
+     "skill": "laiko planavimas, chronologija",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "paprastosios-trupmenos",
+   "name": "Paprastosios trupmenos",
+   "area": "Matematika",
+   "ages": "3–5 kl.",
+   "potential": 94,
+   "kw": [
+    "trupmen"
+   ],
+   "timing": {
+    "type": "windows",
+    "windows": [
+     [
+      "10-01",
+      "12-20"
+     ]
+    ],
+    "basis": "textbook",
+    "confidence": "medium",
+    "note": "3–4 kl.: trupmenos leidyklų planuose – spalis–gruodis (3 kl. – daugiausia lapkritis, 4 kl. – spalis, projektų planuose – gruodis)."
+   },
+   "formats": [
+    "Darbo lapai",
+    "PowerPoint",
+    "Kortelės"
+   ],
+   "pain": "Vaikams sunku suprasti trupmenų dydį, nes dažnai mato tik skaičius.",
+   "ideas": [
+    {
+     "title": "Picos trupmenos",
+     "desc": "Vienodo dydžio picos padalytos į lygias dalis. Vaikas susieja nuspalvintą dalį su trupmena ir pats nuspalvina nurodytą trupmeną.",
+     "skill": "trupmenos vizualus supratimas",
+     "effort": "V"
+    },
+    {
+     "title": "Kuri trupmena didesnė?",
+     "desc": "Dvi vienodo dydžio figūros su skirtingais padalijimais leidžia pirmiausia palyginti vizualiai, tada įrašyti >, < arba =.",
+     "skill": "trupmenų palyginimas vizualiai",
+     "effort": "V"
+    },
+    {
+     "title": "Trupmena skaičių tiesėje",
+     "desc": "0–1 atkarpa padalyta į lygias dalis; vaikas pažymi 1/4, 3/5, 7/8 ir pan.",
+     "skill": "trupmenos vieta skaičių tiesėje",
+     "effort": "V"
+    },
+    {
+     "title": "Sudėtis vienodais vardikliais",
+     "desc": "Vizualus modelis rodo dvi tos pačios visumos dalis; vaikas sujungia jas ir užrašo rezultatą.",
+     "skill": "trupmenų sudėtis",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "trupmenu-palyginimas",
+   "name": "Trupmenų palyginimas skirtingais vardikliais",
+   "area": "Matematika",
+   "ages": "5–6 kl.",
+   "potential": 93,
+   "kw": [
+    "trupmenu palygin",
+    "vardikl",
+    "palygink trupmen"
+   ],
+   "timing": {
+    "type": "windows",
+    "windows": [
+     [
+      "10-01",
+      "12-20"
+     ]
+    ],
+    "basis": "textbook",
+    "confidence": "medium",
+    "note": "4 kl.: trupmenų palyginimas su skirtingais vardikliais vienoje leidykloje – spalį; 5–6 kl. – kartojimas ir gilinimas."
+   },
+   "formats": [
+    "Darbo lapai",
+    "PowerPoint"
+   ],
+   "pain": "Klaida „didesnis vardiklis = didesnė trupmena“ labai atkakli; reikia vizualios ir strateginės praktikos.",
+   "ideas": [
+    {
+     "title": "Kuris gabalėlis didesnis?",
+     "desc": "Dvi vienodo dydžio picos, pvz. 2/3 ir 3/5. Vaikas palygina modelius ir įrašo ženklą.",
+     "skill": "vizualus trupmenų palyginimas, ženklų pasirinkimas",
+     "effort": "V"
+    },
+    {
+     "title": "Bendro vardiklio laboratorija",
+     "desc": "Duotos dvi trupmenos ir tušti vienodo dydžio modeliai. Vaikas perskaido abi į vienodas dalis ir atranda bendrą vardiklį.",
+     "skill": "bendro vardiklio atradimas",
+     "effort": "V"
+    },
+    {
+     "title": "Trupmenų dvikova",
+     "desc": "Trupmenos pateiktos be paruošto modelio. Vaikas pasirenka palyginimo strategiją ir, jei reikia, pats naudoja tuščią juostą ar skaičių tiesę.",
+     "skill": "palyginimo strategijos pasirinkimas",
+     "effort": "V"
+    },
+    {
+     "title": "Pastatyk trupmeną ant skaičių tiesės",
+     "desc": "Tarp 0 ir 1 vaikas turi pažymėti 3/4, 5/6, 2/3 ir kitas trupmenas. Tiesės padalijimas skiriasi nuo užduoties prie užduoties, tad reikia pačiam rasti vietą.",
+     "skill": "trupmenos dydžio suvokimas skaičių tiesėje",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "procentai-ir-nuolaidos",
+   "name": "Procentai ir nuolaidos",
+   "area": "Matematika",
+   "ages": "5–7 kl.",
+   "potential": 92,
+   "kw": [
+    "procent",
+    "procentai ir nuolaid"
+   ],
+   "timing": {
+    "type": "windows",
+    "windows": [
+     [
+      "10-01",
+      "12-20"
+     ]
+    ],
+    "basis": "assumption",
+    "confidence": "low",
+    "note": "5–7 kl.: konkretaus vadovėlių plano nepatikrinta; Kalėdų pirkimų kontekstas tinka lapkritį–gruodį."
+   },
+   "formats": [
+    "Darbo lapai",
+    "PowerPoint"
+   ],
+   "pain": "Prieš šventinį pirkimo sezoną nuolaidų uždaviniai tampa realūs ir motyvuojantys.",
+   "ideas": [
+    {
+     "title": "Tikra parduotuvės nuolaida",
+     "desc": "Realistiška prekė, pradinė kaina ir −10 %, −20 %, −25 % ar −50 %. Vaikas randa nuolaidos sumą ir naują kainą.",
+     "skill": "procentų taikymas realiose situacijose",
+     "effort": "V"
+    },
+    {
+     "title": "Kuri akcija geresnė?",
+     "desc": "Dvi to paties tipo prekės su skirtinga kaina ir nuolaida. Reikia apskaičiuoti galutinę kainą, ne spėti pagal didesnį procentą.",
+     "skill": "skaičiavimas vietoje spėjimo",
+     "effort": "V"
+    },
+    {
+     "title": "Atvirkštinis procentas",
+     "desc": "Žinoma kaina po nuolaidos ir procentas; vyresni mokiniai ieško pradinės kainos.",
+     "skill": "atvirkštinis procentų uždavinys",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "neigiami-skaiciai",
+   "name": "Neigiami skaičiai",
+   "area": "Matematika",
+   "ages": "5–7 kl.",
+   "potential": 91,
+   "kw": [
+    "neigiam skaiciu",
+    "neigiami skaiciai",
+    "neigiam"
+   ],
+   "timing": {
+    "type": "windows",
+    "windows": [
+     [
+      "11-01",
+      "02-28"
+     ]
+    ],
+    "basis": "assumption",
+    "confidence": "low",
+    "note": "6 kl.: vadovėlio vieta nepatikrinta; žiemos temperatūros kontekstas."
+   },
+   "formats": [
+    "Darbo lapai",
+    "PowerPoint"
+   ],
+   "pain": "Neigiami skaičiai kuo greičiau turi būti susieti su konkrečiu modeliu (skola, temperatūra).",
+   "ideas": [
+    {
+     "title": "Skola",
+     "desc": "Situacijos „turiu 3 Eur“, „skolingas 5 Eur“, „gavau 4 Eur“. Vaikas seka balansą ir sieja skolą su neigiamu skaičiumi.",
+     "skill": "neigiamų skaičių supratimas per skolą",
+     "effort": "V"
+    },
+    {
+     "title": "Temperatūros pokytis",
+     "desc": "Termometras rodo, pvz., −4 °C; temperatūra pakyla 7 °C. Vaikas juda skaičių tiesėje ir nustato rezultatą.",
+     "skill": "judėjimas skaičių tiesėje",
+     "effort": "V"
+    },
+    {
+     "title": "Liftas po žeme",
+     "desc": "Aukštai virš ir po nuliniu aukštu naudojami kaip konkretus neigiamų skaičių modelis.",
+     "skill": "vertikalus modelis",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "zmogaus-kuno-dalys",
+   "name": "Žmogaus kūno dalys",
+   "area": "Gamtamokslinis",
+   "ages": "Ikimokyklinis–2 kl.",
+   "potential": 94,
+   "kw": [
+    "kuno dal",
+    "zmogaus kun"
+   ],
+   "timing": {
+    "type": "evergreen"
+   },
+   "formats": [
+    "Kortelės",
+    "PDF",
+    "Žaidimas"
+   ],
+   "pain": "Pagrindinė tema ikimokykliniame ugdyme; ieškoma ne tik vardų, bet ir funkcijų.",
+   "ideas": [
+    {
+     "title": "Kur yra...?",
+     "desc": "Vaikas gauna kūno dalies pavadinimą ar paveikslėlį ir parodo ją žmogaus figūroje.",
+     "skill": "kūno dalių atpažinimas",
+     "effort": "G"
+    },
+    {
+     "title": "Kūno dalis → ką ji padeda daryti?",
+     "desc": "Akys → matyti, ausys → girdėti, kojos → eiti. Poruojamos kūno dalys su aiškia funkcija.",
+     "skill": "dalies ir funkcijos sąsaja",
+     "effort": "G"
+    },
+    {
+     "title": "Sudėk žmogų",
+     "desc": "Atskiros pagrindinės kūno dalys sudedamos į visumą; vėliau pridedami pavadinimai.",
+     "skill": "visumos dėliojimas, žodynas",
+     "effort": "G"
+    }
+   ]
+  },
+  {
+   "id": "zmogaus-organai",
+   "name": "Žmogaus organai",
+   "area": "Gamtamokslinis",
+   "ages": "3–6 kl.",
+   "potential": 92,
+   "kw": [
+    "zmogaus organ",
+    "organu",
+    "virskinim"
+   ],
+   "timing": {
+    "type": "evergreen"
+   },
+   "formats": [
+    "Kortelės",
+    "PowerPoint"
+   ],
+   "pain": "Pasaulio pažinimo temai trūksta paprastų, bet tikslių schemų.",
+   "ideas": [
+    {
+     "title": "Organas → funkcija",
+     "desc": "Širdis, plaučiai, skrandis, smegenys, žarnynas siejami su paprastai aprašyta pagrindine funkcija.",
+     "skill": "organų funkcijų supratimas",
+     "effort": "V"
+    },
+    {
+     "title": "Kur yra organas?",
+     "desc": "Žmogaus siluete vaikas padeda organo kortelę apytikslėje anatominėje vietoje.",
+     "skill": "anatominė orientacija",
+     "effort": "G"
+    },
+    {
+     "title": "Kelionė per virškinimo sistemą",
+     "desc": "Maisto kelias sudėliojamas nuosekliai nuo burnos iki žarnyno.",
+     "skill": "nuoseklus procesas",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "vandens-apytakos-ratas",
+   "name": "Vandens apytakos ratas",
+   "area": "Gamtamokslinis",
+   "ages": "2–5 kl.",
+   "potential": 91,
+   "kw": [
+    "vandens apytak",
+    "vandens ciklas",
+    "vandens ratas",
+    "kritulia"
+   ],
+   "timing": {
+    "type": "evergreen"
+   },
+   "formats": [
+    "Kortelės",
+    "PowerPoint",
+    "PDF"
+   ],
+   "pain": "Ciklo mąstymas sunkus – vaikams reikia nuoseklių vaizdų ir sąvokų.",
+   "ideas": [
+    {
+     "title": "Sudėliok vandens kelionę",
+     "desc": "Garavimas → kondensacija → krituliai → kaupimasis. Vaikas dėlioja etapus ir rodykles.",
+     "skill": "proceso sekos suvokimas",
+     "effort": "G"
+    },
+    {
+     "title": "Kur dingo balutė?",
+     "desc": "Kasdienė situacija naudojama paaiškinti garavimą; vaikas pasirenka teisingą paaiškinimą iš kelių.",
+     "skill": "reiškinio paaiškinimas",
+     "effort": "G"
+    },
+    {
+     "title": "Vandens lašelio kelionė",
+     "desc": "Nuoseklios iliustracijos, iš kurių vaikas kuria pasakojimą vartodamas gamtamokslines sąvokas.",
+     "skill": "pasakojimas gamtamokslinėmis sąvokomis",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "mitybos-grandines",
+   "name": "Mitybos grandinės",
+   "area": "Gamtamokslinis",
+   "ages": "3–6 kl.",
+   "potential": 90,
+   "kw": [
+    "mitybos grandin",
+    "mitybos tinkl"
+   ],
+   "timing": {
+    "type": "evergreen"
+   },
+   "formats": [
+    "Kortelės",
+    "PDF"
+   ],
+   "pain": "Ekosistemų ryšiai – daug lengviau suprantami dėliojant grandines.",
+   "ideas": [
+    {
+     "title": "Kas kuo minta?",
+     "desc": "Augalas → žolėdis → plėšrūnas. Vaikas iš atskirų kortelių sudaro logišką grandinę.",
+     "skill": "priežastinių ryšių grandinė",
+     "effort": "G"
+    },
+    {
+     "title": "Kas nutiktų, jeigu...?",
+     "desc": "Pašalinama viena grandis ir vaikas svarsto, kaip tai paveiktų likusias.",
+     "skill": "hipotezių kėlimas",
+     "effort": "G"
+    },
+    {
+     "title": "Taisyk grandinę",
+     "desc": "Pateikiama tyčia klaidinga mitybos grandinė; reikia rasti ir pakeisti netinkamą grandį.",
+     "skill": "klaidų aptikimas",
+     "effort": "G"
+    }
+   ]
+  },
+  {
+   "id": "emociju-atpazinimas",
+   "name": "Emocijų atpažinimas",
+   "area": "Socialinis emocinis",
+   "ages": "3–8 m.",
+   "potential": 94,
+   "kw": [
+    "emocij",
+    "jausm",
+    "nuotaik"
+   ],
+   "timing": {
+    "type": "evergreen"
+   },
+   "formats": [
+    "Kortelės",
+    "PDF",
+    "PowerPoint"
+   ],
+   "pain": "Emocijų kortelės su veido išraiška nebesiekia – pedagogai ieško situacijų.",
+   "ideas": [
+    {
+     "title": "Ką jaučia vaikas?",
+     "desc": "Ne vien veido išraiška, bet konkreti situacija: sugriuvo bokštas, atėjo draugas, pasimetė žaislas. Vaikas įvardija galimą emociją.",
+     "skill": "emocijų įvardijimas pagal situaciją",
+     "effort": "G"
+    },
+    {
+     "title": "Ta pati situacija – skirtingi jausmai",
+     "desc": "Du vaikai į tą patį įvykį reaguoja skirtingai. Aptariama, kad nėra vieno privalomo jausmo.",
+     "skill": "empatija, įvairių reakcijų priėmimas",
+     "effort": "V"
+    },
+    {
+     "title": "Kūnas man pasako",
+     "desc": "Emocija siejama su kūno signalais: įsitempę pečiai, greita širdis, šypsena, noras pasitraukti.",
+     "skill": "kūno signalų atpažinimas",
+     "effort": "G"
+    }
+   ]
+  },
+  {
+   "id": "konfliktu-sprendimas",
+   "name": "Konfliktų sprendimas",
+   "area": "Socialinis emocinis",
+   "ages": "5–11 m.",
+   "potential": 92,
+   "kw": [
+    "konflikt",
+    "ginc",
+    "taikus sprendim"
+   ],
+   "timing": {
+    "type": "evergreen"
+   },
+   "formats": [
+    "Kortelės",
+    "PDF",
+    "PowerPoint"
+   ],
+   "pain": "Konfliktai pertraukose ir grupėje – kasdienybė; reikia aiškių, vaikui suprantamų žingsnių.",
+   "ideas": [
+    {
+     "title": "Du nori to paties žaislo",
+     "desc": "Situacija + keli realūs sprendimai: tartis, keistis, žaisti kartu, atimti. Vaikas vertina pasekmes.",
+     "skill": "sprendimų ir pasekmių vertinimas",
+     "effort": "V"
+    },
+    {
+     "title": "Ką pasakyti vietoje šaukimo?",
+     "desc": "Konfliktinė frazė keičiama į aiškią „aš“ žinutę.",
+     "skill": "„aš“ žinutės formulavimas",
+     "effort": "G"
+    },
+    {
+     "title": "Sustok – pagalvok – pasirink",
+     "desc": "3 žingsnių vizualus algoritmas taikomas konkrečioms mokyklos ir darželio situacijoms.",
+     "skill": "žingsnių algoritmo taikymas",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "savireguliacija",
+   "name": "Savireguliacija",
+   "area": "Švietimo pagalba",
+   "ages": "4–12 m.",
+   "potential": 91,
+   "kw": [
+    "savireguliac",
+    "nusiramin",
+    "pykc",
+    "pykti"
+   ],
+   "timing": {
+    "type": "evergreen"
+   },
+   "formats": [
+    "Kortelės",
+    "PDF",
+    "Plakatas"
+   ],
+   "pain": "Pedagogams reikia ne bendro „nusiramink“, o konkrečių strategijų, tinkančių situacijai.",
+   "ideas": [
+    {
+     "title": "Kai supykstu, galiu...",
+     "desc": "Konkrečių strategijų kortelės: atsitraukti, giliai kvėpuoti, paprašyti pertraukos, suskaičiuoti, pasakyti suaugusiajam.",
+     "skill": "strategijų žinojimas",
+     "effort": "G"
+    },
+    {
+     "title": "Kuri strategija tinka situacijai?",
+     "desc": "Triukšmas, laukimas, pralaimėjimas, sunkus darbas – vaikas renkasi realistišką nusiraminimo būdą.",
+     "skill": "strategijos parinkimas situacijai",
+     "effort": "V"
+    },
+    {
+     "title": "Mano asmeninis nusiraminimo meniu",
+     "desc": "Iš bendro strategijų banko vaikas išsirenka 4–6 jam tinkamas ir susikuria individualią kortelę.",
+     "skill": "individualaus plano sudarymas",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "socialines-istorijos",
+   "name": "Socialinės istorijos",
+   "area": "Švietimo pagalba",
+   "ages": "3–10 m.",
+   "potential": 90,
+   "kw": [
+    "socialin ist",
+    "socialiniu istorij",
+    "socialine istorij"
+   ],
+   "timing": {
+    "type": "evergreen"
+   },
+   "formats": [
+    "PDF",
+    "Kortelės"
+   ],
+   "pain": "Specialiesiems pedagogams ir tėvams trūksta paruoštų, prasmingų istorijų konkrečioms situacijoms.",
+   "ideas": [
+    {
+     "title": "Kai pasikeičia planas",
+     "desc": "Trumpa vizuali istorija: kas gali pasikeisti, ką tada galiu padaryti ir kas lieka saugu / aišku.",
+     "skill": "pokyčių priėmimas",
+     "effort": "V"
+    },
+    {
+     "title": "Laukiu savo eilės",
+     "desc": "Nuoseklūs žingsniai su konkrečiais elgesio pavyzdžiais laukimo metu.",
+     "skill": "laukimo įgūdis",
+     "effort": "G"
+    },
+    {
+     "title": "Einame pas gydytoją",
+     "desc": "Kas vyks prieš vizitą, kabinete ir po jo; pažįstami veiksmai mažina nežinomybę.",
+     "skill": "pasiruošimas naujai situacijai",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "pamokos-isivertinimas",
+   "name": "Pamokos įsivertinimas",
+   "area": "Įsivertinimas",
+   "ages": "1–8 kl.",
+   "potential": 90,
+   "kw": [
+    "isivertin",
+    "savivertin",
+    "isejimo bilietas"
+   ],
+   "timing": {
+    "type": "windows",
+    "windows": [
+     [
+      "01-11",
+      "01-31"
+     ],
+     [
+      "05-10",
+      "06-03"
+     ]
+    ],
+    "basis": "calendar",
+    "confidence": "medium",
+    "note": "I pusmečio pabaiga apie 01-29/31 ir mokslo metų pabaiga apie 06-03 (1–4 kl.) – tikslias datas nustato mokykla."
+   },
+   "formats": [
+    "PDF",
+    "Darbo lapai"
+   ],
+   "pain": "Įsivertinimas dažnai būna formalus – pedagogams reikia greitų, prasmingų formų.",
+   "ideas": [
+    {
+     "title": "Moku – dar mokausi – reikia pagalbos",
+     "desc": "Mokinys ne tik pasirenka lygį, bet prie jo pažymi konkretų tos pamokos gebėjimą.",
+     "skill": "gebėjimų įsivertinimas",
+     "effort": "G"
+    },
+    {
+     "title": "Išėjimo bilietas 3–2–1",
+     "desc": "3 dalykai, kuriuos supratau; 2, kuriuos galiu paaiškinti; 1 klausimas, kuris liko.",
+     "skill": "apibendrinimas, klausimų kėlimas",
+     "effort": "G"
+    },
+    {
+     "title": "Mano kitas žingsnis",
+     "desc": "Po užduoties mokinys pasirenka konkretų veiksmą: pasitreniruoti, pasitikrinti taisyklę, paprašyti paaiškinimo, imtis sunkesnės užduoties.",
+     "skill": "mokymosi tikslų kėlimas",
+     "effort": "G"
+    }
+   ]
+  },
+  {
+   "id": "ritmo-sekos",
+   "name": "Ritmo sekos",
+   "area": "Muzika",
+   "ages": "Priešmokyklinis–4 kl.",
+   "potential": 90,
+   "kw": [
+    "ritm",
+    "plojim"
+   ],
+   "timing": {
+    "type": "evergreen"
+   },
+   "formats": [
+    "Kortelės",
+    "PowerPoint"
+   ],
+   "pain": "Ritmo užduotys turi būti vizualios, kad jas galėtų atlikti ir nemokantys natų.",
+   "ideas": [
+    {
+     "title": "Pakartok ritmą",
+     "desc": "Simboliais pateikta trumpa 4–8 dalių ritmo seka, kurią vaikas ploja ar groja.",
+     "skill": "ritmo atkartojimas",
+     "effort": "G"
+    },
+    {
+     "title": "Užbaik ritmą",
+     "desc": "Dėsninga ritmo seka su viena ar dviem tuščiomis vietomis; reikia parinkti trūkstamą dalį.",
+     "skill": "dėsningumų atpažinimas",
+     "effort": "G"
+    },
+    {
+     "title": "Sukurk savo taktą",
+     "desc": "Duotas takto dydis ir natų / pauzių pasirinkimai; vaikas sudeda tinkamos bendros trukmės taktą.",
+     "skill": "takto kūrimas",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "vizualus-dienos-tvarkarastis",
+   "name": "Vizualus dienos tvarkaraštis",
+   "area": "Ugdymo aplinka",
+   "ages": "Darželis–4 kl.",
+   "potential": 89,
+   "kw": [
+    "tvarkarast",
+    "dienos planas",
+    "dabar po to",
+    "vizualus dienos"
+   ],
+   "timing": {
+    "type": "windows",
+    "windows": [
+     [
+      "08-20",
+      "10-05"
+     ]
+    ],
+    "basis": "calendar",
+    "confidence": "medium",
+    "note": "Mokslo metai prasideda rugsėjo 1 d. (ŠMSM); naujos grupės / klasės formavimo laikotarpis."
+   },
+   "formats": [
+    "Kortelės",
+    "PDF"
+   ],
+   "pain": "Pradžioje reikia aiškios dienos struktūros – ypač vaikams, kuriems svarbus nuspėjamumas.",
+   "ideas": [
+    {
+     "title": "DABAR → PO TO",
+     "desc": "Dvi aiškios kortelių vietos padeda parodyti dabartinę ir sekančią veiklą; tinka ir individualiam naudojimui.",
+     "skill": "dabartinės ir sekančios veiklos suvokimas",
+     "effort": "G"
+    },
+    {
+     "title": "Pasikeitė planas",
+     "desc": "Speciali pokyčio kortelė uždengiama ant ankstesnės veiklos, šalia parodoma nauja veikla.",
+     "skill": "pokyčių valdymas",
+     "effort": "G"
+    },
+    {
+     "title": "Mano diena",
+     "desc": "Vaikas iš veiklų kortelių susidėlioja 4–8 žingsnių dieną ir nuima / perkelia jau atliktas veiklas.",
+     "skill": "savarankiškas dienos planavimas",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "rudens-pozymiai",
+   "name": "Rudens požymiai",
+   "area": "Universalios pažinimo veiklos",
+   "ages": "3–7 m.",
+   "potential": 95,
+   "kw": [
+    "ruden",
+    "ruduo",
+    "rudens pozym",
+    "metu laik"
+   ],
+   "timing": {
+    "type": "windows",
+    "windows": [
+     [
+      "09-10",
+      "10-25"
+     ]
+    ],
+    "basis": "nature",
+    "confidence": "medium",
+    "note": "Sezonas ikimokykliniame / pradiniame ugdyme."
+   },
+   "formats": [
+    "Kortelės",
+    "PDF",
+    "Plakatas"
+   ],
+   "pain": "Pedagogams reikia rudens veiklų, kurios mokytų stebėti, o ne tik dekoruoti.",
+   "ideas": [
+    {
+     "title": "Ruduo ar ne ruduo?",
+     "desc": "Konkrečios gamtos ir kasdienybės iliustracijos rūšiuojamos pagal tai, ar jos būdingos rudeniui.",
+     "skill": "sezono požymių atpažinimas",
+     "effort": "G"
+    },
+    {
+     "title": "Kas pasikeitė nuo vasaros?",
+     "desc": "Dvi tos pačios vietos iliustracijos vasarą ir rudenį; vaikas ieško konkrečių gamtos pokyčių.",
+     "skill": "pokyčių stebėjimas, palyginimas",
+     "effort": "V"
+    },
+    {
+     "title": "Rudens požymių detektyvas",
+     "desc": "Pagal 3 užuominas – vėsesnis oras, spalvoti lapai, trumpesnė diena – vaikas nustato metų laiką.",
+     "skill": "išvados pagal užuominas",
+     "effort": "G"
+    }
+   ]
+  },
+  {
+   "id": "vaisiai-ir-darzoves",
+   "name": "Vaisiai ir daržovės",
+   "area": "Universalios pažinimo veiklos",
+   "ages": "2–6 m.",
+   "potential": 91,
+   "kw": [
+    "vaisi",
+    "darzov",
+    "sodas ir darzas"
+   ],
+   "timing": {
+    "type": "windows",
+    "windows": [
+     [
+      "08-20",
+      "10-31"
+     ]
+    ],
+    "basis": "nature",
+    "confidence": "medium",
+    "note": "Derliaus metas."
+   },
+   "formats": [
+    "Kortelės",
+    "Žaidimas"
+   ],
+   "pain": "Dažna klaida – skirstyti vien pagal spalvą ar skonį; reikia aiškaus supratimo.",
+   "ideas": [
+    {
+     "title": "Kas auga sode, o kas darže?",
+     "desc": "Pažįstami vaisiai ir daržovės dedami prie medžio / krūmo / lysvės modelio.",
+     "skill": "kilmės supratimas",
+     "effort": "G"
+    },
+    {
+     "title": "Perpjauk mintyse",
+     "desc": "Rodomas visas vaisius ir keli pjūvio vaizdai; vaikas randa, kaip jis atrodo perpjautas.",
+     "skill": "vaizdinis mąstymas",
+     "effort": "G"
+    },
+    {
+     "title": "Spalva nėra kategorija",
+     "desc": "Žali obuoliai ir agurkai ar raudoni pomidorai ir obuoliai padeda atskirti spalvą nuo sąvokos „vaisius / daržovė“.",
+     "skill": "sąvokų atskyrimas",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "mokytoju-diena",
+   "name": "Mokytojų diena",
+   "area": "Šventės ir progos",
+   "ages": "Darželis–8 kl.",
+   "potential": 93,
+   "kw": [
+    "mokytoj dien",
+    "mokytojo dien",
+    "aciu mokytoj"
+   ],
+   "timing": {
+    "type": "event",
+    "event": "mokytoju_diena"
+   },
+   "formats": [
+    "PDF",
+    "Darbo lapai",
+    "Kortelės"
+   ],
+   "pain": "Vaikai nori padėkoti, bet nežino, ką parašyti; reikia paruoštų, bet asmeniškų formų.",
+   "ideas": [
+    {
+     "title": "Ačiū už...",
+     "desc": "Vaikas užbaigia konkrečius sakinius apie tai, ko mokytojas padėjo išmokti ar kuo padėjo klasėje.",
+     "skill": "padėkos formulavimas",
+     "effort": "G"
+    },
+    {
+     "title": "Klasės komplimentų puokštė",
+     "desc": "Kiekvienas mokinys užrašo vieną konkretų padėkos sakinį; lapeliai sujungiami į bendrą klasės darbą.",
+     "skill": "bendruomeniškumas, konkretus komplimentas",
+     "effort": "G"
+    },
+    {
+     "title": "Mokytojo darbo detektyvas",
+     "desc": "Jaunesni vaikai iš situacijų atrenka, kokius skirtingus darbus per dieną atlieka mokytojas.",
+     "skill": "profesijų supratimas",
+     "effort": "G"
+    }
+   ]
+  },
+  {
+   "id": "velines",
+   "name": "Vėlinės",
+   "area": "Šventės ir progos",
+   "ages": "Priešmokyklinis–6 kl.",
+   "potential": 92,
+   "kw": [
+    "velin",
+    "visu sventuju",
+    "mirusiu"
+   ],
+   "timing": {
+    "type": "event",
+    "event": "velines"
+   },
+   "formats": [
+    "Kortelės",
+    "PowerPoint",
+    "PDF"
+   ],
+   "pain": "Jautri tema: pedagogams reikia taktiško, amžių atitinkančio turinio.",
+   "ideas": [
+    {
+     "title": "Vėlinių simboliai ir tradicijos",
+     "desc": "Žvakė, kapinės, gėlės, prisiminimas siejami su trumpais, vaikui suprantamais paaiškinimais.",
+     "skill": "tradicijų supratimas",
+     "effort": "G"
+    },
+    {
+     "title": "Ką žmonės daro per Vėlines?",
+     "desc": "Kasdienių ir šventei būdingų veiksmų kortelės; vaikas atrenka susijusias su Vėlinėmis.",
+     "skill": "tradicijų atpažinimas",
+     "effort": "G"
+    },
+    {
+     "title": "Trumpas tekstas apie Vėlines",
+     "desc": "Amžiui pritaikytas informacinis tekstas + faktų, sekos ir žodyno klausimai.",
+     "skill": "informacinio teksto suvokimas",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "helovinas",
+   "name": "Helovinas",
+   "area": "Šventės ir progos",
+   "ages": "Darželis–6 kl.",
+   "potential": 89,
+   "kw": [
+    "helovin",
+    "moliug",
+    "vaiduokl",
+    "ragan",
+    "halloween"
+   ],
+   "timing": {
+    "type": "event",
+    "event": "helovinas"
+   },
+   "formats": [
+    "Darbo lapai",
+    "Kortelės",
+    "PowerPoint"
+   ],
+   "pain": "Vaikai laukia šventės – mokytojai ieško veiklų, kurios derina šventę su mokymusi.",
+   "ideas": [
+    {
+     "title": "Moliūgų matematika",
+     "desc": "Amžiui parenkamos sudėties, daugybos ar trupmenų užduotys, kur atsakymas atrakina konkretų moliūgą.",
+     "skill": "skaičiavimas, motyvuojantis kontekstas",
+     "effort": "V"
+    },
+    {
+     "title": "Helovino sakinių detektyvas",
+     "desc": "Trumpi teminiai sakiniai naudojami skaitymui, kalbos dalims ar rašybai – ne vien dekoratyvinei veiklai.",
+     "skill": "skaitymas / kalbos dalys su šventine tema",
+     "effort": "V"
+    },
+    {
+     "title": "Loginis saldainių rūšiavimas",
+     "desc": "Užuominos nurodo, kurioje dėžutėje yra konkretus saldainis; vaikas sprendžia eliminavimo būdu.",
+     "skill": "dedukcija",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "tolerancijos-diena",
+   "name": "Tolerancijos diena",
+   "area": "Šventės ir progos",
+   "ages": "Darželis–8 kl.",
+   "potential": 88,
+   "kw": [
+    "toleranc",
+    "ivairov"
+   ],
+   "timing": {
+    "type": "event",
+    "event": "tolerancijos_diena"
+   },
+   "formats": [
+    "PDF",
+    "Kortelės",
+    "PowerPoint"
+   ],
+   "pain": "Tolerancijos tema dažnai vyksta pokalbiu – reikia konkrečių situacijų.",
+   "ideas": [
+    {
+     "title": "Panašūs ir skirtingi",
+     "desc": "Personažų poros turi matomų panašumų ir skirtumų; vaikas ieško abiejų, nevertindamas skirtumo kaip blogo.",
+     "skill": "panašumų ir skirtumų atpažinimas",
+     "effort": "G"
+    },
+    {
+     "title": "Kaip įtraukti kitą?",
+     "desc": "Situacijos iš žaidimo, grupinio darbo ir pertraukos; vaikas siūlo konkretų įtraukiantį veiksmą.",
+     "skill": "įtraukimas, empatija",
+     "effort": "V"
+    },
+    {
+     "title": "Tas pats poreikis – skirtingas būdas",
+     "desc": "Parodoma, kad vaikai gali ilsėtis, bendrauti ar mokytis skirtingais būdais, nors poreikis tas pats.",
+     "skill": "poreikių įvairovės supratimas",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "adventas",
+   "name": "Adventas",
+   "area": "Šventės ir progos",
+   "ages": "Darželis–8 kl.",
+   "potential": 86,
+   "kw": [
+    "advent"
+   ],
+   "timing": {
+    "type": "event",
+    "event": "adventas"
+   },
+   "formats": [
+    "PDF",
+    "Kortelės"
+   ],
+   "pain": "Adventas – ilgas laikotarpis; vertingos priemonės, kurias galima naudoti kasdien 24 dienas.",
+   "ideas": [
+    {
+     "title": "24 prasmingų veiklų kalendorius",
+     "desc": "Kiekvienai dienai ne dekoracija, o trumpa įgyvendinama veikla: padėkoti, pastebėti gerą darbą, perskaityti, sukurti, padėti.",
+     "skill": "geranoriškumas, kasdienės veiklos",
+     "effort": "D"
+    },
+    {
+     "title": "Advento skaitymo langeliai",
+     "desc": "24 trumpi tekstai ar sakiniai pagal amžių; kasdien atveriamas vienas ir atliekama viena suvokimo užduotis.",
+     "skill": "skaitymo suvokimas",
+     "effort": "D"
+    },
+    {
+     "title": "Gerų darbų grandinė",
+     "desc": "Klasė / grupė už kiekvieną konkretų atliktą gerą darbą prideda vieną grandinės dalį.",
+     "skill": "bendruomenės stiprinimas",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "matavimo-vienetai",
+   "name": "Matavimo vienetai",
+   "area": "Matematika",
+   "ages": "2–4 kl.",
+   "potential": 89,
+   "kw": [
+    "matavimo vienet",
+    "ilgio matavim",
+    "matuoti",
+    "matavim"
+   ],
+   "timing": {
+    "type": "windows",
+    "windows": [
+     [
+      "09-01",
+      "11-30"
+     ]
+    ],
+    "basis": "textbook",
+    "confidence": "medium",
+    "note": "2–4 kl.: matavimo vienetai kartojami rugsėjį, ilgis / masė – spalį–lapkritį."
+   },
+   "formats": [
+    "Darbo lapai",
+    "PowerPoint"
+   ],
+   "pain": "Vienetų parinkimas ir keitimas – pasikartojanti klaida, reikia vaizdinių modelių.",
+   "ideas": [
+    {
+     "title": "Kuris vienetas tinka?",
+     "desc": "Daiktui parenkamas realistiškas mm, cm, m, g, kg, ml ar l vienetas.",
+     "skill": "vieneto parinkimas",
+     "effort": "G"
+    },
+    {
+     "title": "Išmatuok ir palygink",
+     "desc": "Du realūs objektai; vaikas įvertina, tada matuoja ir palygina.",
+     "skill": "įvertinimas ir matavimas",
+     "effort": "V"
+    },
+    {
+     "title": "Vienetų keitimo kelias",
+     "desc": "Vizuali laiptelių schema naudojama konkretiems keitimams, pvz. 2 m 35 cm → cm.",
+     "skill": "vienetų keitimas",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "kampu-rusys",
+   "name": "Kampų rūšys",
+   "area": "Matematika",
+   "ages": "4–6 kl.",
+   "potential": 87,
+   "kw": [
+    "kampu rus",
+    "smailus kamp",
+    "status kamp",
+    "bukasis kamp",
+    "kampai"
+   ],
+   "timing": {
+    "type": "evergreen"
+   },
+   "formats": [
+    "Darbo lapai",
+    "PowerPoint"
+   ],
+   "pain": "Kampų rūšys geriau suprantamos per aplinkos pavyzdžius.",
+   "ideas": [
+    {
+     "title": "Kampai aplink mus",
+     "desc": "Durų, laikrodžio, stogo ir kitų objektų kampai siejami su smailiuoju, stačiuoju ir bukuoju.",
+     "skill": "kampų atpažinimas aplinkoje",
+     "effort": "G"
+    },
+    {
+     "title": "Atpažink be matlankio",
+     "desc": "Vaikas lygina kampą su aiškiu 90° etalonu.",
+     "skill": "kampų palyginimas su etalonu",
+     "effort": "G"
+    },
+    {
+     "title": "Nubrėžk pagal sąlygą",
+     "desc": "Duotas kampo tipas ar dydis; vaikas pats konstruoja.",
+     "skill": "kampų braižymas",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "koordinaciu-plokstuma",
+   "name": "Koordinačių plokštuma",
+   "area": "Matematika",
+   "ages": "5–8 kl.",
+   "potential": 86,
+   "kw": [
+    "koordinat"
+   ],
+   "timing": {
+    "type": "evergreen"
+   },
+   "formats": [
+    "Darbo lapai",
+    "PowerPoint"
+   ],
+   "pain": "Vyresnių klasių tema, kurią lengva paversti žaidimu.",
+   "ideas": [
+    {
+     "title": "Pažymėk tašką",
+     "desc": "Duotos koordinatės visuose keturiuose ketvirčiuose.",
+     "skill": "koordinačių žymėjimas",
+     "effort": "V"
+    },
+    {
+     "title": "Kas slepiasi?",
+     "desc": "Pažymėti ir sujungti taškai sukuria figūrą.",
+     "skill": "taškų jungimas, figūros",
+     "effort": "V"
+    },
+    {
+     "title": "Perskaityk klaidą",
+     "desc": "Pateiktas neteisingai pažymėtas taškas; mokinys paaiškina, kuri koordinatė supainiota.",
+     "skill": "klaidų analizė",
+     "effort": "G"
+    }
+   ]
+  },
+  {
+   "id": "zodzio-sandara",
+   "name": "Žodžio sandara",
+   "area": "Lietuvių kalba",
+   "ages": "3–6 kl.",
+   "potential": 90,
+   "kw": [
+    "zodzio sandar",
+    "saknis",
+    "priesag",
+    "priedel"
+   ],
+   "timing": {
+    "type": "evergreen"
+   },
+   "formats": [
+    "Darbo lapai",
+    "PowerPoint"
+   ],
+   "pain": "Žodžio sandara svarbi rašybai; vaikams reikia vizualių „dalių“.",
+   "ideas": [
+    {
+     "title": "Išardyk žodį",
+     "desc": "Spalvinėmis dalimis pažymima šaknis, priešdėlis, priesaga ir galūnė.",
+     "skill": "žodžio dalių atpažinimas",
+     "effort": "G"
+    },
+    {
+     "title": "Žodžių šeima",
+     "desc": "Iš kelių žodžių atrenkami giminiški ir randama bendra šaknis.",
+     "skill": "giminiškų žodžių paieška",
+     "effort": "G"
+    },
+    {
+     "title": "Sukurk naują žodį",
+     "desc": "Prie tos pačios šaknies pridedami skirtingi priešdėliai / priesagos ir aptariama prasmė.",
+     "skill": "žodžių darybos supratimas",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "teksto-suvokimas",
+   "name": "Teksto suvokimas",
+   "area": "Lietuvių kalba",
+   "ages": "2–8 kl.",
+   "potential": 91,
+   "kw": [
+    "teksto suvok",
+    "skaitymo supratim",
+    "skaitomo teksto",
+    "suvokim"
+   ],
+   "timing": {
+    "type": "evergreen"
+   },
+   "formats": [
+    "Darbo lapai",
+    "PowerPoint"
+   ],
+   "pain": "Teksto suvokimas yra bendras gebėjimas, svarbus visiems dalykams.",
+   "ideas": [
+    {
+     "title": "Faktas ar išvada?",
+     "desc": "Po trumpo teksto teiginiai skirstomi į tiesiogiai parašytus ir iš teksto išvedamus.",
+     "skill": "fakto ir išvados atskyrimas",
+     "effort": "V"
+    },
+    {
+     "title": "Rask įrodymą",
+     "desc": "Atsakymą į klausimą reikia pagrįsti konkrečia teksto vieta.",
+     "skill": "įrodymo radimas tekste",
+     "effort": "V"
+    },
+    {
+     "title": "Kas svarbiausia?",
+     "desc": "Iš 3 santraukų pasirenkama tiksliausia ir paaiškinama kodėl.",
+     "skill": "pagrindinės minties išskyrimas",
+     "effort": "G"
+    }
+   ]
+  },
+  {
+   "id": "saules-sistema",
+   "name": "Saulės sistema",
+   "area": "Gamtamokslinis",
+   "ages": "3–6 kl.",
+   "potential": 87,
+   "kw": [
+    "saules sistem",
+    "planet",
+    "kosmos"
+   ],
+   "timing": {
+    "type": "evergreen"
+   },
+   "formats": [
+    "Kortelės",
+    "PowerPoint",
+    "Bee-Bot"
+   ],
+   "pain": "Tema, kuri vaikams visada įdomi; trūksta užduočių su loginiu mąstymu.",
+   "ideas": [
+    {
+     "title": "Planetų seka",
+     "desc": "Planetos dėliojamos nuo Saulės; vėliau siejamos su 1–2 išskirtiniais požymiais.",
+     "skill": "planetų sekos žinojimas",
+     "effort": "G"
+    },
+    {
+     "title": "Kuri planeta?",
+     "desc": "3 faktinės užuominos veda prie konkrečios planetos.",
+     "skill": "faktų jungimas, dedukcija",
+     "effort": "V"
+    },
+    {
+     "title": "Kosmoso Bee-Bot",
+     "desc": "Maršrutas planuojamas nuo Saulės iki nurodytos planetos vengiant kliūčių.",
+     "skill": "orientavimasis tinklelyje",
+     "effort": "D"
+    }
+   ]
+  },
+  {
+   "id": "medziagu-busenos",
+   "name": "Medžiagų būsenos",
+   "area": "Gamtamokslinis",
+   "ages": "3–6 kl.",
+   "potential": 88,
+   "kw": [
+    "medziagu busen",
+    "agregatin",
+    "tirpim",
+    "garavim"
+   ],
+   "timing": {
+    "type": "evergreen"
+   },
+   "formats": [
+    "Kortelės",
+    "PDF"
+   ],
+   "pain": "Medžiagų būsenos – dažna painiava tarp „medžiaga“ ir „būsena“.",
+   "ideas": [
+    {
+     "title": "Kieta, skysta ar dujinė?",
+     "desc": "Kasdienės medžiagos rūšiuojamos pagal būseną konkrečioje temperatūroje.",
+     "skill": "medžiagų klasifikavimas",
+     "effort": "G"
+    },
+    {
+     "title": "Kas pasikeitė?",
+     "desc": "Ledas → vanduo → garai; vaikas įvardija tirpimą, garavimą ir kondensaciją.",
+     "skill": "būsenos kitimas",
+     "effort": "G"
+    },
+    {
+     "title": "Būsena ar medžiaga?",
+     "desc": "Ta pati medžiaga – vanduo – rodoma trimis būsenomis, kad sąvokos nebūtų painiojamos.",
+     "skill": "sąvokų atskyrimas",
+     "effort": "G"
+    }
+   ]
+  },
+  {
+   "id": "draugyste",
+   "name": "Draugystė",
+   "area": "Socialinis emocinis",
+   "ages": "4–10 m.",
+   "potential": 89,
+   "kw": [
+    "draugyst",
+    "draugi",
+    "draugau"
+   ],
+   "timing": {
+    "type": "evergreen"
+   },
+   "formats": [
+    "Kortelės",
+    "PDF"
+   ],
+   "pain": "Draugystės įgūdžiai ugdomi per konkrečias situacijas.",
+   "ideas": [
+    {
+     "title": "Draugiška ar ne?",
+     "desc": "Konkrečios situacijos vertinamos pagal elgesį, ne pagal personažo „gerumą“.",
+     "skill": "elgesio vertinimas",
+     "effort": "G"
+    },
+    {
+     "title": "Kaip pakviesti žaisti?",
+     "desc": "Vaikas iš kelių frazių renkasi tinkamą arba sukuria savo.",
+     "skill": "socialinė iniciatyva",
+     "effort": "G"
+    },
+    {
+     "title": "Kai draugas sako NE",
+     "desc": "Situacijos moko priimti kito ribą ir pasirinkti kitą veiksmą.",
+     "skill": "kito ribų priėmimas",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "dienos-rutina",
+   "name": "Dienos rutina",
+   "area": "Švietimo pagalba",
+   "ages": "3–8 m.",
+   "potential": 88,
+   "kw": [
+    "rutin",
+    "ryto sek",
+    "dienos rutin"
+   ],
+   "timing": {
+    "type": "windows",
+    "windows": [
+     [
+      "08-25",
+      "10-15"
+     ]
+    ],
+    "basis": "calendar",
+    "confidence": "medium",
+    "note": "Rutinų formavimas pirmąsias savaites po rugsėjo 1 d."
+   },
+   "formats": [
+    "Kortelės",
+    "PDF"
+   ],
+   "pain": "Rutinos kortelės padeda vaikams jaustis saugiai ir savarankiškai.",
+   "ideas": [
+    {
+     "title": "Ryto seka",
+     "desc": "Apsirengti, nusiprausti, papusryčiauti, susidėti daiktus – vaikas dėlioja jam aktualią seką.",
+     "skill": "nuoseklumas",
+     "effort": "G"
+    },
+    {
+     "title": "Kas bus po to?",
+     "desc": "Iš 3 kortelių pasirenkamas logiškas kitas rutinos žingsnis.",
+     "skill": "logika, planavimas",
+     "effort": "G"
+    },
+    {
+     "title": "Rutinos pokytis",
+     "desc": "Į įprastą seką įterpiama nauja veikla ir vizualiai parodoma, kas lieka taip pat.",
+     "skill": "pokyčio suvokimas",
+     "effort": "G"
+    }
+   ]
+  },
+  {
+   "id": "savaites-refleksija",
+   "name": "Savaitės refleksija",
+   "area": "Įsivertinimas",
+   "ages": "1–8 kl.",
+   "potential": 86,
+   "kw": [
+    "savaites refleksij",
+    "refleksij",
+    "saves vertin"
+   ],
+   "timing": {
+    "type": "windows",
+    "windows": [
+     [
+      "01-11",
+      "01-31"
+     ],
+     [
+      "05-10",
+      "06-03"
+     ]
+    ],
+    "basis": "calendar",
+    "confidence": "medium",
+    "note": "I pusmečio pabaiga apie 01-29/31 ir mokslo metų pabaiga apie 06-03 (1–4 kl.)."
+   },
+   "formats": [
+    "PDF",
+    "Darbo lapai"
+   ],
+   "pain": "Refleksija padeda matyti progresą, bet dažnai būna formali.",
+   "ideas": [
+    {
+     "title": "Šią savaitę išmokau...",
+     "desc": "Mokinys įvardija konkretų gebėjimą, ne bendrą „sekėsi gerai“.",
+     "skill": "mokymosi refleksija",
+     "effort": "G"
+    },
+    {
+     "title": "Didžiausias iššūkis",
+     "desc": "Pasirenkama viena konkreti užduotis ir trumpai aprašoma, kas padėjo.",
+     "skill": "savęs vertinimas",
+     "effort": "G"
+    },
+    {
+     "title": "Kitą savaitę pabandysiu...",
+     "desc": "Vienas mažas, pamatuojamas mokymosi veiksmas kitai savaitei.",
+     "skill": "tikslo kėlimas",
+     "effort": "G"
+    }
+   ]
+  },
+  {
+   "id": "natu-vertes",
+   "name": "Natų vertės",
+   "area": "Muzika",
+   "ages": "2–6 kl.",
+   "potential": 85,
+   "kw": [
+    "natu vert",
+    "natu trukm",
+    "natos ir pauzes"
+   ],
+   "timing": {
+    "type": "evergreen"
+   },
+   "formats": [
+    "Darbo lapai",
+    "PowerPoint"
+   ],
+   "pain": "Natų vertės geriausiai suprantamos per trupmeninį mąstymą.",
+   "ideas": [
+    {
+     "title": "Užpildyk taktą",
+     "desc": "Trūkstama natų vertė parenkama taip, kad taktas būtų pilnas.",
+     "skill": "takto užpildymas",
+     "effort": "V"
+    },
+    {
+     "title": "Kiek ketvirtinių telpa?",
+     "desc": "Natų vertės lyginamos kaip trukmės, naudojant vizualias juostas.",
+     "skill": "trukmių palyginimas",
+     "effort": "G"
+    },
+    {
+     "title": "Ritmo matematika",
+     "desc": "Natų vertės sudedamos ir atimamos, siejant muziką su trupmeniniu mąstymu.",
+     "skill": "muzikos ir matematikos jungtis",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "grupes-klases-taisykles",
+   "name": "Grupės / klasės taisyklės",
+   "area": "Ugdymo aplinka",
+   "ages": "Darželis–4 kl.",
+   "potential": 87,
+   "kw": [
+    "klases taisykl",
+    "grupes taisykl",
+    "klases susitarim",
+    "grupes susitarim",
+    "taisykles ir susitarim"
+   ],
+   "timing": {
+    "type": "windows",
+    "windows": [
+     [
+      "08-20",
+      "10-05"
+     ]
+    ],
+    "basis": "calendar",
+    "confidence": "medium",
+    "note": "Taisyklės ir susitarimai – pirmosios savaitės po rugsėjo 1 d."
+   },
+   "formats": [
+    "PDF",
+    "Plakatas",
+    "Kortelės"
+   ],
+   "pain": "Taisyklės veikia tik tada, kai vaikas supranta, kaip jos atrodo praktikoje.",
+   "ideas": [
+    {
+     "title": "Taisyklė → konkretus elgesys",
+     "desc": "„Klausomės“ rodoma per 2–3 realias situacijas, kaip tai atrodo praktiškai.",
+     "skill": "taisyklės supratimas praktikoje",
+     "effort": "G"
+    },
+    {
+     "title": "Ką daryti vietoje to?",
+     "desc": "Netinkamas veiksmas poruojamas su konkrečia tinkama alternatyva.",
+     "skill": "alternatyvos radimas",
+     "effort": "G"
+    },
+    {
+     "title": "Mūsų klasės susitarimai",
+     "desc": "Vaikai iš situacijų išveda 5–7 prasmingus susitarimus, o ne gauna vien draudimų sąrašą.",
+     "skill": "bendrų susitarimų kūrimas",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "mokslo-metu-pradzia",
+   "name": "Mokslo metų pradžia",
+   "area": "Švietimo pagalba",
+   "ages": "Darželis–4 kl.",
+   "potential": 90,
+   "kw": [
+    "mokslo metu pradz",
+    "rugsejo 1",
+    "pirma diena",
+    "susipazink",
+    "klases bendruomen"
+   ],
+   "timing": {
+    "type": "event",
+    "event": "mokslo_metu_pradzia"
+   },
+   "formats": [
+    "PDF",
+    "Kortelės",
+    "Plakatas"
+   ],
+   "pain": "Pirmosiomis savaitėmis pedagogai kuria bendruomenę ir ieško greitų, bet prasmingų pažinties veiklų.",
+   "ideas": [
+    {
+     "title": "Rask žmogų, kuris...",
+     "desc": "Bingo tipo lapas su 12 teiginių („turi augintinį“, „mėgsta pieštuką su trintuku“). Vaikai ieško klasės draugų, atitinkančių teiginį, ir surenka parašus.",
+     "skill": "bendravimas, klausymasis, bendruomenės pažinimas",
+     "effort": "V"
+    },
+    {
+     "title": "Mano vasaros kortelė",
+     "desc": "Vaikas pasirenka 4 vasaros akimirkas iš paveikslėlių ir sakinio pradžių („Vasarą aš...“) ir papasakoja grupei.",
+     "skill": "kalbėjimas, pasakojimas, pasitikėjimas",
+     "effort": "G"
+    },
+    {
+     "title": "Mūsų klasės žemėlapis",
+     "desc": "Vaikai sudeda klasės erdves ir tvarkos ženklus į žemėlapį, o tada atsako, kur kas yra ir ką ten daryti.",
+     "skill": "orientavimasis erdvėje, taisyklių supratimas",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "kaledos",
+   "name": "Kalėdos",
+   "area": "Šventės ir progos",
+   "ages": "Darželis–8 kl.",
+   "potential": 90,
+   "kw": [
+    "kaled",
+    "kuci",
+    "kaledu senel",
+    "kalediniai"
+   ],
+   "timing": {
+    "type": "event",
+    "event": "kaledos"
+   },
+   "formats": [
+    "PDF",
+    "Kortelės",
+    "PowerPoint",
+    "Dekoras"
+   ],
+   "pain": "Gruodį pedagogai ieško šventinių, bet prasmingų veiklų, o ne vien spalvinimo lapų.",
+   "ideas": [
+    {
+     "title": "Kūčių stalo skaičiuotuvas",
+     "desc": "Vaikas matuoja ir skaičiuoja: 12 patiekalų, kiek svečių, kiek lėkščių. Užduočių sudėtingumas keičiasi pagal klasę.",
+     "skill": "skaičiavimas realiame kontekste",
+     "effort": "V"
+    },
+    {
+     "title": "Kalėdų dovanų logika",
+     "desc": "Eliminavimo užuominos: kuriai dėžutei ką dovanoja. Vaikas pateikia argumentus („nes Mantas neturi raudonos“).",
+     "skill": "dedukcija, argumentavimas",
+     "effort": "V"
+    },
+    {
+     "title": "Kalėdų žodžių detektyvas",
+     "desc": "Šventinis trumpas tekstas ir 5 užduotys: rasti būdvardžius, susieti žodžius su paveikslėliais, sudėlioti sakinį.",
+     "skill": "skaitymas, kalbos dalys",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "metu-pabaiga-naujieji",
+   "name": "Metų pabaiga ir Naujieji metai",
+   "area": "Įsivertinimas",
+   "ages": "1–8 kl.",
+   "potential": 84,
+   "kw": [
+    "naujuju metu",
+    "naujieji metai",
+    "metu pabaig",
+    "metu apzvalg"
+   ],
+   "timing": {
+    "type": "event",
+    "event": "naujieji_metai"
+   },
+   "formats": [
+    "PDF",
+    "Darbo lapai"
+   ],
+   "pain": "Metų sandūra – natūrali refleksijos ir tikslų kėlimo proga.",
+   "ideas": [
+    {
+     "title": "Mano metų puslapiai",
+     "desc": "Vaikas pažymi 6 dalykus, kuriuos išmoko, nuveikė ar sužinojo, ir pasirenka vieną, kuo didžiuojasi.",
+     "skill": "refleksija, savivertė",
+     "effort": "G"
+    },
+    {
+     "title": "Naujų metų mažas tikslas",
+     "desc": "Iš tikslų kortelių vaikas pasirenka vieną ir surašo 3 mažus žingsnius jam pasiekti.",
+     "skill": "tikslų kėlimas, planavimas",
+     "effort": "G"
+    },
+    {
+     "title": "Metų laiko juosta",
+     "desc": "Vaikas sudėlioja metų įvykius laiko juostoje (mėnuo po mėnesio) ir pasirenka mėgstamiausią.",
+     "skill": "chronologija, laiko juosta",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "ziemos-pozymiai",
+   "name": "Žiemos požymiai",
+   "area": "Universalios pažinimo veiklos",
+   "ages": "3–8 m.",
+   "potential": 88,
+   "kw": [
+    "ziem",
+    "sniegas",
+    "sniego",
+    "snaige"
+   ],
+   "timing": {
+    "type": "windows",
+    "windows": [
+     [
+      "12-01",
+      "02-28"
+     ]
+    ],
+    "basis": "nature",
+    "confidence": "medium",
+    "note": "Sezonas."
+   },
+   "formats": [
+    "Kortelės",
+    "PDF",
+    "Plakatas"
+   ],
+   "pain": "Žiemą pedagogams reikia gamtos temų, tinkančių ir vidaus veikloms.",
+   "ideas": [
+    {
+     "title": "Ką darome žiemą?",
+     "desc": "Kortelės su žiemos ir nežiemos veiksmais (rogutės, maudynės). Vaikas rūšiuoja ir paaiškina.",
+     "skill": "sezono veiklų atpažinimas",
+     "effort": "G"
+    },
+    {
+     "title": "Kuo apsirengsiu?",
+     "desc": "Orų kortelė + 6 drabužiai: vaikas renkasi tinkamus ir paaiškina, kodėl.",
+     "skill": "priežastiniai ryšiai, savitvarka",
+     "effort": "G"
+    },
+    {
+     "title": "Gyvūnai žiemą",
+     "desc": "Kortelės su gyvūnais ir trimis variantais (miega, migruoja, lieka aktyvus). Vaikas sujungia gyvūną su elgesiu.",
+     "skill": "gyvūnų prisitaikymo supratimas",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "uzgavenes",
+   "name": "Užgavėnės",
+   "area": "Šventės ir progos",
+   "ages": "Darželis–4 kl.",
+   "potential": 82,
+   "kw": [
+    "uzgaven"
+   ],
+   "timing": {
+    "type": "event",
+    "event": "uzgavenes"
+   },
+   "formats": [
+    "PDF",
+    "Kortelės",
+    "Plakatas"
+   ],
+   "pain": "Užgavėnės trumpos – pedagogai ieško greitai paruošiamų, tradicijas paaiškinančių veiklų.",
+   "ideas": [
+    {
+     "title": "Morė ir Kotrynos žodynas",
+     "desc": "Vaikas poruoja tradicijų paveikslėlius (Morė, blynai, kaukės) su trumpais aiškinimais.",
+     "skill": "tradicijų supratimas, žodynas",
+     "effort": "G"
+    },
+    {
+     "title": "Kaukių sudėliojimas",
+     "desc": "Kaukių dalys (akys, nosis, ragai) sudedamos pagal aprašymą. Vaikas klausosi aprašymo ir pateikia savo.",
+     "skill": "klausymas, erdvinė orientacija",
+     "effort": "V"
+    },
+    {
+     "title": "Žiema ar pavasaris?",
+     "desc": "Vaikas atrenka veiksmus, simbolizuojančius žiemos išvarymą, ir paaiškina, kodėl.",
+     "skill": "simbolių interpretavimas",
+     "effort": "G"
+    }
+   ]
+  },
+  {
+   "id": "vasario-16",
+   "name": "Vasario 16-oji",
+   "area": "Šventės ir progos",
+   "ages": "Priešmokyklinis–8 kl.",
+   "potential": 88,
+   "kw": [
+    "vasario 16",
+    "valstybes atkurim",
+    "lietuvos valstyb",
+    "nepriklausomyb",
+    "trispalv"
+   ],
+   "timing": {
+    "type": "event",
+    "event": "vasario16"
+   },
+   "formats": [
+    "PDF",
+    "PowerPoint",
+    "Kortelės"
+   ],
+   "pain": "Valstybinės šventės tekstai dažnai per sunkūs – pedagogams reikia pritaikymo amžiui.",
+   "ideas": [
+    {
+     "title": "Trispalvė ir simboliai",
+     "desc": "Vaikas sujungia valstybės simbolį su paaiškinimu ir spalvų reikšme.",
+     "skill": "pilietiškumas, simbolių atpažinimas",
+     "effort": "G"
+    },
+    {
+     "title": "Lietuvos laiko juosta",
+     "desc": "6–8 kortelės su svarbiais įvykiais. Vaikas sudeda į tvarką ir prie vieno parašo, kodėl jis svarbus.",
+     "skill": "chronologija, istorinis mąstymas",
+     "effort": "V"
+    },
+    {
+     "title": "Mano Lietuva",
+     "desc": "Vaikas pasirenka nuotraukų ir sakinių pradžių („Man Lietuva yra...“) ir sukuria mini plakatą.",
+     "skill": "kalbėjimas, tapatybė",
+     "effort": "G"
+    }
+   ]
+  },
+  {
+   "id": "draugystes-diena",
+   "name": "Draugystės diena",
+   "area": "Socialinis emocinis",
+   "ages": "4–10 m.",
+   "potential": 80,
+   "kw": [
+    "draugystes dien",
+    "valentin",
+    "sirdel"
+   ],
+   "timing": {
+    "type": "event",
+    "event": "draugystes_diena"
+   },
+   "formats": [
+    "PDF",
+    "Kortelės"
+   ],
+   "pain": "Vasario 14-oji klasėje gali būti ne tik romantiška, bet ir apie draugystę bei padėką.",
+   "ideas": [
+    {
+     "title": "Gerų žodžių širdelės",
+     "desc": "Širdelės su sakinio pradžiomis („Tu padedi, kai...“). Vaikas užbaigia ir įteikia draugui.",
+     "skill": "padėka, empatija",
+     "effort": "G"
+    },
+    {
+     "title": "Draugystės receptas",
+     "desc": "Vaikas iš ingredientų („dalijimasis“, „pasiklausymas“) sudaro receptą ir paaiškina, kodėl pasirinko.",
+     "skill": "vertybių įvardijimas",
+     "effort": "G"
+    },
+    {
+     "title": "Kuo galiu pradžiuginti draugą?",
+     "desc": "Situacijos su 3 veiksmais; vaikas parenka šilčiausią ir sugalvoja savo.",
+     "skill": "socialinė iniciatyva",
+     "effort": "G"
+    }
+   ]
+  },
+  {
+   "id": "kovo-11",
+   "name": "Kovo 11-oji",
+   "area": "Šventės ir progos",
+   "ages": "Priešmokyklinis–8 kl.",
+   "potential": 86,
+   "kw": [
+    "kovo 11",
+    "nepriklausomybes atkurim"
+   ],
+   "timing": {
+    "type": "event",
+    "event": "kovo11"
+   },
+   "formats": [
+    "PDF",
+    "PowerPoint",
+    "Kortelės"
+   ],
+   "pain": "Kovo 11-osios turinys turi būti suprantamas jaunesniems nei 5 klasė.",
+   "ideas": [
+    {
+     "title": "Laisvė reiškia...",
+     "desc": "Vaikas atrenka teiginius (galiu mokytis lietuviškai, galiu kalbėti laisvai) ir pagrindžia.",
+     "skill": "sąvokos „laisvė“ supratimas",
+     "effort": "V"
+    },
+    {
+     "title": "Kovo 11-osios laiko juosta",
+     "desc": "Trumpos kortelės (1988, 1989, 1990) padeda sudėlioti įvykius ir paaiškinti pokyčius.",
+     "skill": "chronologija",
+     "effort": "V"
+    },
+    {
+     "title": "Lietuvos valstybės simbolių viktorina",
+     "desc": "Pasirinkimo viktorina su 10 klausimų ir paveikslėliais, pritaikyta 2–4 klasėms.",
+     "skill": "žinių pasitikrinimas",
+     "effort": "G"
+    }
+   ]
+  },
+  {
+   "id": "velykos",
+   "name": "Velykos",
+   "area": "Šventės ir progos",
+   "ages": "Darželis–8 kl.",
+   "potential": 92,
+   "kw": [
+    "velyk",
+    "margu",
+    "kiaus"
+   ],
+   "timing": {
+    "type": "event",
+    "event": "velykos"
+   },
+   "formats": [
+    "PDF",
+    "Kortelės",
+    "PowerPoint",
+    "Bee-Bot"
+   ],
+   "pain": "Velykos – viena didžiausių pavasario progų: pedagogai ieško veiklų visoms klasėms.",
+   "ideas": [
+    {
+     "title": "Margučių raštų šifras",
+     "desc": "Vaikas pagal šifrą nuspalvina margutį ir randa slaptą žodį.",
+     "skill": "instrukcijų laikymasis",
+     "effort": "V"
+    },
+    {
+     "title": "Velykų zuikio maršrutas",
+     "desc": "Bee-Bot tinklelyje zuikis turi pasiekti krepšelį, vengdamas kliūčių.",
+     "skill": "programavimo pradmenys, kryptys",
+     "effort": "D"
+    },
+    {
+     "title": "Velykų tradicijos: tiesa ar mitas?",
+     "desc": "Vaikas vertina teiginius apie tradicijas ir pagrindžia.",
+     "skill": "kritinis mąstymas, kultūra",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "pavasario-pozymiai",
+   "name": "Pavasario požymiai",
+   "area": "Universalios pažinimo veiklos",
+   "ages": "3–8 m.",
+   "potential": 90,
+   "kw": [
+    "pavasar",
+    "pavasario pozym"
+   ],
+   "timing": {
+    "type": "windows",
+    "windows": [
+     [
+      "03-15",
+      "05-31"
+     ]
+    ],
+    "basis": "nature",
+    "confidence": "medium",
+    "note": "Sezonas."
+   },
+   "formats": [
+    "Kortelės",
+    "PDF",
+    "Plakatas"
+   ],
+   "pain": "Pavasarį gamta keičiasi greitai, o ugdymui reikia vaizdinių stebėjimo užduočių.",
+   "ideas": [
+    {
+     "title": "Pavasaris ar ne pavasaris?",
+     "desc": "Gamtos ir kasdienybės iliustracijos rūšiuojamos pagal sezoną.",
+     "skill": "sezono atpažinimas",
+     "effort": "G"
+    },
+    {
+     "title": "Pavasario augalo kelionė",
+     "desc": "Sėkla → daigas → augalas: vaikas sudėlioja etapus ir paaiškina, ko reikia augalui.",
+     "skill": "procesų seka, gamtamokslinis mąstymas",
+     "effort": "V"
+    },
+    {
+     "title": "Sugrįžę paukščiai",
+     "desc": "Paukščių kortelės su vardais ir garsų aprašymais, vaikas sieja su aplinka.",
+     "skill": "gamtos stebėjimas",
+     "effort": "V"
+    }
+   ]
+  },
+  {
+   "id": "zemes-diena",
+   "name": "Žemės diena",
+   "area": "Gamtamokslinis",
+   "ages": "4–10 m.",
+   "potential": 84,
+   "kw": [
+    "zemes dien",
+    "atlieku rusiav",
+    "ekolog",
+    "perdirbim"
+   ],
+   "timing": {
+    "type": "event",
+    "event": "zemes_diena"
+   },
+   "formats": [
+    "PDF",
+    "Kortelės"
+   ],
+   "pain": "Ekologijos tema populiari, kai gaunamos praktinės užduotys, o ne vien plakatai.",
+   "ideas": [
+    {
+     "title": "Į kurį konteinerį?",
+     "desc": "Atliekų kortelės ir 3 konteineriai. Vaikas rūšiuoja ir pasako, kas atsitiktų, jei padėtų ne ten.",
+     "skill": "ekologinis sąmoningumas",
+     "effort": "G"
+    },
+    {
+     "title": "Kiek laiko skaidosi?",
+     "desc": "Kortelės su daiktais ir skaidymosi laiku; vaikas sudeda nuo trumpiausio iki ilgiausio.",
+     "skill": "palyginimas, ekologija",
+     "effort": "V"
+    },
+    {
+     "title": "Mano ekologinis ėjimas",
+     "desc": "Vaikas pasirenka 3 kasdienius ekologiškus veiksmus ir žymi savaitės lentelėje.",
+     "skill": "įpročių formavimas",
+     "effort": "G"
+    }
+   ]
+  },
+  {
+   "id": "motinos-diena",
+   "name": "Motinos diena",
+   "area": "Šventės ir progos",
+   "ages": "Darželis–4 kl.",
+   "potential": 90,
+   "kw": [
+    "motinos dien",
+    "mamos dien",
+    "mamyt"
+   ],
+   "timing": {
+    "type": "event",
+    "event": "motinos_diena"
+   },
+   "formats": [
+    "PDF",
+    "Kortelės"
+   ],
+   "pain": "Pedagogai ieško dovanėlių ir veiklų, bet su jautriu požiūriu į šeimų įvairovę.",
+   "ideas": [
+    {
+     "title": "Mama / artimas žmogus yra...",
+     "desc": "Vaikas pasirenka nuotraukų ir aprašo artimą žmogų.",
+     "skill": "emocijų išreiškimas, kalba",
+     "effort": "G"
+    },
+    {
+     "title": "Padėkos knygelė",
+     "desc": "6 puslapių knygelė su paveikslėliais ir sakinių pradžiomis („Ačiū, kad...“).",
+     "skill": "padėka, rašymas",
+     "effort": "V"
+    },
+    {
+     "title": "Ką galiu padaryti šiandien?",
+     "desc": "Vaikas pasirenka 3 konkrečius veiksmus, kuriais gali padėti namuose.",
+     "skill": "atsakomybė, empatija",
+     "effort": "G"
+    }
+   ]
+  },
+  {
+   "id": "tevo-diena",
+   "name": "Tėvo diena",
+   "area": "Šventės ir progos",
+   "ages": "Darželis–4 kl.",
+   "potential": 86,
+   "kw": [
+    "tevo dien",
+    "tevelio",
+    "ticio dien"
+   ],
+   "timing": {
+    "type": "event",
+    "event": "tevo_diena"
+   },
+   "formats": [
+    "PDF",
+    "Kortelės"
+   ],
+   "pain": "Tėvo dienai reikia nešvelnių, bet inkliuzyvių užduočių, tinkančių įvairioms šeimoms.",
+   "ideas": [
+    {
+     "title": "Mano tėtis / artimas vyras moka...",
+     "desc": "Vaikas pažymi 5 įgūdžius iš sąrašo ir prideda savo.",
+     "skill": "stebėjimas, šeimos supratimas",
+     "effort": "G"
+    },
+    {
+     "title": "Padėkos kortelė",
+     "desc": "Dvi sulankstomos kortelės su skirtingais sakiniais; vaikas pasirenka ir užbaigia.",
+     "skill": "padėka, rašymas",
+     "effort": "G"
+    },
+    {
+     "title": "Mūsų bendras laikas",
+     "desc": "Kortelės su veiklomis (žaisti, skaityti, gaminti). Vaikas išsirenka mėgstamiausią ir nupiešia.",
+     "skill": "emocijų išreiškimas",
+     "effort": "G"
+    }
+   ]
+  },
+  {
+   "id": "mokslo-metu-pabaiga",
+   "name": "Mokslo metų pabaiga",
+   "area": "Įsivertinimas",
+   "ages": "Darželis–8 kl.",
+   "potential": 88,
+   "kw": [
+    "mokslo metu pabaig",
+    "vasaros atostog",
+    "paskutine mokslo",
+    "apdovanojim"
+   ],
+   "timing": {
+    "type": "event",
+    "event": "mokslo_metu_pabaiga"
+   },
+   "formats": [
+    "PDF",
+    "Kortelės",
+    "Plakatas"
+   ],
+   "pain": "Metų pabaigoje pedagogai ieško padėkos, apdovanojimų ir refleksijos priemonių.",
+   "ideas": [
+    {
+     "title": "Mano mokslo metų pasiekimai",
+     "desc": "Vaikas pažymi, ką išmoko, ir pasirenka didžiausią pasiekimą.",
+     "skill": "refleksija, savivertė",
+     "effort": "G"
+    },
+    {
+     "title": "Apdovanojimai klasei",
+     "desc": "Redaguojami diplomai su konkrečiomis nominacijomis (pvz., „Geriausias padėjėjas“).",
+     "skill": "pripažinimas, motyvacija",
+     "effort": "G"
+    },
+    {
+     "title": "Vasaros iššūkių kortelės",
+     "desc": "20 kortelių su vasaros veiklomis; vaikas pasirenka ir žymi atliktas.",
+     "skill": "savarankiškumas, skaitymas",
+     "effort": "V"
+    }
+   ]
+  }
+ ]
+}

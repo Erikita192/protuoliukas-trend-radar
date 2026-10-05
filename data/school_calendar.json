@@ -1,0 +1,24 @@
+{
+  "note": "Oficialūs ŠMSM mokinių atostogų laikotarpiai. Redaguok šį failą, kai ŠMSM paskelbia naujų mokslo metų datas. Kai kurios mokyklos nustato kelių dienų skirtumus (pvz., Kalėdų atostogų pradžią 12-21 / 12-23 / 12-24; pusmečių ir mokslo metų pabaigą).",
+  "years": {
+    "2026-2027": {
+      "start": "2026-09-01",
+      "breaks": [
+        {"name": "Rudens atostogos", "start": "2026-11-02", "end": "2026-11-08"},
+        {"name": "Žiemos (Kalėdų) atostogos", "start": "2026-12-21", "end": "2027-01-03"},
+        {"name": "Žiemos atostogos", "start": "2027-02-15", "end": "2027-02-21"},
+        {"name": "Pavasario (Velykų) atostogos", "start": "2027-03-22", "end": "2027-03-29"}
+      ],
+      "semester1_end_approx": "2027-01-29",
+      "year_end_grades_1_4_approx": "2027-06-03",
+      "year_end_grades_5_8_approx": "2027-06-10",
+      "school_days": {"pradinis": 175, "pagrindinis": 180},
+      "sources": [
+        {"name": "ŠMSM – 2026–2027 m. m. mokinių atostogos", "url": "https://smsm.lrv.lt/lt/veiklos-sritys-1/smm-svietimas/20252026-m-m-ir-20262027-m-m-mokiniu-atostogos/"},
+        {"name": "Mokykla2030 – datų suvestinė (atnaujinta 2026-07-09)", "url": "https://mokykla2030.lt/mokiniu-atostogos-2026-2027-mokslo-metais-visos-datos-vienoje-vietoje/"}
+      ],
+      "verified": "2026-10-04",
+      "confidence_note": "Atostogų datos – oficialios (ŠMSM). Pusmečių ir mokslo metų pabaigos datos – apytikslės, jas tvirtina kiekviena mokykla."
+    }
+  }
+}
