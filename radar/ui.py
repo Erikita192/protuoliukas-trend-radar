@@ -175,12 +175,16 @@ def topic_card(r, today: date, open_ideas: bool = False) -> str:
         ideas += (f'<div class="idea"><b>{esc(e.idea.title)}</b><br>{esc(e.idea.desc)}'
                   f'<span class="sk"><i>Lavina:</i> {esc(e.idea.skill)}</span>'
                   f'<span class="sk"><i>Gamyba:</i> {esc(effort_label(e.idea.effort))} · {esc(e.msg)}</span></div>')
+    # Pirmas konkretus pavyzdys visada matomas: tema negali likti vien abstraktus pavadinimas.
+    first = r.ideas[0] if r.ideas else None
+    preview = (f'<div class="why"><b>💡 KONKRETUS PAVYZDYS: {esc(first.idea.title)}</b><br>{esc(first.idea.desc)}'
+               f'<div class="note"><b>Lavina:</b> {esc(first.idea.skill)} · <b>Gamyba:</b> {esc(effort_label(first.idea.effort))}</div></div>') if first else ""
     note = f'<div class="note">{esc(t.note)}</div>' if t.note else ""
     pain = f'<div class="why"><b>Kodėl pedagogui aktualu:</b> {esc(tp.pain)}</div>'
     return (f'<div class="card"><div class="row">{ring(r.score)}<div><div class="title">{esc(tp.name)}</div>'
             f'<div class="meta">{esc(tp.area)} · {esc(tp.ages)} · potencialas {tp.potential}</div></div></div>'
-            f'<div class="pills">{"".join(pills)}</div>{timeline(t, today)}<div class="facts">{f_html}</div>{note}{pain}'
-            f'<details {"open" if open_ideas else ""}><summary>{len(r.ideas)} konkrečios priemonės – rodyti</summary>{ideas}</details></div>')
+            f'<div class="pills">{"".join(pills)}</div>{timeline(t, today)}<div class="facts">{f_html}</div>{note}{pain}{preview}'
+            f'<details {"open" if open_ideas else ""}><summary>Visos {len(r.ideas)} konkrečios priemonės – rodyti</summary>{ideas}</details></div>')
 
 
 def product_card(p: dict, pr: dict, today: date) -> str:

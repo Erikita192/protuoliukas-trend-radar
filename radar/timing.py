@@ -48,6 +48,19 @@ def first_sunday(y: int, m: int) -> date:
     d = date(y, m, 1)
     return d + timedelta(days=(6 - d.weekday()) % 7)
 
+def nth_weekday(y: int, m: int, weekday: int, n: int = 1) -> date:
+    """weekday: pirmadienis=0 ... sekmadienis=6."""
+    d = date(y, m, 1)
+    first = d + timedelta(days=(weekday - d.weekday()) % 7)
+    return first + timedelta(days=7 * (n - 1))
+
+def last_weekday(y: int, m: int, weekday: int) -> date:
+    if m == 12:
+        d = date(y + 1, 1, 1) - timedelta(days=1)
+    else:
+        d = date(y, m + 1, 1) - timedelta(days=1)
+    return d - timedelta(days=(d.weekday() - weekday) % 7)
+
 
 def advent_start(y: int) -> date:
     d = date(y, 12, 24)
@@ -73,27 +86,68 @@ def _d(m, d, m2=None, d2=None):
 
 
 EVENTS = {e.key: e for e in [
+    EventDef("veliavos_diena", "Lietuvos vėliavos diena", _d(1, 1), 14, 5),
+    EventDef("brailio_diena", "Pasaulinė Brailio diena", _d(1, 4), 14, 5),
+    EventDef("aciu_diena", "Tarptautinė „Ačiū“ diena", _d(1, 11), 12, 4, approx=True, note="Populiari edukacinė minėtina diena – prieš kampaniją verta patikrinti metų šaltinį"),
+    EventDef("laisves_gyneju_diena", "Laisvės gynėjų diena", _d(1, 13), 21, 7),
+    EventDef("rasysenos_diena", "Rašysenos diena", _d(1, 23), 14, 5, approx=True),
     EventDef("mokslo_metu_pradzia", "Mokslo metų pradžia", _d(9, 1), 21, 7),
     EventDef("mokytoju_diena", "Mokytojų diena", _d(10, 5), 18, 6),
+    EventDef("sypsenos_diena", "Pasaulinė šypsenos diena", lambda y: (nth_weekday(y, 10, 4, 1),) * 2, 14, 5,
+             note="Pirmasis spalio penktadienis – data kasmet perskaičiuojama"),
+    EventDef("gyvunijos_diena", "Pasaulinė gyvūnijos diena", _d(10, 4), 14, 5),
     EventDef("helovinas", "Helovinas", _d(10, 31), 21, 8),
     EventDef("velines", "Visų Šventųjų diena ir Vėlinės", _d(11, 1, 11, 2), 14, 6,
              note="Visų Šventųjų diena – 11-01, Vėlinės – 11-02"),
     EventDef("tolerancijos_diena", "Tolerancijos diena", _d(11, 16), 24, 8),
+    EventDef("vaiko_teisiu_diena", "Pasaulinė vaiko teisių diena", _d(11, 20), 18, 6),
+    EventDef("sveikinimosi_diena", "Pasaulinė sveikinimosi diena", _d(11, 21), 14, 5),
     EventDef("adventas", "Advento pradžia", lambda y: (advent_start(y),) * 2, 28, 10,
              note="Pirmasis Advento sekmadienis (skaičiuojamas pagal metus)"),
     EventDef("kaledos", "Kūčios ir Kalėdos", _d(12, 24, 12, 25), 35, 12),
     EventDef("naujieji_metai", "Metų pabaiga ir Naujieji metai", _d(12, 31, 1, 1), 21, 7),
     EventDef("draugystes_diena", "Draugystės diena (vasario 14)", _d(2, 14), 18, 6),
+    EventDef("saugaus_interneto_diena", "Saugesnio interneto diena", lambda y: (nth_weekday(y, 2, 1, 2),) * 2, 21, 7, approx=True,
+             note="Planuojama pagal antrą vasario antradienį; prieš naudojant verta patikrinti konkrečių metų kampanijos datą"),
+    EventDef("gimtosios_kalbos_diena", "Tarptautinė gimtosios kalbos diena", _d(2, 21), 18, 6),
+    EventDef("radio_diena", "Pasaulinė radijo diena", _d(2, 13), 12, 4),
     EventDef("vasario16", "Vasario 16-oji", _d(2, 16), 21, 7),
     EventDef("uzgavenes", "Užgavėnės", lambda y: (easter(y) - timedelta(days=47),) * 2, 28, 9,
              note="47 d. iki Velykų (skaičiuojama pagal metus)"),
     EventDef("kovo11", "Kovo 11-oji", _d(3, 11), 21, 7),
+    EventDef("miego_diena", "Pasaulinė miego diena", lambda y: (nth_weekday(y, 3, 4, 2),) * 2, 14, 5, approx=True, note="Kintanti kampanijos data; rodoma planavimo orientyrui"),
+    EventDef("zemes_diena_lt", "Žemės diena (Lietuvoje)", _d(3, 20), 18, 6, note="Lietuvoje minima kovo 20 d."),
+    EventDef("vandens_diena", "Pasaulinė vandens diena", _d(3, 22), 18, 6),
+    EventDef("teatro_diena", "Tarptautinė teatro diena", _d(3, 27), 14, 5),
     EventDef("velykos", "Velykos", lambda y: (easter(y),) * 2, 30, 10, note="Skaičiuojama pagal metus"),
-    EventDef("zemes_diena", "Žemės diena", _d(4, 22), 18, 6),
+    EventDef("juoku_diena", "Balandžio 1-oji – juokų diena", _d(4, 1), 12, 4),
+    EventDef("vaiku_knygos_diena", "Tarptautinė vaikų knygos diena", _d(4, 2), 18, 6),
+    EventDef("saugaus_eismo_diena", "Saugaus eismo diena", _d(4, 6), 18, 6),
+    EventDef("sveikatos_diena", "Pasaulinė sveikatos diena", _d(4, 7), 16, 5),
+    EventDef("knygos_diena", "Pasaulinė knygos diena", _d(4, 23), 18, 6),
+    EventDef("sokio_diena", "Tarptautinė šokio diena", _d(4, 29), 14, 5),
+    EventDef("zemes_diena", "Tarptautinė Motinos Žemės diena", _d(4, 22), 18, 6),
     EventDef("motinos_diena", "Motinos diena", lambda y: (first_sunday(y, 5),) * 2, 21, 7,
              note="Pirmasis gegužės sekmadienis"),
+    EventDef("seimos_diena", "Tarptautinė šeimos diena", _d(5, 15), 18, 6),
+    EventDef("muzieju_diena", "Tarptautinė muziejų diena", _d(5, 18), 14, 5),
+    EventDef("biciu_diena", "Pasaulinė bičių diena", _d(5, 20), 18, 6),
     EventDef("tevo_diena", "Tėvo diena", lambda y: (first_sunday(y, 6),) * 2, 21, 7,
              note="Pirmasis birželio sekmadienis"),
+    EventDef("vaiku_diena", "Vaikų diena", _d(6, 1), 18, 6),
+    EventDef("dviracio_diena", "Pasaulinė dviračio diena", _d(6, 3), 14, 5),
+    EventDef("jogos_diena", "Tarptautinė jogos diena", _d(6, 21), 12, 4),
+    EventDef("saulėgriza_vasara", "Vasaros saulėgrįža", _d(6, 21), 14, 5, approx=True, note="Astronominė data gali svyruoti apie birželio 20–21 d."),
+    EventDef("draugystes_tarptautine", "Tarptautinė draugystės diena", _d(7, 30), 14, 5),
+    EventDef("drambliu_diena", "Pasaulinė dramblių diena", _d(8, 12), 12, 4),
+    EventDef("kairiarankiu_diena", "Tarptautinė kairiarankių diena", _d(8, 13), 12, 4),
+    EventDef("fotografijos_diena", "Pasaulinė fotografijos diena", _d(8, 19), 12, 4),
+    EventDef("baltijos_kelias", "Baltijos kelio diena", _d(8, 23), 18, 6),
+    EventDef("demokratijos_diena", "Tarptautinė demokratijos diena", _d(9, 15), 14, 5),
+    EventDef("taikos_diena", "Tarptautinė taikos diena", _d(9, 21), 16, 5),
+    EventDef("muzikos_diena", "Tarptautinė muzikos diena", _d(10, 1), 16, 5),
+    EventDef("maisto_diena", "Pasaulinė maisto diena", _d(10, 16), 16, 5),
+    EventDef("gerumo_diena", "Pasaulinė gerumo diena", _d(11, 13), 16, 5),
     EventDef("mokslo_metu_pabaiga", "Mokslo metų pabaiga (1–4 kl.)", _d(6, 3), 28, 10, approx=True,
              note="Apytikslė data (2026–27 m. m. – apie 06-03, 5–8 kl. apie 06-10); tikslią nustato mokykla"),
 ]}

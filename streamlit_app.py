@@ -1,4 +1,4 @@
-"""PROTUOLIUKO PAKLAUSOS RADARAS · V16"""
+"""PROTUOLIUKO PAKLAUSOS RADARAS · V17"""
 from datetime import date, datetime, timedelta
 import json
 
@@ -38,7 +38,7 @@ SC = school.summary(TODAY)
 meta = catalog["meta"]
 last_checked = meta.get("last_checked")
 n_active = len(cat.active_products(catalog))
-render(st, header("Paklausos radaras · V16 · naujos idėjos ir esamų produktų reklama"))
+render(st, header("Paklausos radaras · V17 · ką kurti, ką reklamuoti ir ką publikuoti"))
 
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Naujų idėjų temų", len(TOPICS))
@@ -52,7 +52,7 @@ if SC.get("next_break"):
 if not SC.get("calendar"):
     st.warning("Šiems mokslo metams oficialaus kalendoriaus faile nėra – progų datos koreguojamos tik pagal savaitgalius. Papildyk data/school_calendar.json.")
 
-tabs = st.tabs(["📋 ŠIĄ SAVAITĘ", "🆕 NAUJOS IDĖJOS", "📆 PROGOS", "🛍️ ESAMI PRODUKTAI", "⚙️ DUOMENYS"])
+tabs = st.tabs(["📋 ŠIĄ SAVAITĘ", "🆕 NAUJOS IDĖJOS", "📆 PROGOS", "🛍️ ESAMI PRODUKTAI", "🗂️ DARBO EILĖ", "📣 14 D. FB PLANAS", "⚙️ DUOMENYS"])
 
 
 # ------------------------------------------------------------------ helpers
@@ -255,8 +255,62 @@ with tabs[3]:
             st.session_state["lim"] = lim + 30
             st.rerun()
 
-# ------------------------------------------------------------------ DUOMENYS
+# ------------------------------------------------------------------ DARBO EILĖ
 with tabs[4]:
+    st.markdown("### Gamybos eilė")
+    st.caption("Pasirink, ką realiai gaminsi. Būsena saugoma šioje naršyklės sesijoje; tai darbo lenta, o ne naujas paklausos balas.")
+    if "queue" not in st.session_state: st.session_state["queue"] = {}
+    candidates = [r for r in TOPICS if r.bucket in ("NOW","SOON","UPCOMING") and r.feas != "LATE"][:40]
+    options = {f"{r.score} · {r.topic.name}": r for r in candidates}
+    pick = st.multiselect("Įtraukti temas į gamybos eilę", list(options), default=[k for k in st.session_state["queue"] if k in options])
+    for k in pick:
+        st.session_state["queue"].setdefault(k, "💡 Idėja")
+    for k in list(st.session_state["queue"]):
+        if k not in pick: st.session_state["queue"].pop(k, None)
+    if not pick: st.info("Eilė tuščia. Pasirink temas iš sąrašo aukščiau.")
+    for k in pick:
+        r=options[k]
+        c1,c2=st.columns([2.2,1])
+        with c1:
+            st.markdown(f"**{r.topic.name}** · {r.score}/100  \n{r.ideas[0].idea.title if r.ideas else ''}  \n{r.feas_msg}")
+        with c2:
+            st.session_state["queue"][k]=st.selectbox("Būsena", ["💡 Idėja","✏️ Kuriama","🎨 Dizainas","🔎 Tikrinama","✅ Paruošta","🚀 Publikuota"], index=max(0,["💡 Idėja","✏️ Kuriama","🎨 Dizainas","🔎 Tikrinama","✅ Paruošta","🚀 Publikuota"].index(st.session_state["queue"][k])), key="q_"+r.topic.id, label_visibility="collapsed")
+
+# ------------------------------------------------------------------ 14 D. FB PLANAS
+with tabs[5]:
+    st.markdown("### 14 dienų Facebook planas")
+    st.caption("Automatinis planas iš REALIŲ parduotuvės produktų. Tekstai – juodraščiai/redakciniai kampai, ne automatinis publikavimas.")
+    if not ANALYSED:
+        st.info("Pirmiausia nuskaityk parduotuvės asortimentą skirtuke „ESAMI PRODUKTAI“.")
+    else:
+        cand=[z for z in ANALYSED if z[1]["hint"] in ("LAST","NOW","RISE","PREP") and z[1]["score"]>=65]
+        cand=sorted(cand,key=lambda z:-z[1]["score"])
+        used=set(); plan=[]
+        for day in range(14):
+            # 5 įrašai per 7 d.; savaitgaliais paliekame laisviau
+            d=TODAY+timedelta(days=day)
+            if d.weekday() in (5,) or not cand: continue
+            chosen=None
+            for z in cand:
+                key=z[0].get("key") or z[0].get("url")
+                if key not in used:
+                    chosen=z; used.add(key); break
+            if not chosen: break
+            p_,pr=chosen
+            plan.append((d,p_,pr))
+        for d,p_,pr in plan:
+            code=(p_.get("code")+" · ") if p_.get("code") else ""
+            with st.expander(f"{d.strftime('%m-%d')} · {code}{p_['title']} · {pr['score']}/100"):
+                st.markdown(f"**Kodėl ši diena:** {pr['why']}")
+                st.markdown(f"**Kampas:** {pr['angle']}")
+                draft=(f"{pr['angle']}\n\nŠi priemonė gali padėti pedagogui temą paversti konkrečia vaikų veikla. "
+                       f"Įraše parodyk ne vien viršelį – 2–3 vidinius pavyzdžius ir aiškiai pasakyk, ką vaikas atliks. "
+                       f"Nuorodą į produktą dėk komentare.")
+                st.text_area("FB juodraščio karkasas", draft, height=145, key="fb_"+str(d)+str(p_.get('key','')))
+                st.caption("Prieš publikuojant tekstą verta suasmeninti pagal konkretaus produkto turinį.")
+
+# ------------------------------------------------------------------ DUOMENYS
+with tabs[6]:
     st.markdown("### Duomenų būklė ir aprėptis")
     d = meta.get("last_diag") or {}
     if d:
