@@ -21,3 +21,8 @@ streamlit run streamlit_app.py
 
 ## Patikra
 `pytest -q` – 13 testų.
+
+## V21 – terminų prioritetas
+- Naujas numatytasis „PAGAL SKUBUMĄ“ rodinys; terminai svarbesni už balą.
+- Praleisti publikavimo terminai aiškiai išskirti, o ne paslėpti gale.
+- „Šią savaitę“ naujos priemonės rikiuojamos pagal terminą.

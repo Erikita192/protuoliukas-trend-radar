@@ -1,4 +1,4 @@
-"""PROTUOLIUKO PAKLAUSOS RADARAS · V20"""
+"""PROTUOLIUKO PAKLAUSOS RADARAS · V21"""
 from datetime import date, datetime, timedelta
 import json
 import threading
@@ -13,6 +13,7 @@ from radar.timing import fmt, fmt_range, now_vilnius, today_vilnius, EVENTS
 from radar.topics import AGE_GROUPS, evaluate_all, load_topics
 from radar.ui import (esc, header, inject_css, mini_row, product_card, render, topic_card, left_text, PHASE_CLASS)
 from radar.weekly import upcoming_events, weekly
+from radar.priorities import ordered, priority_group
 
 st.set_page_config(page_title="Protuoliuko paklausos radaras", page_icon="📡", layout="wide")
 inject_css(st)
@@ -39,7 +40,7 @@ SC = school.summary(TODAY)
 meta = catalog["meta"]
 last_checked = meta.get("last_checked")
 n_active = len(cat.active_products(catalog))
-render(st, header("Paklausos radaras · V20 · ką kurti, ką reklamuoti ir ką publikuoti"))
+render(st, header("Paklausos radaras · V21 · ką kurti, ką reklamuoti ir ką publikuoti"))
 
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Naujų idėjų temų", len(TOPICS))
@@ -130,7 +131,7 @@ def product_mini(z):
 with tabs[0]:
     W = weekly(TODAY, TOPICS, ANALYSED)
     ev7 = upcoming_events(TODAY, 7)
-    create_rows = sorted(W["create"], key=lambda r: (not r.quick_ok, -r.score))[:15]
+    create_rows = ordered(W["create"], TODAY)[:15]
     product_actions = len({(z[0].get("key") or z[0].get("url")) for z in (W["facebook"] + W["home"] + W["stories"] + W["last"])})
     total_actions = len(create_rows) + len(ev7) + product_actions
     st.markdown("### Šią savaitę")
@@ -142,7 +143,7 @@ with tabs[0]:
     c4.metric("🎯 Veiksmų iš viso", total_actions if ANALYSED else len(create_rows)+len(ev7))
 
     with st.expander(f"🆕 Naujos priemonės, kurias verta kurti · {len(create_rows)}", expanded=True):
-        st.caption("Temos, kurias pagal laiką dar realu spėti. Pirmiausia rodomos greitos ir aukšto prioriteto idėjos.")
+        st.caption("Temos, kurias pagal laiką dar realu spėti. Pirmiausia rodomi artimiausi publikavimo terminai; balas naudojamas tik vienodoms datoms.")
         render(st, "".join(mini_row(r.score, r.topic.name, f"{r.ideas[0].idea.title if r.ideas else ''} · publikuoti {fmt_range(r.timing.pub_start, r.timing.pub_end, TODAY)} · {r.feas_msg}") for r in create_rows) or "Nėra.")
 
     with st.expander(f"📆 Artėjančios progos per 7 d. · {len(ev7)}", expanded=bool(ev7)):
@@ -183,7 +184,7 @@ with tabs[1]:
         mins = b.slider("Min. galimybių balas", 0, 100, 0, key="ideas_min_score")
         q = c.text_input("Paieška (tema, idėja)", key="ideas_search")
     st.caption("Galimybių balas = planavimo heuristika (potencialas × laikas × ar spėsi). Tai NĖRA išmatuota Google paklausa.")
-    view = st.radio("Laikotarpis", ["🔥 DABAR", "📅 NETRUKUS", "🔭 ARTĖJA", "🗓️ 30 DIENŲ", "💡 VISAS BANKAS"], horizontal=True, label_visibility="collapsed", key="ideas_period")
+    view = st.radio("Laikotarpis", ["⏰ PAGAL SKUBUMĄ", "🔥 DABAR", "📅 NETRUKUS", "🔭 ARTĖJA", "🗓️ 30 DIENŲ", "💡 VISAS BANKAS"], horizontal=True, label_visibility="collapsed", key="ideas_period")
 
     def pass_f(r):
         t = r.topic
@@ -200,20 +201,45 @@ with tabs[1]:
 
     F = [r for r in TOPICS if pass_f(r)]
     by = lambda bk: [r for r in F if r.bucket == bk]
-    if view.startswith("🔥"):
+    if view.startswith("⏰"):
+        st.markdown("### Ką kurti pirmiausia – pagal terminus")
+        st.caption("Rikiuojama pagal publikavimo lango pabaigą arba pradžią. Galimybių balas nenustumia skubesnės temos žemyn. Datos yra planavimo prognozės, ne išmatuotas paklausos pikas.")
+        groups = [
+            ("LAST", "⚡ Paskutinė galimybė · iki 3 d."),
+            ("NOW", "🔥 Publikuoti dabar"),
+            ("SOON", "📅 Netrukus · iki 14 d."),
+            ("AFTER", "🟠 Publikavimo langas praėjo, pikas dar vyksta"),
+            ("LATER", "🔭 Vėliau"),
+            ("MISSED", "⌛ Praleisti terminai"),
+            ("EVERGREEN", "📚 Tęstinės temos"),
+        ]
+        groups_map = {g: [] for g, _ in groups}
+        for r in ordered(F, TODAY):
+            groups_map[priority_group(r, TODAY)].append(r)
+        missed_count = len(groups_map["MISSED"]) + len(groups_map["AFTER"])
+        if missed_count:
+            st.warning(f"Dėmesio: {missed_count} temų idealus publikavimo laikas jau praėjo. Jos pateiktos atskirai žemiau, kad nepradingtų.")
+        for group, label in groups:
+            items = groups_map[group]
+            if not items:
+                continue
+            with st.expander(f"{label} · {len(items)}", expanded=group in ("LAST", "NOW", "SOON")):
+                for r in items:
+                    render(st, topic_card(r, TODAY, group in ("LAST", "NOW")))
+    elif view.startswith("🔥"):
         now_ = by("NOW")
         st.markdown(f"### Kurti ir publikuoti dabar · {len(now_)}")
-        for r in now_: render(st, topic_card(r, TODAY, True))
+        for r in ordered(now_, TODAY): render(st, topic_card(r, TODAY, True))
         eg = by("EVERGREEN")[:12]
         st.markdown(f"### 📚 Tęstinės temos (be konkretaus piko) · rodoma {len(eg)} iš {len(by('EVERGREEN'))}")
         st.caption("Jų aktualumą lemia klasė ir ugdymo eiga, todėl konkrečios datos nerodomos.")
         for r in eg: render(st, topic_card(r, TODAY))
     elif view.startswith("📅"):
-        rows = sorted(by("SOON"), key=lambda r: r.timing.pub_start)
+        rows = ordered(by("SOON"), TODAY)
         st.markdown(f"### Publikavimo langas prasideda per ≤14 d. · {len(rows)}")
         for r in rows: render(st, topic_card(r, TODAY))
     elif view.startswith("🔭"):
-        rows = sorted(by("UPCOMING"), key=lambda r: r.timing.pub_start)
+        rows = ordered(by("UPCOMING"), TODAY)
         st.markdown(f"### Publikavimo langas prasideda po 15–60 d. · {len(rows)}")
         for r in rows: render(st, topic_card(r, TODAY))
     elif view.startswith("🗓️"):
@@ -223,12 +249,12 @@ with tabs[1]:
         for w in range(5):
             a0 = TODAY + timedelta(days=7 * w); a1 = a0 + timedelta(days=6)
             rows = [r for r in dated if r.timing.pub_start <= a1 and (r.timing.pub_end or r.timing.end) >= a0 and r.feas != "LATE"]
-            rows.sort(key=lambda r: -r.score)
+            rows = ordered(rows, TODAY)
             render(st, f'<div class="week">{a0.strftime("%m-%d")} – {a1.strftime("%m-%d")} · {len(rows)} temų</div>' +
                    ("".join(mini_row(r.score, r.topic.name, f"publikuoti {fmt_range(r.timing.pub_start, r.timing.pub_end, TODAY)} · {r.feas_msg}") for r in rows[:14]) or "<div class='meta'>Nėra datomis pagrįstų temų.</div>"))
     else:
         st.markdown(f"### Visas bankas · {len(F)} temų · {sum(len(r.ideas) for r in F)} konkrečių priemonių")
-        for r in F: render(st, topic_card(r, TODAY))
+        for r in ordered(F, TODAY): render(st, topic_card(r, TODAY))
 
 # ------------------------------------------------------------------ PROGOS
 with tabs[2]:
