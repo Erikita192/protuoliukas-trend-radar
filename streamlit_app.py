@@ -1,372 +1,385 @@
-"""PROTUOLIUKO PAKLAUSOS RADARAS · V21"""
-from datetime import date, datetime, timedelta
-import json
+"""PROTUOLIUKO GALIMYBIŲ CENTRAS V22 · Practical creator dashboard.
+
+All 68 original topics / 200 detailed ideas / original events are retained.
+No sales, GSC, GA4 or competitor demand metrics are fabricated.
+"""
+from __future__ import annotations
+
+import csv
+import io
+import os
+import re
 import threading
+from datetime import date, datetime, timedelta
+from pathlib import Path
 
 import streamlit as st
 
-from radar import catalog as cat
-from radar import school, signals as sg
-from radar.crawler import CrawlConfig, parse_page, make_session
+from radar import catalog as cat, school, signals as sg
+from radar.crawler import CrawlConfig
+from radar.opportunities import create_actions, promote_actions, improve_actions, filter_by_time
 from radar.products import analyse_all
-from radar.timing import fmt, fmt_range, now_vilnius, today_vilnius, EVENTS
+from radar.timing import EVENTS, fmt, fmt_range, today_vilnius, now_vilnius
 from radar.topics import AGE_GROUPS, evaluate_all, load_topics
-from radar.ui import (esc, header, inject_css, mini_row, product_card, render, topic_card, left_text, PHASE_CLASS)
-from radar.weekly import upcoming_events, weekly
-from radar.priorities import ordered, priority_group
+from radar.ui import esc, header, inject_css, product_card, render
+from radar.weekly import upcoming_events
 
-st.set_page_config(page_title="Protuoliuko paklausos radaras", page_icon="📡", layout="wide")
+st.set_page_config(page_title="Protuoliuko galimybių centras · V22", page_icon="🎯", layout="wide")
 inject_css(st)
+st.markdown("""<style>
+/* V22: papildomas lengvas, aiškus veiksmų dizainas */
+.pf .act{border:1px solid #E6DFD3;border-radius:17px;padding:17px 19px;background:#fff;margin:10px 0;box-shadow:0 1px 2px rgba(20,50,40,.03)}
+.pf .act-kind{font-size:.77rem;font-weight:800;letter-spacing:.06em;color:#2A6A59!important;text-transform:uppercase}
+.pf .act h4{font-size:1.08rem;margin:7px 0 7px;font-weight:750;color:#203A31!important}
+.pf .act .act-desc{font-size:.92rem;line-height:1.5;color:#273A32!important}
+.pf .act .act-why{font-size:.85rem;margin-top:10px;color:#52665C!important;border-left:3px solid #A3C2AB;padding-left:10px}
+.pf .act .act-foot{font-size:.78rem;color:#48675D!important;margin-top:10px}
+.pf .act a{font-size:.88rem;color:#176A56!important}
+.pf .soft{background:#F0F6EF;border-radius:16px;padding:14px 18px;margin:11px 0;color:#203A31!important}
+.pf .library-item{border:1px solid #E6DFD3;background:#fff;border-radius:15px;padding:13px 17px;margin:9px 0}
+.pf .library-item summary{font-size:1rem;font-weight:750;color:#1E4F42!important;cursor:pointer}
+.pf .library-item .li-meta{color:#637168!important;font-size:.82rem;margin:6px 0}
+.pf .idea-line{border-top:1px solid #EBE7DF;padding:11px 0;font-size:.88rem}
+.pf .event-line{background:#fff;border:1px solid #E6DFD3;border-radius:14px;padding:12px 16px;margin:9px 0}
+.pf .event-line b{font-size:1rem;color:#244C3F!important}
+.pf .event-line p{font-size:.84rem;color:#51665D!important;margin:4px 0}
+</style>""", unsafe_allow_html=True)
 
-# ------------------------------------------------------------------ data
-catalog = cat.load_catalog()
-sig = sg.load_signals()
+ROOT = Path(__file__).resolve().parent
+MARKET_FILE = Path(os.environ.get("PROTUOLIUKAS_DATA_DIR", str(ROOT / "data"))) / "market_signals.csv"
 
 with st.sidebar.expander("🗓️ Planavimo data", expanded=False):
-    use_sim = st.checkbox("Peržiūrėti radarą kitai datai", value=False, key="planning_use_sim")
-    sim = st.date_input("Data", value=today_vilnius(), disabled=not use_sim, key="planning_date")
-TODAY = sim if use_sim else today_vilnius()
+    simulate = st.checkbox("Peržiūrėti kitai datai", value=False, key="v22_sim_on")
+    picked = st.date_input("Data", value=today_vilnius(), disabled=not simulate, key="v22_sim_date")
+TODAY = picked if simulate else today_vilnius()
+
+
+def _background_refresh():
+    """Retain V21 safe resumable crawler; no direct Streamlit calls in thread."""
+    try:
+        for _ in range(6):
+            old = cat.load_catalog()
+            new, _, _ = cat.update_catalog(
+                resume=bool(old.get("frontier")),
+                cfg=CrawlConfig(time_budget_s=70, max_pages=900, workers=8),
+            )
+            if new.get("meta", {}).get("complete") or not new.get("frontier"):
+                break
+    except Exception:
+        pass
+
+
+def start_refresh_once():
+    if os.environ.get("PROTUOLIUKAS_DISABLE_BG") == "1":
+        return
+    if not st.session_state.get("v22_catalog_running_started"):
+        st.session_state["v22_catalog_running_started"] = True
+        st.session_state["v22_refresh_started"] = now_vilnius().isoformat(timespec="minutes")
+        threading.Thread(target=_background_refresh, daemon=True, name="protuoliukas-v22-catalog").start()
+
+
+start_refresh_once()
+
+catalog = cat.load_catalog()
+signals = sg.load_signals()
+TOPICS = evaluate_all(TODAY)
+ALL_TOPICS = load_topics()
 
 
 @st.cache_resource(show_spinner=False)
-def _analysed(stamp: str, today_iso: str, sig_stamp: str):
-    return analyse_all(cat.active_products(cat.load_catalog()), date.fromisoformat(today_iso), sg.load_signals())
+def _products(catalog_marker: str, today_str: str, signal_marker: str):
+    return analyse_all(cat.active_products(cat.load_catalog()), date.fromisoformat(today_str), sg.load_signals())
 
 
-TOPICS = evaluate_all(TODAY)
-ANALYSED = _analysed(cat.catalog_stamp(catalog), TODAY.isoformat(), sg.signal_stamp(sig))
-SC = school.summary(TODAY)
+# Hash only the small import CSV; don't mistakenly reuse analysis when signal values
+# change but the number of rows stays the same.
+import hashlib
+sig_hash = hashlib.sha256(repr(sorted((k, tuple(sorted(v.items()))) for k,v in signals.items())).encode("utf-8")).hexdigest()[:16]
+ANALYSED = _products(cat.catalog_stamp(catalog), TODAY.isoformat(), sig_hash)
+n_products = len(cat.active_products(catalog))
 
-meta = catalog["meta"]
-last_checked = meta.get("last_checked")
-n_active = len(cat.active_products(catalog))
-render(st, header("Paklausos radaras · V21 · ką kurti, ką reklamuoti ir ką publikuoti"))
-
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Naujų idėjų temų", len(TOPICS))
-c2.metric("Aktyvių produktų", n_active if n_active else "—")
-c3.metric("Reklamuoti dabar", sum(1 for _, p in ANALYSED if p["hint"] in ("NOW", "LAST")))
-c4.metric("Artimiausia pertrauka", (f"po {SC['days_to_break']} d." if SC.get("next_break") else "—"))
-if SC.get("next_break"):
-    nb = SC["next_break"]
-    st.caption(f"{nb[0]}: {fmt_range(nb[1], nb[2], TODAY)} · paskutinė mokymosi diena prieš ją: {fmt(SC.get('last_school_day'), TODAY)} "
-               f"(ŠMSM kalendorius, patikrinta {SC.get('verified')}). Šventinė medžiaga klasėje realiai naudojama iki šios dienos.")
-if not SC.get("calendar"):
-    st.warning("Šiems mokslo metams oficialaus kalendoriaus faile nėra – progų datos koreguojamos tik pagal savaitgalius. Papildyk data/school_calendar.json.")
-
-tabs = st.tabs(["📋 ŠIĄ SAVAITĘ", "🆕 NAUJOS IDĖJOS", "📆 PROGOS", "🛍️ ESAMI PRODUKTAI", "📣 14 D. FB PLANAS"])
+if callable(getattr(st, "fragment", None)):
+    @st.fragment(run_every="20s")
+    def watch_catalog():
+        fresh = cat.load_catalog()
+        stamp = cat.catalog_stamp(fresh)
+        previous = st.session_state.setdefault("v22_catalog_stamp", cat.catalog_stamp(catalog))
+        if stamp != previous:
+            st.session_state["v22_catalog_stamp"] = stamp
+            st.cache_resource.clear()
+            st.rerun()
+    watch_catalog()
 
 
-# ------------------------------------------------------------------ helpers
-def run_update(resume=False):
-    bar = st.progress(0.0, text="Pradedama…")
-    box = st.empty()
-
-    def cb(s):
-        total = max(1, s["fetched"] + s["queued"])
-        bar.progress(min(0.99, s["fetched"] / total), text=f"Perskaityta {s['fetched']} puslapių · rasta produktų {s['products']} · eilėje {s['queued']}")
-    new, msg, lvl = cat.update_catalog(progress=cb, resume=resume)
-    bar.empty()
-    st.session_state["update_msg"] = (msg, lvl)
-    st.session_state["_scanned"] = True
+def do_refresh(resume: bool = False):
+    with st.spinner("Tikrinamas asortimentas…"):
+        fresh, message, level = cat.update_catalog(
+            resume=resume, cfg=CrawlConfig(time_budget_s=80, max_pages=1200, workers=8))
+    st.session_state["v22_status"] = (level, message)
     st.cache_resource.clear()
     st.rerun()
 
 
-def _background_catalog_update():
-    """Automatiškai tęsia katalogo nuskaitymą mažesniais etapais.
+def action_html(a) -> str:
+    ico = {"kurti": "✳", "reklamuoti": "↗", "pagerinti": "↻"}.get(a.kind, "•")
+    link = f'<div class="act-foot"><a href="{esc(a.url)}" target="_blank" rel="noopener noreferrer">Atidaryti produktą ↗</a></div>' if a.url.startswith(("https://", "http://")) else ""
+    due = f" · {esc(a.deadline)}" if a.deadline else ""
+    effort = f" · {esc(a.effort)}" if a.effort else ""
+    return (f'<div class="act"><div class="act-kind">{ico} {esc(a.kind)} · {esc(a.label)}</div>'
+            f'<h4>{esc(a.title)}</h4><div class="act-desc">{esc(a.detail)}</div>'
+            f'<div class="act-why"><strong>Kodėl:</strong> {esc(a.reason)}</div>'
+            f'<div class="act-foot">{esc(a.evidence)}{due}{effort}</div>{link}</div>')
 
-    Svarbu Streamlit Cloud: vienas ilgas 9 min. crawl'as gali būti nutrauktas.
-    Todėl kas etapas išsaugo rastus produktus ir frontier, o kitas etapas
-    automatiškai tęsia nuo tos vietos, užuot pradėjęs viską iš naujo.
-    """
+
+def show_actions(actions: list, empty_msg: str, max_items: int = 4):
+    if not actions:
+        st.info(empty_msg)
+        return
+    for a in actions[:max_items]:
+        render(st, action_html(a))
+
+
+def _market_rows():
+    if not MARKET_FILE.exists():
+        return []
     try:
-        for _ in range(6):
-            current = cat.load_catalog()
-            resume = bool(current.get("frontier"))
-            fresh, _msg, _lvl = cat.update_catalog(
-                resume=resume,
-                cfg=CrawlConfig(time_budget_s=75, max_pages=900, workers=10),
-            )
-            # Pilnas nuskaitymas – daugiau tęsti nereikia.
-            if fresh.get("meta", {}).get("last_diag", {}).get("complete") or not fresh.get("frontier"):
-                break
-    except Exception:
-        # UI visada paliekama paskutinė gera katalogo kopija.
-        pass
+        with MARKET_FILE.open("r", encoding="utf-8-sig", newline="") as f:
+            return [dict(row) for row in csv.DictReader(f)][:300]
+    except (UnicodeError, OSError, csv.Error):
+        return []
 
 
-def ensure_background_refresh():
-    if not st.session_state.get("_catalog_refresh_started"):
-        st.session_state["_catalog_refresh_started"] = True
-        st.session_state["_catalog_refresh_started_at"] = now_vilnius().isoformat(timespec="minutes")
-        threading.Thread(target=_background_catalog_update, daemon=True, name="protuoliukas-catalog-refresh").start()
+def signal_count():
+    return len(signals)
 
 
-ensure_background_refresh()
+render(st, header("GALIMYBIŲ CENTRAS · V22 · ką kurti, reklamuoti ir patobulinti"))
+st.markdown("### Ką verta daryti dabar?")
+st.caption("Sprendimų ekranas: kelios konkrečios galimybės. Visa V21 temų ir progų bazė išsaugota atskiruose skirtukuose.")
 
-# Kol foninis nuskaitymas vyksta, kas 15 s patikriname katalogo failą. Kai
-# last_checked pasikeičia, perkraunamas visas radaras ir naujas katalogas iškart
-# panaudojamas skaičiavimuose – vartotojui nebereikia rankiniu būdu perkrauti.
-if callable(getattr(st, "fragment", None)):
-    @st.fragment(run_every="15s")
-    def _catalog_refresh_watcher():
-        fresh = cat.load_catalog()
-        fresh_stamp = cat.catalog_stamp(fresh)
-        initial_stamp = st.session_state.setdefault("_catalog_initial_stamp", cat.catalog_stamp(catalog))
-        if fresh_stamp != initial_stamp:
-            st.session_state["_catalog_initial_stamp"] = fresh_stamp
-            st.cache_resource.clear()
-            st.rerun()
-    _catalog_refresh_watcher()
+m1, m2, m3, m4 = st.columns(4)
+m1.metric("Idėjų bibliotekoje", f"{len(ALL_TOPICS)} temos · {sum(len(t.ideas) for t in ALL_TOPICS)} idėjų")
+m2.metric("Metinių progų", len(EVENTS))
+m3.metric("Parduotuvės produktų", n_products if n_products else "Tikrinama…")
+m4.metric("Importuotų signalo įrašų", signal_count())
 
+if not signals:
+    st.info("**Kol kas neturime pardavimų ir paieškos statistikos.** Rekomendacijos šiuo metu paremtos kalendoriumi, konkrečiomis idėjomis ir, jei nuskaityta, parduotuvės katalogu. Jos nėra išmatuotos paklausos prognozė. Duomenų CSV galima įkelti skirtuke „Duomenys“.")
 
-def product_mini(z):
-    p, pr = z
-    code = f"{p['code']} · " if p.get("code") else ""
-    return mini_row(pr["score"], code + p["title"], f"{pr['status']} · {pr['why'][:110]}", p["url"])
+# If a catalog product matches a topic, warn rather than silently promoting
+# near-duplicates; create-side business decisions need a crosscheck.
+occupied = {tp.id for p,pr in ANALYSED for tp, strength, via in p.get("matches", []) if strength >= 3}
+CREATIONS = create_actions(TODAY, TOPICS, limit=35, occupied_topics=occupied)
+PROMOTIONS = promote_actions(TODAY, ANALYSED, signals, limit=16)
+IMPROVEMENTS = improve_actions(TODAY, ANALYSED, signals, limit=16)
 
+TABS = st.tabs(["🎯 GALIMYBĖS", "💡 IDĖJŲ BIBLIOTEKA", "📆 PROGŲ KALENDORIUS",
+                "🛍️ MANO PRODUKTAI", "🔎 RINKOS RADINIAI", "⚙️ DUOMENYS"])
 
-# ------------------------------------------------------------------ ŠIĄ SAVAITĘ
-with tabs[0]:
-    W = weekly(TODAY, TOPICS, ANALYSED)
-    ev7 = upcoming_events(TODAY, 7)
-    create_rows = ordered(W["create"], TODAY)[:15]
-    product_actions = len({(z[0].get("key") or z[0].get("url")) for z in (W["facebook"] + W["home"] + W["stories"] + W["last"])})
-    total_actions = len(create_rows) + len(ev7) + product_actions
-    st.markdown("### Šią savaitę")
-    st.caption("Bendras veiksmų centras: ką kurti + kokios progos artėja + ką iš esamų produktų reklamuoti. Esamų produktų katalogas kiekvienoje naujoje sesijoje atsinaujina fone.")
-    c1,c2,c3,c4=st.columns(4)
-    c1.metric("🆕 Kurti / ruošti", len(create_rows))
-    c2.metric("📆 Progos per 7 d.", len(ev7))
-    c3.metric("🛍️ Esamų produktų veiksmai", product_actions if ANALYSED else "atnaujinama…")
-    c4.metric("🎯 Veiksmų iš viso", total_actions if ANALYSED else len(create_rows)+len(ev7))
+with TABS[0]:
+    st.markdown("#### Šios savaitės sprendimai")
+    ch1, ch2 = st.columns([1,1])
+    slot = ch1.selectbox("Kiek laiko turi kūrimui?", ["Visos galimybės", "Iki 2 val.", "Iki 5 val.", "1–2 darbo dienos"], key="v22_time_filter")
+    focus = ch2.selectbox("Kokio veiksmo ieškai?", ["Visi veiksmai", "Kurti naują", "Reklamuoti turimą", "Patobulinti"], key="v22_action_filter")
+    hour_limit = {"Visos galimybės": 100, "Iki 2 val.": 2, "Iki 5 val.": 5, "1–2 darbo dienos": 16}[slot]
+    create_filtered = filter_by_time(CREATIONS, hour_limit)
 
-    with st.expander(f"🆕 Naujos priemonės, kurias verta kurti · {len(create_rows)}", expanded=True):
-        st.caption("Temos, kurias pagal laiką dar realu spėti. Pirmiausia rodomi artimiausi publikavimo terminai; balas naudojamas tik vienodoms datoms.")
-        render(st, "".join(mini_row(r.score, r.topic.name, f"{r.ideas[0].idea.title if r.ideas else ''} · publikuoti {fmt_range(r.timing.pub_start, r.timing.pub_end, TODAY)} · {r.feas_msg}") for r in create_rows) or "Nėra.")
+    def section(title: str, kind: str, rows: list, empty: str, cap: int):
+        if focus != "Visi veiksmai" and {"kurti":"Kurti naują","reklamuoti":"Reklamuoti turimą","pagerinti":"Patobulinti"}[kind] != focus:
+            return
+        st.markdown(f"##### {title}")
+        show_actions(rows, empty, cap)
 
-    with st.expander(f"📆 Artėjančios progos per 7 d. · {len(ev7)}", expanded=bool(ev7)):
-        if ev7:
-            render(st, "".join(mini_row(max(1,100-min(70,x['days']*5)), x['ev'].name, f"{fmt_range(x['t'].start,x['t'].end,TODAY)} · po {x['days']} d. · publikuoti {fmt_range(x['t'].pub_start,x['t'].pub_end,TODAY)}") for x in ev7))
-        else: st.write("Per artimiausias 7 dienas kalendoriuje nėra įtrauktų progų.")
+    section("✳ Ką sukurti", "kurti", create_filtered,
+            "Šiam pasirinktam laikui tinkamų idėjų kol kas nerasta. Bibliotekoje gali pasirinkti kitą temą.", 4)
+    section("↗ Ką reklamuoti", "reklamuoti", PROMOTIONS,
+            "Kol nėra tinkamų nuskaitytų produktų, negaliu parinkti konkretaus produkto reklamai. Katalogas tikrinamas automatiškai; prireikus gali paleisti rankiniu būdu skirtuke „Mano produktai“.", 3)
+    section("↻ Ką verta patobulinti", "pagerinti", IMPROVEMENTS,
+            "Kol nėra konkrečių rodiklių (pvz., dideli parodymai, mažai paspaudimų), produkto silpnos vietos neišgalvoju. Importuok GSC / pardavimo rezultatus, tada atsiras pagrįsti tobulinimo pasiūlymai.", 3)
 
-    if not ANALYSED:
-        st.info("🛍️ Esamų produktų katalogas šiuo metu atnaujinamas fone. Naujų idėjų ir progų rekomendacijos nuo jo nepriklauso.")
+    with st.expander("📆 Artimiausios progos – kad nepraleisčiau laiko"):
+        nearest = upcoming_events(TODAY, 40)[:10]
+        if nearest:
+            for r in nearest:
+                t, ev = r["t"], r["ev"]
+                render(st, f'<div class="event-line"><b>{esc(ev.name)}</b><p>Proga: {esc(fmt_range(t.start,t.end,TODAY))} · liko {r["days"]} d. · rekomenduojamas publikavimas: {esc(fmt_range(t.pub_start,t.pub_end,TODAY))}</p></div>')
+        else:
+            st.write("Artimiausių datų nerasta.")
+    st.caption("Jokių privalomų darbų sąrašų ar rankinio statusų žymėjimo. Jei realių signalų nėra, sistema taip ir sako.")
+
+with TABS[1]:
+    st.markdown("### Idėjų biblioteka")
+    st.caption("Visos istorinės idėjos išsaugotos. Praėjusi data jų neištrina – čia gali ieškoti įkvėpimo bet kuriuo metu.")
+    u1, u2 = st.columns(2)
+    search = u1.text_input("Paieška pagal temą, veiklą ar užduotį", key="v22_library_query")
+    areas = sorted({t.area for t in ALL_TOPICS})
+    area = u2.selectbox("Ugdymo sritis", ["Visos sritys"] + areas, key="v22_library_area")
+    v1, v2, v3 = st.columns(3)
+    age = v1.selectbox("Amžiaus grupė", ["Visos amžiaus grupės"] + AGE_GROUPS, key="v22_library_age")
+    fmt_sel = v2.selectbox("Formatas", ["Visi formatai"] + sorted({f for t in ALL_TOPICS for f in t.formats}), key="v22_library_format")
+    season = v3.selectbox("Laikotarpis", ["Visi laikotarpiai", "Šventė / proga", "Sezono / ugdymo langas", "Tęstinė"], key="v22_library_season")
+    picked_topics = []
+    for t in ALL_TOPICS:
+        if area != "Visos sritys" and t.area != area: continue
+        if age != "Visos amžiaus grupės" and age not in t.age_groups: continue
+        if fmt_sel != "Visi formatai" and fmt_sel not in t.formats: continue
+        if season != "Visi laikotarpiai" and t.seasonality != season: continue
+        if search and search.casefold() not in (t.name + " " + t.pain + " " + " ".join(i.title + " " + i.desc for i in t.ideas)).casefold():
+            continue
+        picked_topics.append(t)
+    picked_topics.sort(key=lambda t: (t.area, t.name))
+    n_ideas = sum(len(t.ideas) for t in picked_topics)
+    st.markdown(f"**Rasta {len(picked_topics)} temų ir {n_ideas} konkrečių idėjų.**")
+    limit = st.session_state.get("v22_library_limit", 24)
+    for tp in picked_topics[:limit]:
+        ti = next((r for r in TOPICS if r.topic.id == tp.id), None)
+        timing_text = (
+            "Tęstinė tema – jokios dirbtinės piko datos" if tp.timing.get("type") == "evergreen" else
+            f"Kitas numatomas laikotarpis: {fmt_range(ti.timing.start, ti.timing.end, TODAY) if ti else '—'}. Tai orientyras, ne visuotinė mokymo programa."
+        )
+        ideas_html = "".join(
+            f'<div class="idea-line"><strong>{esc(i.title)}</strong><div>{esc(i.desc)}</div>'
+            f'<div class="li-meta">{esc(i.skill)} · {esc(i.effort)}</div></div>' for i in tp.ideas)
+        render(st, f'<details class="library-item"><summary>{esc(tp.name)} · {len(tp.ideas)} id.</summary>'
+               f'<div class="li-meta">{esc(tp.area)} · {esc(tp.ages)} · {esc(", ".join(tp.formats))}</div>'
+               f'<div class="li-meta">{esc(timing_text)}</div>{ideas_html}</details>')
+    if len(picked_topics) > limit and st.button(f"Rodyti dar {min(24,len(picked_topics)-limit)} temų", key="v22_library_more"):
+        st.session_state["v22_library_limit"] = limit + 24
+        st.rerun()
+
+with TABS[2]:
+    st.markdown("### Progų ir mokyklos kalendorius")
+    st.caption("Visos datos išlaikytos; galima peržiūrėti ir praėjusius, ir būsimus mėnesius. Apytikslės datos pažymėtos.")
+    MONTHS = ["Sausis", "Vasaris", "Kovas", "Balandis", "Gegužė", "Birželis", "Liepa", "Rugpjūtis", "Rugsėjis", "Spalis", "Lapkritis", "Gruodis"]
+    c_y, c_m = st.columns(2)
+    year = c_y.selectbox("Metai", list(range(TODAY.year-1, TODAY.year+4)), index=1, key="v22_cal_year")
+    month = c_m.selectbox("Mėnuo", ["Visi mėnesiai"] + MONTHS, index=TODAY.month, key="v22_cal_month")
+    eq = st.text_input("Ieškoti progos", key="v22_event_search")
+    dates = []
+    for ev in EVENTS.values():
+        try:
+            s,e = ev.rule(year)
+        except (ValueError, TypeError):
+            continue
+        if month != "Visi mėnesiai" and s.month != MONTHS.index(month) + 1:
+            continue
+        if eq and eq.casefold() not in ev.name.casefold():
+            continue
+        use = school.classroom_date(s)
+        pub_start = use - timedelta(days=ev.lead)
+        pub_end = use - timedelta(days=ev.gap)
+        dates.append((s,e,ev,use,pub_start,pub_end))
+    dates.sort(key=lambda x: (x[0],x[2].name))
+    st.markdown(f"**Rodoma {len(dates)} progų iš {len(EVENTS)} kalendoriuje.**")
+    for s,e,ev,use,pub_s,pub_e in dates:
+        ap = " · data apytikslė, prieš kampaniją patikrinti" if ev.approx else ""
+        notes = f"<p>{esc(ev.note)}</p>" if ev.note else ""
+        render(st, f'<div class="event-line"><b>{esc(ev.name)}</b>'
+               f'<p>🗓️ {esc(fmt_range(s,e,TODAY))}{esc(ap)}</p>'
+               f'<p>🚀 Siūlomas pasiruošimas ir publikavimas: {esc(fmt_range(pub_s,pub_e,TODAY))}</p>'
+               f'{notes}</div>')
+    with st.expander("🏫 Mokyklos kalendorius ir ugdymo ritmas"):
+        st.caption("Mokslo metų pradžia, pertraukos, paskutinės mokymosi dienos ir kiti planavimo taškai, ne vien atostogos.")
+        for x in school.timeline(TODAY):
+            render(st, f'<div class="event-line"><b>{esc(x["name"])}</b><p>{esc(fmt(x["date"],TODAY))} · {esc(x["detail"])}</p></div>')
+        for source in school.summary(TODAY).get("sources", []):
+            if str(source.get("url", "")).startswith("https://"):
+                st.markdown(f"[{source['name']}]({source['url']})")
+
+with TABS[3]:
+    st.markdown("### Mano produktai")
+    st.caption("Automatiškai tikrinamas realus parduotuvės katalogas. Rekomendacijų prioritetai pagal datas yra orientyras; be pardavimo statistikos tai nėra patvirtinta paklausa.")
+    meta = catalog.get("meta", {})
+    st.write(f"**Aktyvių produktų:** {n_products}. **Paskutinis patikrinimas:** {meta.get('last_checked') or 'Dar neatliktas'}. **Užbaigtas nuskaitymas:** {'taip' if meta.get('complete') else 'ne / dar vyksta'}.")
+    stat = st.session_state.pop("v22_status", None)
+    if stat:
+        getattr(st, {"ok":"success", "warn":"warning", "error":"error"}.get(stat[0], "info"))(stat[1])
+    c1,c2=st.columns(2)
+    if c1.button("🔄 Patikrinti katalogą dabar", key="v22_shop_refresh"):
+        do_refresh()
+    if catalog.get("frontier") and c2.button("▶ Tęsti dalinį nuskaitymą", key="v22_shop_resume"):
+        do_refresh(resume=True)
+    if not n_products:
+        st.info("Dar neturime katalogo. Tikrinimas vyksta fone – tai gali užtrukti, ypač pirmą kartą. Katalogas atnaujinamas neperrašant ankstesnių gerų duomenų.")
+    elif not meta.get("complete"):
+        st.warning("Nuskaitymas dalinis; iki jo pabaigos produktų skaičius ir rekomendacijos gali būti nepilni.")
+    c1,c2,c3=st.columns(3)
+    query_p=c1.text_input("Ieškoti produkto ar kodo", key="v22_shop_search")
+    status_p=c2.selectbox("Reklamos periodas", ["Visi", "Dabar", "Ruošti", "Vėliau"], key="v22_shop_status")
+    region_p=c3.selectbox("Rodyti", ["20 produktų", "50 produktų", "100 produktų"], key="v22_shop_limit")
+    num = int(region_p.split()[0])
+    shown=[]
+    for p,pr in ANALYSED:
+        if query_p and query_p.casefold() not in (str(p.get("title") or "")+" "+str(p.get("code") or "")).casefold(): continue
+        if status_p == "Dabar" and pr.get("hint") not in ("LAST", "NOW", "RISE"): continue
+        if status_p == "Ruošti" and pr.get("hint") != "PREP": continue
+        if status_p == "Vėliau" and pr.get("hint") != "OFF": continue
+        shown.append((p,pr))
+    st.caption(f"Pagal filtrą: {len(shown)} produktų. Balai – redakciniai, ne realūs pardavimai.")
+    for p,pr in shown[:num]:
+        render(st, product_card(p,pr,TODAY))
+
+with TABS[4]:
+    st.markdown("### Rinkos radiniai")
+    st.caption("Vieta tikriems, patikrintiems konkurentų radiniams, o ne automatiškai išgalvotoms tendencijoms. Nuorodą ir šaltinį galima įkelti CSV formatu skirtuke „Duomenys“.")
+    market = _market_rows()
+    if not market:
+        st.info("Rinkos radinių dar neimportuota. Šis skirtukas pats netvirtina, kad konkurentų prekės populiarios – tam reikia šaltinio ir datos.")
     else:
-        blocks = [
-            ("📘 Facebook", W["facebook"], "Esami produktai, kuriuos verta rodyti Facebook šią savaitę."),
-            ("🏠 Pagrindinis puslapis", W["home"], "Esami produktai, kuriuos verta iškelti pagrindiniame puslapyje."),
-            ("📱 Stories", W["stories"], "Esami produktai su aiškiu Stories kampu."),
-            ("⚡ Paskutinė proga", W["last"], "Produktai, kurių reklamos langas baigiasi."),
-        ]
-        for lbl,items,hint in blocks:
-            with st.expander(f"{lbl} · {len(items)}"):
-                st.caption(hint)
-                render(st, "".join(product_mini(z) for z in items) or "Šiuo metu nėra.")
+        st.caption(f"Įkelta {len(market)} radinių (nepriklausoma nuo idėjų banko).")
+        for r in sorted(market,key=lambda x:x.get("observed_at", ""),reverse=True):
+            url = (r.get("url") or "").strip()
+            link = f'<p><a href="{esc(url)}" target="_blank" rel="noopener noreferrer">Atidaryti šaltinį ↗</a></p>' if url.startswith(("https://","http://")) else ""
+            render(st, f'<div class="event-line"><b>{esc(r.get("title") or "Radinys")}</b>'
+                   f'<p>Šaltinis: {esc(r.get("source") or "nenurodytas")} · data: {esc(r.get("observed_at") or "nenurodyta")}</p>'
+                   f'<p>{esc(r.get("note") or "")}</p>{link}</div>')
 
-    with st.expander(f"🚫 Ko dabar geriau NEDARYTI · {len(W['avoid_new']) + len(W['stop_now'])}"):
-        render(st, "".join(mini_row(r.score, "Nekurti naujos: " + r.topic.name, r.feas_msg) for r in W["avoid_new"]) +
-               "".join(mini_row(z[1]["score"], "Nebereklamuoti: " + z[0]["title"], z[1]["why"], z[0]["url"]) for z in W["stop_now"]) or "Nieko.")
+with TABS[5]:
+    st.markdown("### Duomenys ir importas")
+    st.caption("Duomenys nėra automatiškai prijungti prie GSC, GA4, pardavimų ar konkurentų. Čia gali importuoti savo skaičius; be jų programa nenaudoja tariamų paklausos rodiklių.")
+    st.markdown("#### Pardavimų, Google Search Console ir peržiūrų CSV")
+    st.caption("Privalomas stulpelis: `code` (pvz., P213) arba `url`. Visi kiti neprivalomi. Skirtingų šaltinių eilutes iš anksto sujunk pagal produkto kodą / URL.")
+    template = "code,url,organic_clicks_7d,organic_clicks_prev_7d,views_7d,views_prev_7d,sales_30d,revenue_30d,impressions_28d,clicks_28d,views_30d,last_promoted,promoted_channel\n"
+    st.download_button("⬇️ CSV šablonas", data=template.encode("utf-8-sig"), file_name="protuoliukas_signalu_sablonas.csv", mime="text/csv", key="v22_template")
+    upload = st.file_uploader("Įkelti CSV su realiais produkto rodikliais", type=["csv"], key="v22_signal_upload")
+    if upload is not None:
+        try:
+            text = upload.getvalue().decode("utf-8-sig")
+            parsed = sg.parse_signals(text)
+            if not parsed:
+                st.error("CSV nėra tinkamų eilučių su `code` arba `url`.")
+            else:
+                st.info(f"Atpažinta {len(parsed)} produktų eilučių. Patvirtink importą žemiau.")
+                if st.button("Importuoti rodiklius",key="v22_import_signals"):
+                    sg.save_signals_text(text)
+                    st.cache_resource.clear()
+                    st.rerun()
+        except (UnicodeError, csv.Error, OSError, AttributeError) as ex:
+            st.error(f"Nepavyko perskaityti CSV: {ex}")
+    st.write(f"Šiuo metu importuoti duomenys apie **{len(signals)} produktų**.")
+    if sg.SIGNALS_PATH.exists():
+        st.download_button("⬇️ Išsaugoto CSV kopija", data=sg.SIGNALS_PATH.read_bytes(), file_name="protuoliukas_signalai.csv", mime="text/csv", key="v22_signal_backup")
 
-# ------------------------------------------------------------------ NAUJOS IDĖJOS
-with tabs[1]:
-    topics_all = load_topics()
-    with st.expander("Filtrai"):
-        a, b = st.columns(2)
-        areas = a.multiselect("Kategorija", sorted({t.area for t in topics_all}), key="ideas_category")
-        ages = b.multiselect("Amžiaus grupė", AGE_GROUPS, key="ideas_age")
-        a, b = st.columns(2)
-        fmts = a.multiselect("Formatas", sorted({f for t in topics_all for f in t.formats}), key="ideas_format")
-        seas = b.multiselect("Sezoniškumas", ["Šventė / proga", "Sezono / ugdymo langas", "Tęstinė"], key="ideas_season")
-        a, b, c = st.columns(3)
-        only_ok = a.checkbox("Tik realu spėti", value=False, key="ideas_only_feasible")
-        mins = b.slider("Min. galimybių balas", 0, 100, 0, key="ideas_min_score")
-        q = c.text_input("Paieška (tema, idėja)", key="ideas_search")
-    st.caption("Galimybių balas = planavimo heuristika (potencialas × laikas × ar spėsi). Tai NĖRA išmatuota Google paklausa.")
-    view = st.radio("Laikotarpis", ["⏰ PAGAL SKUBUMĄ", "🔥 DABAR", "📅 NETRUKUS", "🔭 ARTĖJA", "🗓️ 30 DIENŲ", "💡 VISAS BANKAS"], horizontal=True, label_visibility="collapsed", key="ideas_period")
+    st.markdown("#### Konkurentų / rinkos radinių CSV")
+    st.caption("Stulpeliai: `title,source,url,observed_at,note`. Tai stebėjimų registras, ne automatiškai patvirtintas pardavimų populiarumas.")
+    mt = "title,source,url,observed_at,note\n"
+    st.download_button("⬇️ Rinkos radinių šablonas", mt.encode("utf-8-sig"), file_name="rinkos_radiniu_sablonas.csv", mime="text/csv", key="v22_market_template")
+    market_upload = st.file_uploader("Įkelti rinkos radinių CSV", type=["csv"], key="v22_market_upload")
+    if market_upload is not None:
+        try:
+            raw = market_upload.getvalue()
+            rows = list(csv.DictReader(io.StringIO(raw.decode("utf-8-sig"))))
+            if not rows or not {"title", "source", "url", "observed_at", "note"}.issubset(rows[0].keys()):
+                st.error("CSV privalo turėti `title,source,url,observed_at,note` stulpelius.")
+            else:
+                st.caption(f"Atpažinta {len(rows)} rinkos įrašų.")
+                if st.button("Importuoti rinkos radinius", key="v22_import_market"):
+                    MARKET_FILE.parent.mkdir(parents=True, exist_ok=True)
+                    MARKET_FILE.write_bytes(raw)
+                    st.rerun()
+        except (UnicodeError, csv.Error, OSError, AttributeError) as ex:
+            st.error(f"Nepavyko importuoti: {ex}")
 
-    def pass_f(r):
-        t = r.topic
-        if areas and t.area not in areas: return False
-        if ages and not set(ages) & set(t.age_groups): return False
-        if fmts and not set(fmts) & set(t.formats): return False
-        if seas and t.seasonality not in seas: return False
-        if only_ok and r.feas == "LATE": return False
-        if r.score < mins: return False
-        if q:
-            blob = (t.name + " " + " ".join(i.title + " " + i.desc for i in t.ideas)).lower()
-            if q.lower() not in blob: return False
-        return True
-
-    F = [r for r in TOPICS if pass_f(r)]
-    by = lambda bk: [r for r in F if r.bucket == bk]
-    if view.startswith("⏰"):
-        st.markdown("### Ką kurti pirmiausia – pagal terminus")
-        st.caption("Rikiuojama pagal publikavimo lango pabaigą arba pradžią. Galimybių balas nenustumia skubesnės temos žemyn. Datos yra planavimo prognozės, ne išmatuotas paklausos pikas.")
-        groups = [
-            ("LAST", "⚡ Paskutinė galimybė · iki 3 d."),
-            ("NOW", "🔥 Publikuoti dabar"),
-            ("SOON", "📅 Netrukus · iki 14 d."),
-            ("AFTER", "🟠 Publikavimo langas praėjo, pikas dar vyksta"),
-            ("LATER", "🔭 Vėliau"),
-            ("MISSED", "⌛ Praleisti terminai"),
-            ("EVERGREEN", "📚 Tęstinės temos"),
-        ]
-        groups_map = {g: [] for g, _ in groups}
-        for r in ordered(F, TODAY):
-            groups_map[priority_group(r, TODAY)].append(r)
-        missed_count = len(groups_map["MISSED"]) + len(groups_map["AFTER"])
-        if missed_count:
-            st.warning(f"Dėmesio: {missed_count} temų idealus publikavimo laikas jau praėjo. Jos pateiktos atskirai žemiau, kad nepradingtų.")
-        for group, label in groups:
-            items = groups_map[group]
-            if not items:
-                continue
-            with st.expander(f"{label} · {len(items)}", expanded=group in ("LAST", "NOW", "SOON")):
-                for r in items:
-                    render(st, topic_card(r, TODAY, group in ("LAST", "NOW")))
-    elif view.startswith("🔥"):
-        now_ = by("NOW")
-        st.markdown(f"### Kurti ir publikuoti dabar · {len(now_)}")
-        for r in ordered(now_, TODAY): render(st, topic_card(r, TODAY, True))
-        eg = by("EVERGREEN")[:12]
-        st.markdown(f"### 📚 Tęstinės temos (be konkretaus piko) · rodoma {len(eg)} iš {len(by('EVERGREEN'))}")
-        st.caption("Jų aktualumą lemia klasė ir ugdymo eiga, todėl konkrečios datos nerodomos.")
-        for r in eg: render(st, topic_card(r, TODAY))
-    elif view.startswith("📅"):
-        rows = ordered(by("SOON"), TODAY)
-        st.markdown(f"### Publikavimo langas prasideda per ≤14 d. · {len(rows)}")
-        for r in rows: render(st, topic_card(r, TODAY))
-    elif view.startswith("🔭"):
-        rows = ordered(by("UPCOMING"), TODAY)
-        st.markdown(f"### Publikavimo langas prasideda po 15–60 d. · {len(rows)}")
-        for r in rows: render(st, topic_card(r, TODAY))
-    elif view.startswith("🗓️"):
-        st.markdown("### Kas publikuotina per artimiausias 4 savaites")
-        st.caption("Pagal realius idealaus publikavimo langus, ne pagal reitingo eilę.")
-        dated = [r for r in F if r.timing.pub_start]
-        for w in range(5):
-            a0 = TODAY + timedelta(days=7 * w); a1 = a0 + timedelta(days=6)
-            rows = [r for r in dated if r.timing.pub_start <= a1 and (r.timing.pub_end or r.timing.end) >= a0 and r.feas != "LATE"]
-            rows = ordered(rows, TODAY)
-            render(st, f'<div class="week">{a0.strftime("%m-%d")} – {a1.strftime("%m-%d")} · {len(rows)} temų</div>' +
-                   ("".join(mini_row(r.score, r.topic.name, f"publikuoti {fmt_range(r.timing.pub_start, r.timing.pub_end, TODAY)} · {r.feas_msg}") for r in rows[:14]) or "<div class='meta'>Nėra datomis pagrįstų temų.</div>"))
-    else:
-        st.markdown(f"### Visas bankas · {len(F)} temų · {sum(len(r.ideas) for r in F)} konkrečių priemonių")
-        for r in ordered(F, TODAY): render(st, topic_card(r, TODAY))
-
-# ------------------------------------------------------------------ PROGOS
-with tabs[2]:
-    hz = st.radio("Horizontas", [7, 14, 30, 60, 120], index=3, horizontal=True, format_func=lambda x: f"per {x} d.", key="events_horizon")
-    ups = [u for u in upcoming_events(TODAY, 400) if u["days"] <= hz]
-    st.markdown(f"### Artėjančios progos · {len(ups)}")
-    st.caption(f"Kalendoriuje iš viso: {len(EVENTS)} progų. Žemiau rodomos tik tos, kurios patenka į pasirinktą {hz} d. horizontą.")
-    st.caption("Atskirta PROGOS DATA, NAUDOJIMO KLASĖJE DATA (pagal mokyklų atostogas) ir REKOMENDUOJAMAS PUBLIKAVIMAS.")
-    for u in ups:
-        t, ev = u["t"], u["ev"]
-        pill = f'<span class="pill {PHASE_CLASS.get(t.phase,"")}">{esc(t.phase.replace("_"," "))}</span>'
-        facts = [("🗓️ Proga", fmt_range(t.start, t.end, TODAY) + (" (apytiksliai)" if ev.approx else "")), ("⏳ Liko", f"{u['days']} d."),
-                 ("🏫 Naudojama klasėje iki", fmt(t.use_by, TODAY)), ("🚀 Publikuoti", fmt_range(t.pub_start, t.pub_end, TODAY))]
-        render(st, f'<div class="card"><div class="title">{esc(ev.name)}</div><div class="pills">{pill}</div>'
-                   f'<div class="facts">{"".join(f"<div><em>{esc(k)}</em>{esc(v)}</div>" for k, v in facts)}</div>'
-                   f'<div class="note">{esc(t.note)}</div></div>')
-    st.markdown("### Mokyklos kalendorius")
-    st.caption("Ne tik atostogos: mokslo metų ritmas, pertraukos ir svarbiausi planavimo taškai, kurie keičia publikavimo bei reklamos laiką.")
-    for item in school.timeline(TODAY):
-        render(st, f'<div class="mini"><span class="n">{item["date"].strftime("%m-%d")}</span><div>{esc(item["name"])}<div class="meta">{esc(item["detail"])}</div></div></div>')
-    for s_ in SC.get("sources", []):
-        st.markdown(f"[{s_['name']}]({s_['url']})")
-
-# ------------------------------------------------------------------ ESAMI PRODUKTAI
-with tabs[3]:
-    st.markdown("### Esami produktai")
-    st.caption("Tik realiai parduotuvėje rasti produktai. Čia nekuriamos naujos idėjos – tik sprendimas, ką reklamuoti.")
-    if not catalog["products"]:
-        st.info("Katalogo dar nėra. Automatinis pirmas nuskaitymas jau paleistas fone; Radaras pats patikrins, kada nuskaitymas baigsis, ir įkels naują katalogą. Rankinis mygtukas paliktas tik kaip atsarginis variantas.")
-    else:
-        st.caption(f"🔄 Automatinis asortimento patikrinimas fone paleistas šios sesijos pradžioje: {st.session_state.get('_catalog_refresh_started_at','—')}. Kol jis vyksta, rodomas paskutinis geras katalogas; baigus rezultatas persikraus automatiškai.")
-    a, b, c = st.columns([1.2, 1.2, 2])
-    if a.button("🔄 ATNAUJINTI ASORTIMENTĄ", use_container_width=True):
-        run_update()
-    if catalog.get("frontier") and b.button("▶ Tęsti nuskaitymą", use_container_width=True):
-        run_update(resume=True)
-    m = st.session_state.pop("update_msg", None)
-    if m:
-        {"ok": st.success, "warn": st.warning, "error": st.error}[m[1]](m[0])
-    if last_checked:
-        lc = datetime.fromisoformat(last_checked).strftime("%Y-%m-%d %H:%M")
-        c.markdown(f"**Paskutinį kartą asortimentas patikrintas:** {lc}  \n**Rasta aktyvių produktų:** {n_active}")
-        if cat.is_stale(catalog):
-            st.warning(f"Asortimentas senesnis nei {int(cat.STALE_HOURS)} val. – verta atnaujinti.")
-        if not meta.get("complete", True):
-            st.warning("Automatinis nuskaitymas dar nebaigtas – Radaras jį tęsia etapais fone. Kol kas rodomi visi jau patikimai rasti produktai.")
-    if ANALYSED:
-        with st.expander("Filtrai", expanded=True):
-            all_cats = sorted({c_ for p, _ in ANALYSED for c_ in (p.get("all_categories") or [])})
-            r1 = st.columns(3)
-            f_cat = r1[0].multiselect("Kategorija", all_cats, key="products_category")
-            f_age = r1[1].multiselect("Amžius", AGE_GROUPS, key="products_age")
-            f_topic = r1[2].multiselect("Tema", sorted({n for p, _ in ANALYSED for n in p["topic_names"]}), key="products_topic")
-            r2 = st.columns(3)
-            f_fmt = r2[0].multiselect("Formatas", sorted({f for p, _ in ANALYSED for f in p["formats"]}), key="products_format")
-            f_seas = r2[1].multiselect("Sezoniškumas", ["Šventė / proga", "Sezono / ugdymo langas", "Tęstinė"], key="products_season")
-            f_stat = r2[2].multiselect("Reklamos būsena", ["⚡ PASKUTINĖ PROGA", "🔥 REKLAMUOTI DABAR", "↑ KYLA", "📅 RUOŠTI REKLAMĄ", "💤 DABAR NEAKTUALU"],
-                                       default=["⚡ PASKUTINĖ PROGA", "🔥 REKLAMUOTI DABAR", "↑ KYLA", "📅 RUOŠTI REKLAMĄ"], key="products_status")
-            r3 = st.columns(3)
-            f_min = r3[0].slider("Min. reklamos balas", 0, 100, 0, key="products_min_score")
-            f_q = r3[1].text_input("Paieška (pavadinimas / numeris)", key="products_search")
-            f_end = r3[2].checkbox("Pikas baigiasi ≤10 d.", key="products_peak_ending")
-        shown = []
-        for p, pr in ANALYSED:
-            if f_cat and not set(f_cat) & set(p.get("all_categories") or []): continue
-            if f_age and not set(f_age) & set(p["age_groups"]): continue
-            if f_topic and not set(f_topic) & set(p["topic_names"]): continue
-            if f_fmt and not set(f_fmt) & set(p["formats"]): continue
-            if f_seas and pr["seasonality"] not in f_seas: continue
-            if f_stat and pr["status"] not in f_stat: continue
-            if pr["score"] < f_min: continue
-            if f_q and f_q.lower() not in (p["title"] + " " + p.get("code", "")).lower(): continue
-            if f_end and not (pr["stop"] and pr["days_left"] is not None and 0 <= pr["days_left"] <= 10): continue
-            shown.append((p, pr))
-        st.markdown(f"#### Rodoma: {len(shown)} iš {len(ANALYSED)}")
-        st.caption("Reklamos prioriteto balas – planavimo heuristika (data, tema, naujumas, signalai); jis nėra išmatuota paklausa ir nesimaišo su naujų idėjų balu.")
-        lim = st.session_state.get("lim", 20)
-        for p, pr in shown[:lim]:
-            render(st, product_card(p, pr, TODAY))
-        if len(shown) > lim and st.button(f"Rodyti daugiau ({len(shown) - lim})"):
-            st.session_state["lim"] = lim + 30
-            st.rerun()
-
-# ------------------------------------------------------------------ 14 D. FB PLANAS
-with tabs[4]:
-    st.markdown("### 14 dienų Facebook planas")
-    st.caption("Automatinis planas iš REALIŲ parduotuvės produktų. Tekstai – juodraščiai/redakciniai kampai, ne automatinis publikavimas.")
-    if not ANALYSED:
-        st.info("Esamų produktų katalogas dar pildomas automatiškai fone. Kai tik bus rasta produktų, šis planas atsiras pats.")
-    else:
-        cand=[z for z in ANALYSED if z[1]["hint"] in ("LAST","NOW","RISE","PREP") and z[1]["score"]>=65]
-        cand=sorted(cand,key=lambda z:-z[1]["score"])
-        used=set(); plan=[]
-        for day in range(14):
-            # 5 įrašai per 7 d.; savaitgaliais paliekame laisviau
-            d=TODAY+timedelta(days=day)
-            if d.weekday() in (5,) or not cand: continue
-            chosen=None
-            for z in cand:
-                key=z[0].get("key") or z[0].get("url")
-                if key not in used:
-                    chosen=z; used.add(key); break
-            if not chosen: break
-            p_,pr=chosen
-            plan.append((d,p_,pr))
-        for d,p_,pr in plan:
-            code=(p_.get("code")+" · ") if p_.get("code") else ""
-            with st.expander(f"{d.strftime('%m-%d')} · {code}{p_['title']} · {pr['score']}/100"):
-                st.markdown(f"**Kodėl ši diena:** {pr['why']}")
-                st.markdown(f"**Kampas:** {pr['angle']}")
-                draft=(f"{pr['angle']}\n\nŠi priemonė gali padėti pedagogui temą paversti konkrečia vaikų veikla. "
-                       f"Įraše parodyk ne vien viršelį – 2–3 vidinius pavyzdžius ir aiškiai pasakyk, ką vaikas atliks. "
-                       f"Nuorodą į produktą dėk komentare.")
-                st.text_area("FB juodraščio karkasas", draft, height=145, key="fb_"+str(d)+str(p_.get('key','')))
-                st.caption("Prieš publikuojant tekstą verta suasmeninti pagal konkretaus produkto turinį.")
+    st.markdown("#### Duomenų patikimumas")
+    st.info("Streamlit Cloud vietiniai failai po programos perkrovimo ar perkėlimo gali išnykti. Atsisiųsk importuotų CSV kopijas ir, jei nori, įkelk jas į GitHub repozitorijos `data/` aplanką (privačiai, jei rodikliai konfidencialūs). Viešoje GitHub repozitorijoje nepaskelbk jautrių pardavimo duomenų.")
+    st.caption("Automatiškai tikrinamas tik viešas parduotuvės katalogas. GSC, GA4, pardavimų ir konkurentų signalai savaime neatsinaujina: juos reikia importuoti arba ateityje prijungti per autorizuotą API.")
