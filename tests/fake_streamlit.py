@@ -23,7 +23,7 @@ def _fn(name):
         if name == "multiselect": return k.get("default", [])
         if name in ("checkbox", "button", "download_button"): return k.get("value", False) if name == "checkbox" else False
         if name == "slider": return a[3] if len(a) > 3 else 0
-        if name == "text_input": return ""
+        if name in ("text_input", "text_area"): return ""
         if name == "date_input": return k.get("value", date.today())
         if name == "file_uploader": return None
         if name == "progress": return _Ctx()

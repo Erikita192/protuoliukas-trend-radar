@@ -1,4 +1,4 @@
-"""PROTUOLIUKO GALIMYBIŲ CENTRAS V22 · Practical creator dashboard.
+"""PROTUOLIUKO GALIMYBIŲ CENTRAS V23 · Practical creator dashboard.
 
 All 68 original topics / 200 detailed ideas / original events are retained.
 No sales, GSC, GA4 or competitor demand metrics are fabricated.
@@ -16,6 +16,7 @@ from pathlib import Path
 import streamlit as st
 
 from radar import catalog as cat, school, signals as sg
+from radar import transformer as tr
 from radar.crawler import CrawlConfig
 from radar.opportunities import create_actions, promote_actions, improve_actions, filter_by_time
 from radar.products import analyse_all
@@ -24,10 +25,10 @@ from radar.topics import AGE_GROUPS, evaluate_all, load_topics
 from radar.ui import esc, header, inject_css, product_card, render
 from radar.weekly import upcoming_events
 
-st.set_page_config(page_title="Protuoliuko galimybių centras · V22", page_icon="🎯", layout="wide")
+st.set_page_config(page_title="Protuoliuko galimybių centras · V23", page_icon="🎯", layout="wide")
 inject_css(st)
 st.markdown("""<style>
-/* V22: papildomas lengvas, aiškus veiksmų dizainas */
+/* V23: šviesus, aiškus veiksmų dizainas */
 .pf .act{border:1px solid #E6DFD3;border-radius:17px;padding:17px 19px;background:#fff;margin:10px 0;box-shadow:0 1px 2px rgba(20,50,40,.03)}
 .pf .act-kind{font-size:.77rem;font-weight:800;letter-spacing:.06em;color:#2A6A59!important;text-transform:uppercase}
 .pf .act h4{font-size:1.08rem;margin:7px 0 7px;font-weight:750;color:#203A31!important}
@@ -153,7 +154,7 @@ def signal_count():
     return len(signals)
 
 
-render(st, header("GALIMYBIŲ CENTRAS · V22 · ką kurti, reklamuoti ir patobulinti"))
+render(st, header("GALIMYBIŲ CENTRAS · V23 · ką kurti, reklamuoti ir patobulinti"))
 st.markdown("### Ką verta daryti dabar?")
 st.caption("Sprendimų ekranas: kelios konkrečios galimybės. Visa V21 temų ir progų bazė išsaugota atskiruose skirtukuose.")
 
@@ -173,7 +174,7 @@ CREATIONS = create_actions(TODAY, TOPICS, limit=35, occupied_topics=occupied)
 PROMOTIONS = promote_actions(TODAY, ANALYSED, signals, limit=16)
 IMPROVEMENTS = improve_actions(TODAY, ANALYSED, signals, limit=16)
 
-TABS = st.tabs(["🎯 GALIMYBĖS", "💡 IDĖJŲ BIBLIOTEKA", "📆 PROGŲ KALENDORIUS",
+TABS = st.tabs(["🎯 GALIMYBĖS", "✨ IDĖJOS TRANSFORMATORIUS", "💡 IDĖJŲ BIBLIOTEKA", "📆 PROGŲ KALENDORIUS",
                 "🛍️ MANO PRODUKTAI", "🔎 RINKOS RADINIAI", "⚙️ DUOMENYS"])
 
 with TABS[0]:
@@ -208,8 +209,169 @@ with TABS[0]:
     st.caption("Jokių privalomų darbų sąrašų ar rankinio statusų žymėjimo. Jei realių signalų nėra, sistema taip ir sako.")
 
 with TABS[1]:
+    st.markdown("### ✨ Idėjos transformatorius")
+    st.caption("Įkelk rastą priemonę ir ieškok naujo originalaus sprendimo tai pačiai ugdymo problemai. Nekopijuojame autorinių tekstų, vaizdų ar išskirtinio išdėstymo.")
+    st.info("**Be mokamos API:** pagal tavo aprašytą ugdymo tikslą gausi šešias skirtingas veiklų kryptis ir paruoštą išsamią užklausą ChatGPT. **Su pasirenkama API:** DI gali analizuoti ir įkeltą paveikslėlį; už API naudojimą mokama atskirai.")
+
+    up = st.file_uploader("Įkelti pavyzdį (PNG, JPG, WEBP, PDF, PPTX arba TXT)",
+                          type=["png", "jpg", "jpeg", "webp", "pdf", "pptx", "txt"], key="v23_reference_file")
+    source_url = st.text_input("Arba viešo interneto puslapio nuoroda", placeholder="https://...", key="v23_reference_url")
+    source_text = ""
+    source_note = ""
+    file_name = ""
+    image_bytes = None
+    image_mime = "image/jpeg"
+    raw = None
+    if up is not None:
+        file_name = up.name
+        raw = up.getvalue()
+        if len(raw) > tr.MAX_FILE:
+            st.error("Įkeliamas failas per didelis. Didžiausias leidžiamas dydis – 20 MB.")
+        else:
+            try:
+                source_text, source_note = tr.extract_text(raw, file_name)
+                st.caption(source_note)
+                suffix = Path(file_name.lower()).suffix
+                if suffix in (".png", ".jpg", ".jpeg", ".webp"):
+                    st.image(raw, width=280, caption="Įkeltas pavyzdys (jis neišsaugomas Idėjų bibliotekoje)")
+                    image_bytes = raw
+                    image_mime = "image/png" if suffix == ".png" else "image/webp" if suffix == ".webp" else "image/jpeg"
+                if suffix == ".pdf":
+                    try:
+                        from pypdf import PdfReader
+                        total_pages = len(PdfReader(__import__('io').BytesIO(raw), strict=False).pages)
+                        page_number = st.number_input("PDF puslapis vaizdinei DI analizei", min_value=1,
+                                                      max_value=max(1, total_pages), value=1, key="v23_pdf_page")
+                        pdf_image = tr.pdf_page_preview(raw, int(page_number))
+                        st.image(pdf_image, width=280, caption=f"PDF puslapis {page_number} (jei prijungsi DI, bus analizuojamas tik šis puslapis ir išgautas tekstas)")
+                        image_bytes = pdf_image
+                        image_mime = "image/jpeg"
+                    except (ValueError, OSError, ImportError) as exc:
+                        st.warning(f"PDF puslapio vaizdo peržiūra negalima: {exc}")
+                if source_text:
+                    with st.expander("Peržiūrėti iš failo išgautą tekstą"):
+                        st.text(source_text[:3500])
+                elif suffix in (".pdf", ".pptx"):
+                    st.warning("Dokumente nerasta skaitomo teksto arba jis yra piešiniuose. Tokiu atveju parašyk trumpą aprašymą, o vaizdinei DI analizei geriausia įkelti ekrano kopiją PNG/JPG formatu.")
+            except ValueError as exc:
+                st.warning(str(exc))
+
+    if source_url.strip():
+        cscan, _ = st.columns([1,2])
+        if cscan.button("🔎 Nuskaityti viešo puslapio tekstą", key="v23_scan_page"):
+            try:
+                page_text = tr.fetch_public_page(source_url)
+                st.session_state["v23_page_text"] = {"url": source_url.strip(), "text": page_text}
+            except ValueError as exc:
+                st.session_state.pop("v23_page_text", None)
+                st.warning(str(exc))
+        page_saved = st.session_state.get("v23_page_text", {})
+        if page_saved.get("url") == source_url.strip():
+            source_text = (source_text + "\n" + page_saved.get("text", ""))[:tr.MAX_TEXT]
+            st.caption("Puslapio tekstas nuskaitytas (tai nėra jo iliustracijų ar interaktyvumo analizė).")
+            with st.expander("Puslapio teksto ištrauka"):
+                st.text(page_saved.get("text", "")[:2500])
+
+    ctopic, cskill = st.columns(2)
+    brief = ctopic.text_area("Kokia priemonės tema arba ką joje matai?", placeholder="Pvz. gyvūnų šešėlių poravimas arba trupmenų kortelės", height=95, key="v23_brief")
+    learning_goal = cskill.text_area("Kokį gebėjimą norėtum ugdyti?", placeholder="Pvz. pastabumą, rūšiavimą, trupmenų palyginimą", height=95, key="v23_goal")
+    c_age, c_fmt = st.columns(2)
+    ages_v = c_age.selectbox("Vaikų amžius", ["2–3 m.", "3–4 m.", "4–5 m.", "5–6 m.", "6–7 m.", "1–4 kl.", "5–8 kl."], index=3, key="v23_age")
+    fmt_v = c_fmt.selectbox("Kokias priemones svarstai?", ["Įvairūs", "HTML", "PDF / spausdinamos", "PowerPoint"], key="v23_format")
+    excerpt = source_text[:3500]
+    have_subject = bool((brief or "").strip() or (learning_goal or "").strip() or excerpt.strip())
+    if not have_subject:
+        st.warning("Prieš generuodama nemokamu režimu, įrašyk bent vieną sakinį apie temą arba ugdymo tikslą. Vien iš paveikslėlio nemokamas režimas objekto neatpažįsta.")
+    source_ref = source_url.strip() or file_name
+    prompt = tr.build_prompt(brief, learning_goal, ages_v, fmt_v, source_url.strip(), excerpt, file_name)
+    signature = __import__('hashlib').sha256((str(brief)+str(learning_goal)+str(ages_v)+str(fmt_v)+str(source_ref)+excerpt+(__import__('hashlib').sha256(raw).hexdigest() if raw else '')+(str(locals().get('page_number', '')) if file_name.lower().endswith('.pdf') else '')).encode('utf8')).hexdigest()
+
+    st.markdown("#### Nauji, saviti variantai")
+    btn_left, btn_right = st.columns(2)
+    if btn_left.button("💡 Pasiūlyti 6 skirtingas idėjas (nemokamai)", disabled=not have_subject, key="v23_make_offline", use_container_width=True):
+        new_ideas = tr.offline_ideas(brief or tr.guess_domain((learning_goal or "") + " " + excerpt)['topic'],
+                                     learning_goal or excerpt[:1000], ages_v, fmt_v)
+        st.session_state["v23_output"] = {"signature": signature, "ideas": new_ideas,
+                                            "summary": "Variantai sukurti pagal įrašytą / išgautą tekstą, ne DI atliktą įkelto vaizdo analizę."}
+
+    api_key = os.getenv("OPENAI_API_KEY", "")
+    try:
+        if not api_key:
+            api_key = st.secrets.get("OPENAI_API_KEY", "")
+    except (FileNotFoundError, AttributeError, TypeError, KeyError):
+        pass
+    if not isinstance(api_key, str):
+        api_key = ""
+    if api_key and btn_right.button("✨ Analizuoti su DI (mokama API)", disabled=not (have_subject or image_bytes), key="v23_make_ai", use_container_width=True):
+        try:
+            with st.spinner("DI nagrinėja pateiktą kontekstą ir siūlo savitas alternatyvas…"):
+                model_name = os.environ.get("PROTUOLIUKAS_OPENAI_MODEL", "gpt-4.1-mini")
+                ai_image = tr.image_to_ai_jpeg(image_bytes) if image_bytes else None
+                from_api, summary_api = tr.ai_ideas(api_key, model_name, prompt, ai_image, "image/jpeg")
+                st.session_state["v23_output"] = {"signature": signature, "ideas": from_api, "summary": summary_api}
+        except Exception:
+            st.error("DI analizė nepavyko. Patikrink API rakto galiojimą, modelio prieigą ir limitus. Nemokamas režimas išlieka prieinamas.")
+    if not api_key:
+        btn_right.caption("Automatiniam DI paveikslėlio suvokimui reikia pasirenkamo API rakto. Be jo gali naudoti nemokamą režimą arba nukopijuoti užklausą į ChatGPT.")
+
+    result_v = st.session_state.get("v23_output", {})
+    if result_v.get("signature") == signature:
+        st.caption(result_v.get("summary", ""))
+        for idx, idea in enumerate(result_v.get("ideas", [])):
+            with st.container(border=True):
+                st.markdown(f"**{idx+1}. {idea['title']}**")
+                st.caption(f"{idea.get('mechanism', '')} · {idea.get('format', '')} · {idea.get('age', '')}")
+                st.write(idea.get('description', ''))
+                st.markdown(f"**Kuo kitaip:** {idea.get('difference', '')}")
+                st.caption(idea.get('evidence', ''))
+                if st.button("💾 Išsaugoti Idėjų bibliotekoje", key=f"v23_save_{idx}"):
+                    try:
+                        added = tr.save_idea(idea, source=source_ref, note=brief)
+                        if added:
+                            st.success("Idėja įtraukta į Idėjų biblioteką. Rekomenduojama atsisiųsti jos kopiją.")
+                        else:
+                            st.info("Ši idėja jau yra bibliotekoje.")
+                    except OSError:
+                        st.error("Nepavyko įrašyti į serverio diską. Naudok atsarginę JSON kopiją žemiau arba nukopijuok idėjos tekstą.")
+        backup_now = tr.read_saved()
+        if backup_now:
+            st.download_button("⬇️ Atsisiųsti išsaugotų idėjų kopiją", data=__import__('json').dumps(backup_now,ensure_ascii=False,indent=2).encode('utf8'),
+                               file_name="protuoliuko_mano_idejos.json", mime="application/json", key="v23_backup_after")
+
+    with st.expander("📋 Paruošta užklausa ChatGPT – nemokamai, be API"):
+        st.caption("Nukopijuok tekstą į ChatGPT ir, jei reikia, tame pokalbyje pridėk tą patį paveikslėlį, PDF ar PPTX. Kitaip ChatGPT nematys originalo vaizdo.")
+        st.code(prompt, language=None)
+        st.download_button("⬇️ Atsisiųsti užklausą TXT", prompt.encode('utf8'),
+                           file_name="idejos_transformatorius_uzklausa.txt", mime="text/plain", key="v23_download_prompt")
+    st.caption("⚖️ Šis įrankis padeda ieškoti savitų sprendimų, bet nėra teisinis autorių teisių patikrinimas. Šaltinio failų platforma specialiai neišsaugo; naudojant DI API medžiaga siunčiama DI paslaugos teikėjui tik paspaudus mygtuką.")
+
+with TABS[2]:
     st.markdown("### Idėjų biblioteka")
     st.caption("Visos istorinės idėjos išsaugotos. Praėjusi data jų neištrina – čia gali ieškoti įkvėpimo bet kuriuo metu.")
+    with st.expander("🌱 Mano išsaugotos idėjos iš Transformatoriaus", expanded=False):
+        items = tr.read_saved()
+        st.caption(f"Išsaugotų savų variantų: **{len(items)}**. Jie laikomi atskirai nuo 200 originalios bibliotekos idėjų.")
+        if not items:
+            st.info("Kol kas nėra išsaugotų transformuotų idėjų. Jas gali išsisaugoti skirtuke „Idėjos transformatorius“.")
+        for item in items[:100]:
+            st.markdown(f"**{item.get('title', '')}**")
+            st.caption(f"{item.get('format', '')} · {item.get('age', '')} · išsaugota {item.get('saved_at', '')}")
+            st.write(item.get('description', ''))
+            if item.get('source'):
+                st.caption("Įkvėpimo šaltinis: " + item['source'])
+            st.divider()
+        if items:
+            st.download_button("⬇️ Atsisiųsti VISAS savo idėjas (JSON)", data=__import__('json').dumps(items,ensure_ascii=False,indent=2).encode('utf8'),
+                               file_name="protuoliuko_mano_idejos.json", mime="application/json", key="v23_library_export")
+        st.warning("Streamlit Cloud gali ištrinti vietinį failą perkrovus aplinką. Periodiškai atsisiųsk JSON kopiją, nes vien įrašymas serveryje nėra ilgalaikis saugojimas.")
+        incoming = st.file_uploader("Atkurti savo idėjas iš JSON atsarginės kopijos", type=["json"], key="v23_restore_json")
+        if incoming is not None and st.button("Atkurti išsaugotas idėjas", key="v23_restore_btn"):
+            try:
+                amount = tr.import_backup(incoming.getvalue())
+                st.success(f"Atkurta naujų idėjų: {amount}.")
+                st.rerun()
+            except (ValueError, OSError) as ex:
+                st.error(str(ex))
     u1, u2 = st.columns(2)
     search = u1.text_input("Paieška pagal temą, veiklą ar užduotį", key="v22_library_query")
     areas = sorted({t.area for t in ALL_TOPICS})
@@ -247,7 +409,7 @@ with TABS[1]:
         st.session_state["v22_library_limit"] = limit + 24
         st.rerun()
 
-with TABS[2]:
+with TABS[3]:
     st.markdown("### Progų ir mokyklos kalendorius")
     st.caption("Visos datos išlaikytos; galima peržiūrėti ir praėjusius, ir būsimus mėnesius. Apytikslės datos pažymėtos.")
     MONTHS = ["Sausis", "Vasaris", "Kovas", "Balandis", "Gegužė", "Birželis", "Liepa", "Rugpjūtis", "Rugsėjis", "Spalis", "Lapkritis", "Gruodis"]
@@ -286,7 +448,7 @@ with TABS[2]:
             if str(source.get("url", "")).startswith("https://"):
                 st.markdown(f"[{source['name']}]({source['url']})")
 
-with TABS[3]:
+with TABS[4]:
     st.markdown("### Mano produktai")
     st.caption("Automatiškai tikrinamas realus parduotuvės katalogas. Rekomendacijų prioritetai pagal datas yra orientyras; be pardavimo statistikos tai nėra patvirtinta paklausa.")
     meta = catalog.get("meta", {})
@@ -319,7 +481,7 @@ with TABS[3]:
     for p,pr in shown[:num]:
         render(st, product_card(p,pr,TODAY))
 
-with TABS[4]:
+with TABS[5]:
     st.markdown("### Rinkos radiniai")
     st.caption("Vieta tikriems, patikrintiems konkurentų radiniams, o ne automatiškai išgalvotoms tendencijoms. Nuorodą ir šaltinį galima įkelti CSV formatu skirtuke „Duomenys“.")
     market = _market_rows()
@@ -334,7 +496,7 @@ with TABS[4]:
                    f'<p>Šaltinis: {esc(r.get("source") or "nenurodytas")} · data: {esc(r.get("observed_at") or "nenurodyta")}</p>'
                    f'<p>{esc(r.get("note") or "")}</p>{link}</div>')
 
-with TABS[5]:
+with TABS[6]:
     st.markdown("### Duomenys ir importas")
     st.caption("Duomenys nėra automatiškai prijungti prie GSC, GA4, pardavimų ar konkurentų. Čia gali importuoti savo skaičius; be jų programa nenaudoja tariamų paklausos rodiklių.")
     st.markdown("#### Pardavimų, Google Search Console ir peržiūrų CSV")
